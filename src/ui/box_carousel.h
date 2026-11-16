@@ -70,6 +70,40 @@ inline CaseGeometry layout(int offset) {
     return g;
 }
 
+// Continuous case placement for the animated navigation. The artwork remains
+// in 2D, but all four corners interpolate to convey physical movement.
+inline CaseGeometry layoutAnimated(float offset) {
+    if (!std::isfinite(offset)) return layout(0);
+    const int lower = static_cast<int>(std::floor(offset));
+    const int upper = lower + 1;
+    const float t = std::clamp(offset - static_cast<float>(lower), 0.0f, 1.0f);
+    if (t < 0.0001f) return layout(lower);
+    const CaseGeometry a = layout(lower), b = layout(upper);
+    CaseGeometry g;
+    g.distance = static_cast<int>(std::round(std::fabs(offset)));
+    g.x = a.x + (b.x - a.x) * t;
+    g.y = a.y + (b.y - a.y) * t;
+    g.w = a.w + (b.w - a.w) * t;
+    g.h = a.h + (b.h - a.h) * t;
+    auto mixQuad = [t](Quad x, Quad y) {
+        return Quad{between(x.tl, y.tl, t), between(x.tr, y.tr, t),
+                    between(x.br, y.br, t), between(x.bl, y.bl, t)};
+    };
+    g.front = mixQuad(a.front, b.front);
+    g.spine = mixQuad(a.spine, b.spine);
+    const float minX = std::min({g.front.tl.x, g.front.bl.x, g.front.tr.x, g.front.br.x,
+                                 g.spine.tl.x, g.spine.bl.x, g.spine.tr.x, g.spine.br.x});
+    const float maxX = std::max({g.front.tl.x, g.front.bl.x, g.front.tr.x, g.front.br.x,
+                                 g.spine.tl.x, g.spine.bl.x, g.spine.tr.x, g.spine.br.x});
+    const float minY = std::min({g.front.tl.y, g.front.bl.y, g.front.tr.y, g.front.br.y,
+                                 g.spine.tl.y, g.spine.bl.y, g.spine.tr.y, g.spine.br.y});
+    const float maxY = std::max({g.front.tl.y, g.front.bl.y, g.front.tr.y, g.front.br.y,
+                                 g.spine.tl.y, g.spine.bl.y, g.spine.tr.y, g.spine.br.y});
+    g.bounds = {static_cast<int>(std::floor(minX)), static_cast<int>(std::floor(minY)),
+                static_cast<int>(std::ceil(maxX - minX)), static_cast<int>(std::ceil(maxY - minY))};
+    return g;
+}
+
 inline bool insideQuad(const Quad& q, float x, float y) {
     const Point pts[4] = {q.tl, q.tr, q.br, q.bl};
     int sign = 0;
@@ -93,7 +127,7 @@ inline bool hit(const CaseGeometry& g, float x, float y) {
 // When a selected game is at the beginning/end of the list, wrap
 // neighbors so both shelves stay filled. Limit neighbors for short lists.
 inline int indexForOffset(int selected, int count, int offset) {
-    if (count <= 0 || std::abs(offset) > (count - 1) / 2) return -1;
+    if (count <= 0 || offset < -count / 2 || offset > (count - 1) / 2) return -1;
     return ((selected + offset) % count + count) % count;
 }
 
