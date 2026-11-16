@@ -4,7 +4,7 @@ Atualização solicitada após revisão do Preview 3.0 (16 de novembro de 2026).
 
 ## Escopo autorizado
 - Conservar apenas controles realmente operacionais; não simular login, chat, notificações, jogo executável, conta de usuário ou alteração de configurações de streaming.
-- A visualização HTML é um artefato independente fornecido na conversa: `Nimbox_Preview_3_1_Limpo.html`. Na visualização, apenas navegação, seleção de capa, busca/filtros locais, favoritos locais, temas, reflexos e movimento reduzido estão clicáveis.
+- A visualização HTML é um artefato independente: `docs/prototypes/nimbox-preview-3.1.html` (mesma versão disponibilizada como `Nimbox_Preview_3_1_Limpo.html` na conversa). Na visualização, apenas navegação, seleção de capa, busca/filtros locais, favoritos locais, temas, reflexos e movimento reduzido estão clicáveis.
 - Não confundir esses dados ilustrativos de catálogo com informações reais de conta, classificação ou disponibilidade.
 
 ## Continuidade no aplicativo nativo
