@@ -34,8 +34,8 @@ Criar uma biblioteca visual original com apresentação de jogos como mídias f�
 - [ ] Marca, paleta, tipografia, estados de foco, ícones, tela de detalhes e configurações.
 - [ ] Rever permissões/licença de artes e manter créditos e GPL-3.0-or-later.
 ### Fase 4 — APK Alpha
-- [ ] Criar variant com applicationId próprio (ex.: `com.nimbox.alpha`) e rótulo distinto; sem modificar o app já instalado.
-- [ ] Compilar no GitHub Actions e checar artefato.
+- [x] Configurar APK debug isolado com `applicationId` `com.rafaelngp.psbox.nimboxalpha` e rótulo `Nimbox Alpha`; manter namespace Java/JNI original. **Instalação paralela ainda não foi validada em aparelho.**
+- [ ] Aguardar CI do último commit; confirmar APK e checar artefato antes do primeiro teste no aparelho.
 - [ ] Testar em aparelho Android: controles touch e físicos, navegação, catálogo, login, play, troca de sessão, áudio, retorno e fechamento.
 - [ ] Corrigir regressões antes de considerar merge. Sem merge automático.
 
@@ -73,3 +73,9 @@ Criar uma biblioteca visual original com apresentação de jogos como mídias f�
 - Sem mudanças em autenticação, catálogo, WebRTC, protocolo, decodificação ou sessão.
 - PENDÊNCIA CRÍTICA: compilar e validar visual; não afirmar que APK foi produzido ou que este MVP está homologado.
 - LIMITAÇÃO: as imagens fornecidas pelo catálogo podem ser quadradas e serão ajustadas a um retângulo vertical; a arte final exige tratamento específico.
+
+## Continuação — preparação do Alpha e toque
+- `android/app/build.gradle.kts`: apenas o build **debug** recebe sufixo `.nimboxalpha`; build release mantém ID original. A identificação Java/JNI não foi renomeada.
+- `android/app/src/main/AndroidManifest.xml`: rótulo da aplicação vem de placeholder do build (`Nimbox Alpha` em debug, `PSBOX` em release).
+- `src/ui/app_ui_input.cpp`: hit-testing do carrossel alinha as regiões clicáveis com as caixas; tocar numa lateral a seleciona, tocar na central abre detalhes. Hover não reutiliza a grade antiga.
+- Ainda falta compilar e testar controles/touch reais. APK gerado antes dessas alterações NÃO contém este recurso.
