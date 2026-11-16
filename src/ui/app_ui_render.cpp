@@ -4,6 +4,7 @@
 #include <cstdint>
 #include "ui/app_ui_internal.h"
 #include "ui/cloud_time.h"
+#include "ui/box_carousel.h"
 
 #include <algorithm>
 
@@ -1002,14 +1003,17 @@ void AppUi::drawConsoles(Canvas& c, uint64_t nowMs) {
     drawToast(c, nowMs);
 }
 
-// Nimbox 3D Library: opt-in native 2.5D box carousel (phase 1 MVP).
-// Uses only existing Canvas primitives and ImageCache; no streaming changes.
-// Perspective is suggested by case spacing, size, spine and depth order.
-// True textured 3D transforms, back cover and case opening are phase 2.
+// Nimbox 3D Library — physical-media carousel (phase 1B).
+// This is an opt-in, software-rendered 2.5D presentation, with case faces
+// projected into trapezoids. No change to GameTile data or streaming actions.
 void AppUi::drawNimboxCarousel(Canvas& c, uint64_t nowMs) {
-    c.clear(rgba(9, 14, 25));
-    c.gradientV({0, 130, kW, 780}, rgba(20, 44, 61), rgba(9, 14, 25));
-    c.fillRect({120, 775, kW - 240, 2}, rgba(96, 184, 204, 95));
+    const Color deep = rgba(8, 15, 24);
+    const Color aqua = rgba(105, 218, 232);
+    c.clear(deep);
+    c.gradientV({0, 136, kW, 700}, rgba(19, 57, 68), deep);
+    c.gradientH({0, 220, kW, 490}, rgba(11, 30, 43, 110), rgba(15, 70, 75, 60));
+    c.fillRect({0, 745, kW, 2}, rgba(143, 216, 229, 72));
+    c.gradientV({0, 746, kW, 170}, rgba(41, 72, 80, 100), rgba(7, 13, 22, 5));
     drawTopBar(c);
     drawTabs(c);
 
@@ -1020,61 +1024,109 @@ void AppUi::drawNimboxCarousel(Canvas& c, uint64_t nowMs) {
         drawToast(c, nowMs);
         return;
     }
-
     const int rowIdx = std::clamp(focusRow_, 0, static_cast<int>(rows_.size()) - 1);
     const GameRow& row = rows_[static_cast<size_t>(rowIdx)];
     const int count = static_cast<int>(row.tiles.size());
     const int selected = count ? std::clamp(focusCol_[static_cast<size_t>(rowIdx)], 0, count - 1) : 0;
 
-    fonts_.semibold.draw(c, "NIMBOX 3D LIBRARY", 124, 177, 23, rgba(110, 222, 240));
-    fonts_.regular.draw(c, row.title, 124, 222, 26, kGray);
+    fonts_.semibold.draw(c, "NIMBOX  /  GAME COLLECTION", 106, 163, 23, aqua);
+    fonts_.regular.draw(c, row.title, 106, 204, 25, rgba(205, 226, 233));
 
-    if (count) {
-        // Paint distant cases first, the selected case last; 5 visible at once.
-        for (int distance = 2; distance >= 0; --distance) {
-            for (int direction = -1; direction <= 1; ++direction) {
-                if ((distance == 0 && direction != 0) || (distance > 0 && direction == 0)) continue;
-                const int offset = distance * direction;
-                const int idx = selected + offset;
-                if (idx < 0 || idx >= count) continue;
-                const GameTile& tile = row.tiles[static_cast<size_t>(idx)];
-                const bool focused = offset == 0;
-                const int w = focused ? 284 : distance == 1 ? 218 : 169;
-                const int h = focused ? 414 : distance == 1 ? 327 : 258;
-                const int x = kW / 2 + offset * 310 - w / 2;
-                const int y = focused ? 289 : distance == 1 ? 348 : 394;
-                const int spine = focused ? 19 : 13;
+    auto drawCase = [&](int offset) {
+        const int index = nimbox::indexForOffset(selected, count, offset);
+        if (index < 0) return;
+        const GameTile& tile = row.tiles[static_cast<size_t>(index)];
+        const nimbox::CaseGeometry g = nimbox::layout(offset);
+        const int d = g.distance;
+        const bool focused = d == 0;
+        const Color shadow = rgba(0, 0, 0, focused ? 155 : 90);
+        const int shadowW = static_cast<int>(g.w + (focused ? 12 : 0));
+        c.fillRect({static_cast<int>(g.x) - 8, static_cast<int>(g.y + g.h + 12),
+                    shadowW + 16, focused ? 12 : 8}, shadow, 6);
+        // The case has a translucent jewel-box spine, a rim and inset printed insert.
+        c.fillQuad(g.spine, rgba(47, 95, 108));
+        c.line(g.spine.tl.x, g.spine.tl.y, g.spine.bl.x, g.spine.bl.y, 2.0f, rgba(204, 245, 249, 125));
+        c.fillQuad(g.front, rgba(26, 48, 61));
 
-                c.fillRect({x + 20, y + h + 15, w - 12, 12}, rgba(0, 0, 0, focused ? 135 : 70), 6);
-                c.fillRect({x - spine, y + 6, spine + 8, h - 4}, rgba(48, 112, 139), 3);
-                c.gradientV({x, y, w, h}, rgba(39, 75, 96), rgba(16, 32, 50));
-                c.fillRect({x, y, w, 29}, rgba(191, 231, 240));
-                fonts_.bold.draw(c, "NIMBOX", x + 11, y + 6, 15, rgba(13, 44, 60));
-                if (auto cover = images_.get(tile.tileUrl, w - 12, h - 41)) {
-                    c.drawImage(*cover, x + 6, y + 34, focused ? 255 : 212, 2);
-                } else {
-                    c.fillRect({x + 6, y + 34, w - 12, h - 41}, rgba(35, 49, 67), 2);
-                    const auto label = fonts_.semibold.wrap(tile.name, 19, w - 34, 3);
-                    for (size_t n = 0; n < label.size(); ++n)
-                        fonts_.semibold.draw(c, label[n], x + 17, y + h / 2 + static_cast<int>(n) * 25, 19, kWhite);
-                }
-                c.strokeRect({x - spine, y, w + spine, h}, focused ? rgba(112, 224, 243) : rgba(142, 175, 195, 95),
-                             focused ? 3 : 1, 4);
-                if (focused && !tile.playable) drawLock(c, x + w - 26, y + 62);
+        const Quad strip = nimbox::verticalSlice(g.front, 0.012f, 0.105f);
+        // A real title's platform metadata takes priority; avoid inventing
+        // 'Xbox 360' packaging for games where the platform is unknown.
+        const bool xboxPlatform = tile.platform == "360" || tile.platform == "ONE" || tile.platform == "XS";
+        c.fillQuad(strip, xboxPlatform ? rgba(226, 240, 233) : rgba(185, 227, 232));
+        const Quad art = nimbox::verticalSlice(g.front, 0.11f, 0.78f);
+        // Catalog thumbnails are square; preserve their full composition in a
+        // square-ish printed insert, rather than cutting off the game's title.
+        if (auto image = images_.get(tile.tileUrl, static_cast<int>(g.w), static_cast<int>(g.w))) {
+            c.drawImageQuad(*image, art, focused ? 255 : static_cast<uint8_t>(std::max(138, 246 - d * 17)));
+        } else {
+            c.fillQuad(art, rgba(49, 78, 91));
+        }
+        const Quad footer = nimbox::verticalSlice(g.front, 0.78f, 0.985f);
+        c.fillQuad(footer, rgba(16, 34, 45));
+        c.line(g.front.tl.x, g.front.tl.y, g.front.tr.x, g.front.tr.y, 2.0f,
+               rgba(233, 251, 251, 110));
+        c.line(g.front.tl.x, g.front.tl.y, g.front.bl.x, g.front.bl.y, 2.0f,
+               rgba(232, 250, 252, focused ? 210 : 110));
+        c.line(g.front.tr.x, g.front.tr.y, g.front.br.x, g.front.br.y, 2.0f,
+               rgba(26, 33, 38, 240));
+        c.line(g.front.bl.x, g.front.bl.y, g.front.br.x, g.front.br.y, 2.0f,
+               rgba(4, 11, 16, 220));
+
+        if (d <= 1) {
+            const int textX = static_cast<int>(g.x) + (focused ? 17 : 12);
+            const int bandY = static_cast<int>(g.y + (offset < 0 ? (focused ? 0 : 18) : 2));
+            // Disc-platform symbol and printed platform title (not a fake
+            // retail-box artwork or a platform logo asset).
+            c.fillCircle(textX + 9, bandY + 21, focused ? 11 : 8, rgba(25, 116, 63));
+            c.line(textX + 5, bandY + 17, textX + 13, bandY + 25, 2.0f, kWhite);
+            c.line(textX + 13, bandY + 17, textX + 5, bandY + 25, 2.0f, kWhite);
+            const char* platformName = tile.platform == "360" ? "XBOX 360" :
+                                       tile.platform == "ONE" ? "XBOX ONE" :
+                                       tile.platform == "XS" ? "XBOX SERIES" : "NIMBOX";
+            fonts_.bold.draw(c, platformName, textX + (focused ? 26 : 22), bandY + 11,
+                             focused ? 20 : 14, rgba(17, 53, 51));
+            const auto lines = fonts_.bold.wrap(tile.name, focused ? 24 : 16,
+                                                 static_cast<int>(g.w) - 30, 2);
+            for (size_t line = 0; line < lines.size(); ++line) {
+                fonts_.bold.draw(c, lines[line], textX, static_cast<int>(g.y + g.h * 0.80f) +
+                                 9 + static_cast<int>(line) * (focused ? 31 : 21),
+                                 focused ? 24 : 16, kWhite);
             }
         }
-        const GameTile& tile = row.tiles[static_cast<size_t>(selected)];
-        drawCentered(c, fonts_.bold, tile.name, 828, 39, kWhite);
-        std::string meta = tile.publisher;
-        if (!tile.categories.empty()) {
-            if (!meta.empty()) meta += "  -  ";
-            meta += tile.categories.front();
+        // The further-away boxes are visibly dimmer; their artwork still
+        // belongs to the original catalog, with no made-up physical covers.
+        if (d > 1) c.fillQuad(g.front, rgba(6, 15, 24, static_cast<uint8_t>(std::min(110, d * 14))));
+        if (focused) {
+            const Color edge = rgba(146, 226, 234, 170);
+            c.line(g.front.tl.x, g.front.tl.y, g.front.tr.x, g.front.tr.y, 2.0f, edge);
+            c.line(g.front.tl.x, g.front.tl.y, g.front.bl.x, g.front.bl.y, 2.0f, edge);
+            c.line(g.front.tr.x, g.front.tr.y, g.front.br.x, g.front.br.y, 2.0f, edge);
+            if (!tile.playable) drawLock(c, static_cast<int>(g.x + g.w - 34), static_cast<int>(g.y + 80));
         }
-        drawCentered(c, fonts_.regular, meta, 882, 21, kGray);
-        drawCentered(c, fonts_.semibold, std::to_string(selected + 1) + " / " + std::to_string(count),
-                     925, 18, rgba(110, 222, 240));
+    };
+
+    // Draw outermost cases first so the inner ones occlude them naturally.
+    for (int d = nimbox::kSideCases; d >= 1; --d) {
+        drawCase(-d);
+        drawCase(d);
     }
-    c.gradientV({0, 968, kW, 112}, withAlpha(kBg, 0), kBg);
+    if (count) drawCase(0);
+
+    if (count) {
+        const GameTile& current = row.tiles[static_cast<size_t>(selected)];
+        const auto title = fonts_.bold.wrap(current.name, 38, kW - 340, 1);
+        if (!title.empty()) drawCentered(c, fonts_.bold, title.front(), 805, 38, kWhite);
+        std::string meta = current.publisher;
+        if (!current.categories.empty()) {
+            if (!meta.empty()) meta += "  -  ";
+            meta += current.categories.front();
+        }
+        drawCentered(c, fonts_.regular, meta, 858, 20, kGray);
+        drawCentered(c, fonts_.semibold,
+                     std::to_string(selected + 1) + " / " + std::to_string(count),
+                     909, 19, aqua);
+    }
+    c.gradientV({0, 942, kW, 138}, withAlpha(deep, 0), deep);
     drawHints(c, {{kIconCross, tr(Str::Select)}, {kIconR3, "Classic UI"},
                   {kIconTriangle, tr(Str::TabSearch)}, {kIconOptions, tr(Str::Settings)}});
     drawPads(c);
