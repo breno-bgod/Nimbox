@@ -57,7 +57,14 @@ android {
     }
 
     buildTypes {
+        // Experimental debug package is installed beside the original PSBox.
+        // Keep the Java namespace unchanged: SDL/JNI native class names depend on it.
+        getByName("debug") {
+            applicationIdSuffix = ".nimboxalpha"
+            manifestPlaceholders["appLabel"] = "Nimbox Alpha"
+        }
         release {
+            manifestPlaceholders["appLabel"] = "PSBOX"
             isMinifyEnabled = false
             val releaseSigning = signingConfigs.findByName("release")
             if (releaseSigning?.storeFile?.exists() == true) {
