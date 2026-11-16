@@ -152,7 +152,7 @@ constexpr Column kGerman = {
     "Jetzt aktualisieren",
     "Nicht jetzt",
     "Updates",
-    "Aktuell (%s)",
+    "Installiert: %s", // UpToDate
     "%s verfügbar: aktualisieren",
     "Wird geprüft...",
     "Aktualisierung auf %s",
@@ -338,11 +338,11 @@ constexpr Column kGerman = {
     "Von Wunschliste entfernt",                       // RemovedFromWishlist
     "%s ist im Angebot!",                             // WishlistOnSale
     "%s ist jetzt im Game Pass!",                     // WishlistInGamePass
-    "Projekt unterstützen",                           // SupportProject
-    "Nimbox-Entwicklung unterstützen",                 // SupportTitle
-    "Nimbox basiert auf einem Open-Source-Projekt. Dieser Ko-Fi-Link unterstützt den ursprünglichen Entwickler, nicht Nimbox. Urheberangaben und Lizenzen bleiben im Quellrepository erhalten.", // SupportMessage
-    "Ko-fi",                                          // SupportKoFi
-    "Mit dem Smartphone scannen",                     // ScanToDonate
+    "Nimbox-Support", // SupportProject
+    "Nimbox-Support", // SupportTitle
+    "Besuche das offizielle Nimbox-Repository auf GitHub für Projektinformationen und Support. Ursprüngliche Urheberhinweise und Open-Source-Lizenzen bleiben erhalten.", // SupportMessage
+    "GitHub", // SupportKoFi
+    "Scannen für Nimbox auf GitHub", // ScanToDonate
     "Ton testen",                                     // TestSound
     "Wunschliste ist leer",                           // WishlistEmpty
     // Loading tips
@@ -350,7 +350,7 @@ constexpr Column kGerman = {
     "USB-Tastatur und -Maus an der Konsole werden in unterstützten Cloud-Spielen unterstützt", // TipKeyboardMouse
     "Kostenlose Spiele, Demos und Store-Angebote direkt in der App-Bibliothek sichern", // TipFreeStore
     "Problem aufgetreten? Öffnen Sie 'Problem melden', um einen QR-Code mit Konsolenprotokollen zu scannen", // TipBugReportQr
-    "Gefällt Ihnen das Projekt? Unterstützen Sie die Weiterentwicklung via Ko-fi in den Einstellungen!", // TipSupportKofi
+    "Brauchst du Hilfe? Finde Nimbox auf GitHub über die Einstellungen.", // TipSupportKofi
     "120-Hz-Videoausgabe in den Einstellungen für geringere Anzeigelatenz und flüssigere Steuerung aktivieren", // Tip120HzVideo
     "Stick-Totzone in den Einstellungen kalibrieren, um Stick-Drift zu verhindern und Präzision zu verbessern", // TipAnalogDeadzone
     "Integriertes DualSense-Mikrofon für Party- und Multiplayer-Sprachchat verwenden", // TipDualSenseMic
@@ -374,7 +374,7 @@ constexpr Column kGerman = {
     "Aktiviert oder deaktiviert die Impuls-Trigger-Vibration an den adaptiven DualSense-Triggern L2 und R2", // SettingDescTriggerRumble
     "Wechselt die Tastenbelegung für Bestätigen und Zurück zwischen Kreuz (westlich) und Kreis (japanisch)", // SettingDescConfirmButton
     "Konfiguriert Farbe und Verhalten der Lichtleiste des DualSense-Controllers beim Navigieren und Spielen", // SettingDescLightBar
-    "Prüft und installiert offizielle App-Updates automatisch direkt auf der Konsole ohne PC", // SettingDescUpdates
+    "Prüft Nimbox-Releases auf GitHub; signierte Updates nur auf unterstützten Plattformen.", // SettingDescUpdates
     "Ermöglicht die Xbox-Konto-Anmeldung über eine andere Region für alternative Spielkataloge", // SettingDescLoginCountry
     "Aktiviert 120-Hz-Videoausgabe auf Ihrer Konsole für minimale Eingabelatenz und höhere Bildwiederholrate", // SettingDescHighRefresh
     "Automatisch nutzt das Xbox-Profillimit; Unbegrenzt hebt die App-Grenze bis zum Serverlimit auf. Über 15 Mbps ist experimentell.", // SettingDescBitrateCap
@@ -386,7 +386,7 @@ constexpr Column kGerman = {
     "Spielt einen Signalton ab, wenn die Wartezeit in der xCloud-Warteschlange endet und das Spiel bereit ist", // SettingDescQueueReady
     "Führt eine Diagnose der Xbox Live-Anmeldung durch und prüft Zugriffstoken, Profil und Abonnements", // SettingDescCheckSignIn
     "Misst Ping (RTT) und Jitter zu Cloud-Gaming-Rechenzentren in mehreren weltweiten Regionen", // SettingDescNetworkTest
-    "Zeigt einen QR-Code, um den Entwickler via Ko-fi zu unterstützen und die Pflege des Projekts zu sichern", // SettingDescSupportProject
+    "Öffnet das offizielle Nimbox-Repository für Projektinformationen und Support.", // SettingDescSupportProject
     "Neuigkeiten",                                    // WhatsNew
     "Neuigkeiten",                                    // WhatsNewTitle
     "Controller-Lautsprecher",                        // PadSpeakerVolume

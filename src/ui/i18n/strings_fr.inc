@@ -152,7 +152,7 @@ constexpr Column kFrench = {
     "Mettre à jour",
     "Plus tard",
     "Mises à jour",
-    "À jour (%s)",
+    "Installé : %s", // UpToDate
     "%s disponible : mettre à jour",
     "Vérification...",
     "Mise à jour vers %s",
@@ -338,11 +338,11 @@ constexpr Column kFrench = {
     "Retiré des envies",                              // RemovedFromWishlist
     "%s est en promotion !",                          // WishlistOnSale
     "%s a rejoint le Game Pass !",                    // WishlistInGamePass
-    "Soutenir le projet",                             // SupportProject
-    "Soutenir le Développement de Nimbox",             // SupportTitle
-    "Nimbox repose sur un projet open source. Ce lien Ko-Fi soutient le développeur original, pas Nimbox. Les crédits et les licences d'origine restent disponibles dans le dépôt source.", // SupportMessage
-    "Ko-fi",                                          // SupportKoFi
-    "Scannez avec votre téléphone",                   // ScanToDonate
+    "Assistance Nimbox", // SupportProject
+    "Assistance Nimbox", // SupportTitle
+    "Consultez le dépôt officiel Nimbox sur GitHub pour obtenir des informations et de l'aide. Les crédits et licences open source d'origine restent conservés.", // SupportMessage
+    "GitHub", // SupportKoFi
+    "Scannez pour ouvrir GitHub Nimbox", // ScanToDonate
     "Tester le son",                                  // TestSound
     "La liste de souhaits est vide",                  // WishlistEmpty
     // Loading tips
@@ -350,7 +350,7 @@ constexpr Column kFrench = {
     "Clavier et souris USB branchés sur la console sont pris en charge dans les jeux du cloud compatibles", // TipKeyboardMouse
     "Obtenez des jeux gratuits, démos et promotions du magasin directement depuis l'application", // TipFreeStore
     "Un problème ? Ouvrez Signaler un problème pour scanner un code QR avec les journaux de la console", // TipBugReportQr
-    "Vous appréciez le projet ? Soutenez son développement via Ko-fi dans les Paramètres !", // TipSupportKofi
+    "Besoin d'aide ? Retrouvez le GitHub officiel de Nimbox dans les paramètres.", // TipSupportKofi
     "Activez la sortie vidéo 120 Hz dans les Paramètres pour réduire la latence d'affichage et de contrôle", // Tip120HzVideo
     "Calibrez la zone morte des sticks dans les Paramètres pour éliminer le drift et améliorer la précision", // TipAnalogDeadzone
     "Utilisez le microphone intégré de la DualSense pour le chat vocal dans les groupes et jeux multijoueurs", // TipDualSenseMic
@@ -374,7 +374,7 @@ constexpr Column kFrench = {
     "Active ou désactive l'émulation des vibrations sur les gâchettes adaptatives L2 et R2 dans les jeux compatibles", // SettingDescTriggerRumble
     "Bascule la disposition des boutons de confirmation et retour entre Croix (occidental) et Rond (japonais)", // SettingDescConfirmButton
     "Configure la couleur et le comportement de la barre lumineuse de votre manette DualSense", // SettingDescLightBar
-    "Vérifie et installe automatiquement les mises à jour officielles de l'application directement sur votre console", // SettingDescUpdates
+    "Vérifie les versions Nimbox sur GitHub ; mises à jour signées uniquement sur les plateformes compatibles.", // SettingDescUpdates
     "Permet de vous connecter à votre compte Xbox via une autre région pour accéder à d'autres catalogues", // SettingDescLoginCountry
     "Active la sortie vidéo 120 Hz sur votre console pour une réactivité accrue et une latence réduite", // SettingDescHighRefresh
     "Automatique suit le plafond du profil Xbox ; Sans limite lève la limite locale jusqu'au max du serveur. Au-dessus de 15 Mbps est expérimental.", // SettingDescBitrateCap
@@ -386,7 +386,7 @@ constexpr Column kFrench = {
     "Joue un signal sonore distinctif lorsque l'attente dans la file xCloud est terminée et que le jeu est prêt", // SettingDescQueueReady
     "Exécute un diagnostic complet de la connexion Xbox Live, validant jetons d'accès, profil et abonnements", // SettingDescCheckSignIn
     "Mesure le ping (RTT) et la gigue (jitter) vers les centres de données de jeux en nuage de plusieurs régions", // SettingDescNetworkTest
-    "Affiche un code QR pour soutenir le développeur via Ko-fi et contribuer à la maintenance active du projet", // SettingDescSupportProject
+    "Ouvre le dépôt officiel Nimbox pour les informations et l'assistance.", // SettingDescSupportProject
     "Nouveautés",                                     // WhatsNew
     "Nouveautés",                                     // WhatsNewTitle
     "Haut-parleur de la manette",                     // PadSpeakerVolume

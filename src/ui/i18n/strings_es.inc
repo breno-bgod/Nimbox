@@ -152,7 +152,7 @@ constexpr Column kSpanish = {
     "Actualizar ahora",
     "Ahora no",
     "Actualizaciones",
-    "Al día (%s)",
+    "Instalado: %s", // UpToDate
     "%s disponible: actualizar",
     "Comprobando...",
     "Actualizando a %s",
@@ -338,11 +338,11 @@ constexpr Column kSpanish = {
     "Quitado de lista de deseos",                     // RemovedFromWishlist
     "¡%s está en oferta!",                            // WishlistOnSale
     "¡%s llegó a Game Pass!",                         // WishlistInGamePass
-    "Apoya el proyecto",                              // SupportProject
-    "Apoya el Desarrollo de Nimbox",                   // SupportTitle
-    "Nimbox se basa en un proyecto de código abierto. Este enlace de Ko-Fi apoya al desarrollador original, no a Nimbox. Los créditos y licencias originales están disponibles en el repositorio.", // SupportMessage
-    "Ko-fi",                                          // SupportKoFi
-    "Escanea con tu teléfono para donar",             // ScanToDonate
+    "Soporte Nimbox", // SupportProject
+    "Soporte Nimbox", // SupportTitle
+    "Abre el repositorio oficial de Nimbox en GitHub para información y soporte. Los créditos y licencias originales del código abierto permanecen conservados.", // SupportMessage
+    "GitHub", // SupportKoFi
+    "Escanea para abrir el GitHub de Nimbox", // ScanToDonate
     "Probar sonido",                                  // TestSound
     "La lista de deseos está vacía",                  // WishlistEmpty
     // Loading tips
@@ -350,7 +350,7 @@ constexpr Column kSpanish = {
     "Teclado y ratón USB conectados a la consola son compatibles con juegos de la nube habilitados", // TipKeyboardMouse
     "Reclama juegos gratis, demos y descubre promociones de la tienda directamente desde la aplicación", // TipFreeStore
     "¿Encontraste un problema? Abre Notificar problema para escanear un QR con registros de la consola", // TipBugReportQr
-    "¿Disfrutas del proyecto? ¡Apoya su desarrollo futuro a través de Ko-fi en Configuración!", // TipSupportKofi
+    "¿Necesitas ayuda? Encuentra el GitHub de Nimbox en Configuración.", // TipSupportKofi
     "Activa salida de vídeo a 120 Hz en Configuración para menor latencia y respuesta más fluida", // Tip120HzVideo
     "Calibra la zona muerta de los sticks en Configuración para eliminar deriva y mejorar la precisión", // TipAnalogDeadzone
     "Usa el micrófono integrado del DualSense para chat de voz en grupos y partidas multijugador", // TipDualSenseMic
@@ -374,7 +374,7 @@ constexpr Column kSpanish = {
     "Activa o desactiva la vibración de gatillos adaptativos L2 y R2 en juegos compatibles", // SettingDescTriggerRumble
     "Alterna la función de confirmar y volver entre Cruz (estilo occidental) y Círculo (estilo japonés)", // SettingDescConfirmButton
     "Configura el color y comportamiento de la barra luminosa del DualSense en menús y durante el juego", // SettingDescLightBar
-    "Comprueba e instala automáticamente actualizaciones oficiales de la aplicación directamente en la consola", // SettingDescUpdates
+    "Consulta las versiones Nimbox en GitHub; las actualizaciones firmadas se instalan solo en plataformas compatibles.", // SettingDescUpdates
     "Permite iniciar sesión en tu cuenta de Xbox mediante otra región geográfica para acceder a catálogos alternativos", // SettingDescLoginCountry
     "Activa salida de vídeo a 120 Hz en tu consola para reducir el retardo de pantalla y la latencia de entrada", // SettingDescHighRefresh
     "Automático usa el límite del perfil Xbox; Sin límite quita el tope de la app hasta el máximo real del servidor. Más de 15 Mbps es experimental.", // SettingDescBitrateCap
@@ -386,7 +386,7 @@ constexpr Column kSpanish = {
     "Reproduce un aviso sonoro cuando termina la espera en cola de xCloud y el juego está listo", // SettingDescQueueReady
     "Ejecuta un diagnóstico completo del inicio de sesión de Xbox Live, validando tokens, perfil y suscripciones", // SettingDescCheckSignIn
     "Mide el ping (RTT) y la fluctuación (jitter) a centros de datos de juegos en la nube en múltiples regiones", // SettingDescNetworkTest
-    "Muestra un código QR para apoyar al desarrollador mediante Ko-fi y mantener el proyecto activo", // SettingDescSupportProject
+    "Abre el GitHub oficial de Nimbox para información y soporte.", // SettingDescSupportProject
     "Novedades",                                      // WhatsNew
     "Novedades",                                      // WhatsNewTitle
     "Altavoz del mando",                              // PadSpeakerVolume
