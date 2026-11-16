@@ -1380,7 +1380,7 @@ void AppUi::drawNimboxOpenCase(Canvas& c, const GameTile& tile) {
         c.fillRect({bx + 12, by + 14, bw, height}, rgba(0, 0, 0, 110), 10);
         c.fillRect({bx, by, bw, height}, rgba(20, 90, 65), 9);
         c.strokeRect({bx, by, bw, height}, rgba(166, 228, 193), 3, 9);
-        c.fillRect({bx + 8, by + 9, bw - 16, height - 18}, rgba(17, 43, 46), 6);
+        if (bw > 20) c.fillRect({bx + 8, by + 9, bw - 16, height - 18}, rgba(17, 43, 46), 6);
         if (bw > 310) {
             const int inset = 23;
             fonts_.bold.draw(c, "NIMBOX   /   FICHA DO JOGO", bx + inset, by + 27, 19, rgba(193, 233, 225));
@@ -1414,7 +1414,10 @@ void AppUi::drawNimboxOpenCase(Canvas& c, const GameTile& tile) {
                 }
             }
         }
-        fonts_.semibold.draw(c, "R1  FRENTE  /  R2  ABRIR CAIXA", 1240, 695, 17, rgba(186, 222, 217));
+        c.fillRect({1160, 679, 310, 51}, rgba(13, 59, 65, 220), 10);
+        c.fillRect({1490, 679, 343, 51}, rgba(13, 59, 65, 220), 10);
+        fonts_.semibold.draw(c, "FRENTE  /  R1", 1180, 696, 18, rgba(213, 246, 240));
+        fonts_.semibold.draw(c, "ABRIR CAIXA  /  R2", 1504, 696, 18, rgba(213, 246, 240));
         return;
     }
     const Color shell = rgba(18, 80, 60);
@@ -1499,8 +1502,10 @@ void AppUi::drawNimboxOpenCase(Canvas& c, const GameTile& tile) {
                                  y + height - 87 + static_cast<int>(n) * 24, 19, kWhite);
     }
     c.fillRect({hingeX - 4, y, 9, height}, rgba(129, 217, 184, 135), 3);
-    fonts_.semibold.draw(c, "R1  CONTRACAPA  /  R2  ABRIR-FECHAR  /  TOQUE",
-                         1205, 694, 16, rgba(169, 219, 212));
+    c.fillRect({1160, 679, 310, 51}, rgba(13, 59, 65, 220), 10);
+    c.fillRect({1490, 679, 343, 51}, rgba(13, 59, 65, 220), 10);
+    fonts_.semibold.draw(c, "VERSO  /  R1", 1180, 696, 18, rgba(213, 246, 240));
+    fonts_.semibold.draw(c, "ABRIR/FECHAR  /  R2", 1504, 696, 18, rgba(213, 246, 240));
 }
 
 void AppUi::drawDetails(Canvas& c, uint64_t nowMs) {
