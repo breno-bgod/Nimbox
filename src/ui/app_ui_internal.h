@@ -83,6 +83,7 @@ constexpr bool kGameGroupStart[kGameRowCount] = {false, true, false, false, fals
 constexpr int kKeysPerColumn = input::kKeyActions / 2;
 // Updates on a desktop: the newest release's page (the app doesn't install it there).
 constexpr const char* kReleasesPage = "https://github.com/breno-bgod/Nimbox/releases";
+constexpr const char* kNimboxSupportPage = "https://github.com/breno-bgod/Nimbox";
 
 #if defined(__ANDROID__)
 constexpr int kSettingsRowW = 1140, kSettingsRowH = 46, kSettingsGap = 4, kSettingsGroupGap = 12, kSettingsRowPx = 25;

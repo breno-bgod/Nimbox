@@ -1749,7 +1749,10 @@ UiEvent AppUi::handleLocked(const NavInput& in) {
                 break;
             }
             if (tester_ == Tester::Donation) {
-                if (in.back || in.accept) {
+                if (in.accept && caps_.openUrl) {
+                    ev.action = Action::OpenUrl;
+                    ev.url = kNimboxSupportPage;
+                } else if (in.back || in.accept) {
                     tester_ = Tester::None;
                     dirty_ = true;
                 }

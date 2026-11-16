@@ -1994,7 +1994,7 @@ void AppUi::drawDonationModal(Canvas& c) {
     int centerY = contentTop + contentH / 2;
 
     int qrTop = centerY - qrTotalH / 2;
-    Rect qrBox = drawQr(c, "https://github.com/breno-bgod/Nimbox", panel.x + panel.w - 60, qrTop, kQrTarget, qrcodegen_Ecc_MEDIUM);
+    Rect qrBox = drawQr(c, kNimboxSupportPage, panel.x + panel.w - 60, qrTop, kQrTarget, qrcodegen_Ecc_MEDIUM);
     if (qrBox.w > 0) {
         std::string scanText = tr(Str::ScanToDonate);
         int tw = fonts_.semibold.measure(scanText, 22);
@@ -2015,10 +2015,12 @@ void AppUi::drawDonationModal(Canvas& c) {
     }
 
     textY += 24;
-    fonts_.semibold.draw(c, "https://github.com/breno-bgod/Nimbox", textX, textY, 24, rgba(255, 215, 80));
+    fonts_.semibold.draw(c, kNimboxSupportPage, textX, textY, 24, rgba(255, 215, 80));
 
     c.fillRect({0, kH - 80, kW, 80}, kBg);
-    drawHints(c, {{kIconCircle, tr(Str::Back)}});
+    drawHints(c, caps_.openUrl
+        ? std::vector<std::pair<int, std::string>>{{kIconCross, tr(Str::Select)}, {kIconCircle, tr(Str::Back)}}
+        : std::vector<std::pair<int, std::string>>{{kIconCircle, tr(Str::Back)}});
 }
 
 void AppUi::drawTrophyDisclaimerModal(Canvas& c) {
