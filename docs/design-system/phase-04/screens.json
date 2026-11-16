@@ -1,0 +1,262 @@
+{
+  "name": "Nimbox — Fase 04: Revisão Visual por Tela",
+  "version": "1.0.0",
+  "phase": "04",
+  "status": "proposal-for-review-not-implemented",
+  "scope": "design only; no C++ or runtime modifications",
+  "basis": [
+    "Preview Premium 3.0 / Preview 3.1 Limpo",
+    "Design System v1.0.0 — Fase 01",
+    "14 componentes NX — Fase 02",
+    "Motion & Sonic — Fase 03"
+  ],
+  "defaultTheme": "aurora",
+  "referenceViewport": {
+    "w": 1600,
+    "h": 900
+  },
+  "colors": {
+    "base": "#061A2B",
+    "panel": "#09283D",
+    "header": "#051B2C",
+    "cyan": "#79DFFF",
+    "focus": "#97F5FF",
+    "text": "#EFF9FF",
+    "muted": "#BDCEDA"
+  },
+  "designRules": [
+    "Não modificar a lógica de login, catálogo, WebRTC, vídeo, input técnico ou servidores",
+    "Não inserir controles que prometam ações sem funcionalidade real",
+    "Comparar capturas da implementação nativa com referência na mesma tela, viewport e estado",
+    "Foco imediato e permanente, retorno preserva seleção, reduza movimentos quando solicitado",
+    "Tudo novo nesta fase é proposta sujeita a aprovação visual",
+    "Créditos e licenças da base preservados em documentação, marca visível Nimbox"
+  ],
+  "screens": [
+    {
+      "id": "home",
+      "name": "Home",
+      "priority": "P0",
+      "status": "reference-approved",
+      "basis": "Preview 3.1 Home (referência principal)",
+      "reference": "Nimbox_Preview_3_1_Home.png",
+      "approval": "Home é a âncora visual aprovada; revisões de microdetalhes ainda possíveis",
+      "components": [
+        "NX/AppShell",
+        "NX/TopNav",
+        "NX/CaseCarousel",
+        "NX/GameCase3D",
+        "NX/GameRail",
+        "NX/FocusRing",
+        "NX/InputHint"
+      ],
+      "headline": "Coleção física no estúdio infinito",
+      "visual": "Aurora luminoso, cabeçalho navy, 1 caixa hero com quatro vizinhas por lado, reflexos contínuos no piso e títulos subordinados à arte. Referência central 286×389 px a 1600×900, perspectiva 1250 px.",
+      "interaction": "D-pad esquerda/direita muda seleção; confirmar abre detalhes; cima/baixo troca zona; voltar preserva contexto. Toque e mouse sem botões fantasmas.",
+      "motion": "Carrossel 920 ms cubic-bezier(.21,.76,.16,1); interrupção imediata em inputs consecutivos; reduzir movimento sem rotação/parallax.",
+      "sound": "ui.focus com cooldown 125 ms; ui.open ao abrir detalhes somente se o áudio estiver ativado.",
+      "risks": [
+        "Canvas 2,5D atual não preserva volume e iluminação da referência",
+        "Lombadas dominam quando o espaçamento é insuficiente",
+        "Reflexo e brilho podem esconder texto e diminuir fluidez"
+      ],
+      "acceptance": [
+        "Hero permanece dominante e centrado, sem recortes",
+        "Caixas laterais têm espessura, perspectiva, espaçamento e ângulo coerentes",
+        "Piso e reflexos são contínuos e não competem com capas",
+        "Hierarquia entre capa, nome do jogo e trilho inferior fica legível",
+        "O jogo real selecionado acompanha ações e volta sem perder posição"
+      ]
+    },
+    {
+      "id": "library",
+      "name": "Biblioteca",
+      "priority": "P0",
+      "status": "concept-provisional",
+      "basis": "Preview 3.0 Biblioteca (com elementos demonstrativos a revisar)",
+      "reference": "Nimbox_Preview_3_0_Biblioteca.png",
+      "approval": "Composição de grid provisória; dados fictícios e filtros dependem de funções existentes",
+      "components": [
+        "NX/AppShell",
+        "NX/TopNav",
+        "NX/FocusRing",
+        "NX/Button",
+        "NX/Chip",
+        "NX/InputHint",
+        "NX/Toast"
+      ],
+      "headline": "Encontrar o jogo antes de admirar a capa",
+      "visual": "Painel navy com grid de capas alinhadas, busca e filtros em linha superior, contraste e espaçamentos regulares. Sem competir com a Home cinematográfica.",
+      "interaction": "Foco passa de busca/filtros à grade; filtros só aparecem ativos quando de fato conectados; retorno restaura busca, ordem e posição.",
+      "motion": "Transições de página 300 ms; foco 120 ms; sem parallax na grade.",
+      "sound": "ui.focus / ui.select discretos sob as regras do sistema sonoro.",
+      "risks": [
+        "O preview 3.0 exibe jogos e tempos de uso ilustrativos",
+        "Grid pode cortar títulos em telas menores",
+        "Destaques podem ser indistinguíveis do item selecionado"
+      ],
+      "acceptance": [
+        "Busca, filtros e ordenação correspondem às funções existentes",
+        "Grade reflow sem perda de proporção das capas",
+        "Capa sem arte possui placeholder próprio, não espaço vazio",
+        "Foco identificável sem depender apenas da cor",
+        "Voltar restaura consulta, filtro e último jogo selecionado"
+      ]
+    },
+    {
+      "id": "details",
+      "name": "Detalhes",
+      "priority": "P1",
+      "status": "concept-provisional",
+      "basis": "Preview 3.0 Detalhes: hierarquia e disco apenas; botão Jogar do conceito não é válido como função",
+      "reference": "Nimbox_Preview_3_0_Detalhes.png",
+      "approval": "Revisar o detalhe sem ações simuladas; a captura antiga tem botão Jogar demonstrativo",
+      "components": [
+        "NX/GameDetails",
+        "NX/Button",
+        "NX/Panel",
+        "NX/FocusRing",
+        "NX/InputHint"
+      ],
+      "headline": "Uma capa, uma história, uma ação real",
+      "visual": "Composição 2 colunas: título/metadados/ações à esquerda, disco decorativo à direita. Área de texto de fácil leitura, sem efeito cobrindo informações.",
+      "interaction": "Ação Jogar visível somente quando a reprodução está disponível e realmente conectada; voltar retorna ao mesmo item da origem.",
+      "motion": "Página 300 ms; disco 7.500 ms/volta apenas decorativo, pausado em reduzir movimento.",
+      "sound": "ui.open ao entrar e ui.back ao retornar, quando habilitados.",
+      "risks": [
+        "Preview antigo contém botão Jogar que não reproduz nada",
+        "Imagem 3.1 de detalhes capturada com sobreposição escura não é baseline de aprovação",
+        "Descrição e título podem colidir com arte ao redimensionar"
+      ],
+      "acceptance": [
+        "Jogar não é exibido se a ação real não existe",
+        "Título, dados e descrição legíveis nas larguras previstas",
+        "Disco nunca parece um botão se for apenas decorativo",
+        "A navegação de volta preserva o ponto de origem",
+        "Casos indisponíveis têm linguagem visual e texto específico"
+      ]
+    },
+    {
+      "id": "login",
+      "name": "Login",
+      "priority": "P0",
+      "status": "concept-provisional",
+      "basis": "Preview de Login anterior ao 3.0 como direção visual, não fluxo testado",
+      "reference": "Nimbox_Preview_Login.png",
+      "approval": "Composição conceitual; exibir sempre status e código verdadeiros vindos do núcleo",
+      "components": [
+        "NX/AppShell",
+        "NX/Panel",
+        "NX/Button",
+        "NX/Progress",
+        "NX/FocusRing"
+      ],
+      "headline": "Autenticidade, clareza e confiança",
+      "visual": "Duas colunas com marca Nimbox e instrução no lado principal; código de dispositivo com alto contraste; painel de orientação discreto. Evitar informações decorativas excessivas.",
+      "interaction": "Código real com expiração/renovação, status real, copiar/abrir navegador somente se suportados; transição para carregamento sem marca PSBox.",
+      "motion": "Entrada suave sem atrasar leitura do código; progresso conforme eventos reais.",
+      "sound": "ui.ready somente ao concluir autenticação; erro apenas para erro real.",
+      "risks": [
+        "O screenshot do preview usa CÓDIGO DE EXEMPLO: não pode ser reutilizado como login funcional",
+        "Identidade da base aparecia nos testes históricos",
+        "Código de 8 caracteres precisa de contraste e espaçamento robustos"
+      ],
+      "acceptance": [
+        "Nimbox aparece em todas as telas de login e carregamento",
+        "Código fictício nunca aparece no aplicativo real",
+        "Instruções, URL e status reais são legíveis a distância",
+        "Erro, expiração e nova tentativa têm textos próprios",
+        "Autenticação não é alterada por este planejamento"
+      ]
+    },
+    {
+      "id": "settings",
+      "name": "Configurações",
+      "priority": "P0",
+      "status": "concept-provisional",
+      "basis": "Preview 3.1 Configurações (apenas ajustes do protótipo)",
+      "reference": "Nimbox_Preview_3_1_Configuracoes.png",
+      "approval": "Reutilizar linguagem visual, não substituir lista de ajustes nativos por opções demonstrativas",
+      "components": [
+        "NX/AppShell",
+        "NX/TopNav",
+        "NX/SettingRow",
+        "NX/Panel",
+        "NX/Modal",
+        "NX/FocusRing",
+        "NX/InputHint"
+      ],
+      "headline": "Clareza operacional com acabamento premium",
+      "visual": "Navegação por categorias e linhas escaneáveis: nomes, valores à direita e descrições; painéis Frosted Navy com separação coerente. Menos efeitos visuais que a Home.",
+      "interaction": "Toda linha respeita comportamento existente; ações de suporte apontam ao projeto Nimbox; modais prendem foco; Back devolve a linha originadora.",
+      "motion": "Foco 120 ms e modal 220 ms; nada de transições pesadas em mudanças frequentes.",
+      "sound": "ui.select em alterações confirmadas; ui.error apenas quando há falha.",
+      "risks": [
+        "O screenshot 3.1 só mostra ajustes do preview",
+        "Lista real possui mais categorias e opções de controles/rede",
+        "QR e atualização não devem referenciar projeto original"
+      ],
+      "acceptance": [
+        "Todas as configurações existentes continuam disponíveis",
+        "Valores e foco alinhados nas linhas e grupos",
+        "Suporte e atualizações identificados como Nimbox",
+        "Ações destrutivas têm confirmação clara",
+        "Nenhum controle de demo é apresentado como ajuste real"
+      ]
+    },
+    {
+      "id": "stream",
+      "name": "Streaming",
+      "priority": "P0",
+      "status": "no-approved-visual-reference",
+      "basis": "Diretrizes funcionais e Design System 1.0; não existe mock de streaming aprovado",
+      "reference": null,
+      "approval": "Primeira composição de overlay ainda precisa de aprovação visual separada",
+      "components": [
+        "NX/AppShell",
+        "NX/Progress",
+        "NX/Toast",
+        "NX/InputHint",
+        "NX/Modal"
+      ],
+      "headline": "O jogo ocupa a tela; a UI só aparece quando necessária",
+      "visual": "Vídeo com prioridade absoluta e overlays pequenos, temporários e legíveis; progresso de conexão e fila com informação real; estado de erro distinto.",
+      "interaction": "O overlay respeita o contexto de controles da sessão, não rouba foco nem envia inputs duplicados para a partida. Nenhuma mudança na pipeline.",
+      "motion": "Entrada 180–220 ms, saída discreta; feedback de conexão sem efeitos intrusivos.",
+      "sound": "Sinal de conclusão/erro somente em eventos de sistema reais, com mute/ganho independente.",
+      "risks": [
+        "Overlay pode competir com gameplay",
+        "Redirecionamento involuntário de controles ao menu",
+        "Sem baseline visual aprovado"
+      ],
+      "acceptance": [
+        "Gameplay fica visível sem interferência permanente",
+        "Overlay abre e fecha de maneira previsível",
+        "Estados conectado, fila, falha e reconexão distinguíveis",
+        "Controle volta ao jogo sem ações duplicadas",
+        "Visual deve ser aprovado antes de implementação"
+      ]
+    }
+  ],
+  "qualityGates": {
+    "designGate": "Composição, estados, acessibilidade, conteúdo real e componentes revisados por tela no painel, ainda não é implementação",
+    "nativeGate": "Somente após fase técnica autorizada: mesmo jogo, mesmo viewport, mesmas proporções, capturas lado a lado, vídeo de transição, FPS e teste de input",
+    "multiPlatform": [
+      "1600×900 referência",
+      "1920×1080 TV/desktop",
+      "1280×720 compact desktop/TV",
+      "Android landscape",
+      "16:10 desktop/Steam Deck",
+      "safe area console; confirmar plataforma antes de exigir"
+    ],
+    "neverInterpretAs": "Testes de HTML ou checklist local nunca são prova de equivalência do renderer C++"
+  },
+  "roadmap": [
+    "04.1 Home: referência de hero e carrossel",
+    "04.2 Biblioteca: navegação, filtros reais, grade",
+    "04.3 Detalhes: remove ações fictícias e estabiliza hierarquia",
+    "04.4 Login: código legível e marca Nimbox",
+    "04.5 Configurações: categorias/linhas reais",
+    "04.6 Streaming: overlay mínimo aprovado antes de integrar"
+  ]
+}
