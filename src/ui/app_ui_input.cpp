@@ -3,6 +3,7 @@
 #include <cstddef>
 #include "ui/app_ui_internal.h"
 #include "app/shell.h"
+#include "ui/box_carousel.h"
 
 namespace xc::ui {
 
@@ -125,6 +126,15 @@ void AppUi::handleHome(const NavInput& in, UiEvent& ev) {
             const GameRow& curRow = rows_[static_cast<size_t>(focusRow_)];
             int& col = focusCol_[static_cast<size_t>(focusRow_)];
             int count = static_cast<int>(curRow.tiles.size());
+
+            // A physical shelf wraps so the selected cover always has cases
+            // to both sides. Keep existing details, hidden-games and play flows.
+            if (nimboxCarousel_ && count > 0 && (in.left || in.right)) {
+                col = (col + (in.right ? 1 : -1) + count) % count;
+                retarget();
+                dirty_ = true;
+                return;
+            }
 
             if (curRow.isGrid) {
                 if (in.up && col < kLibraryCols) {
@@ -832,31 +842,32 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
 
     if (screen_ == Screen::Home && !searching_) {
         if (nimboxCarousel_ && tab_ == Tab::GamePass) {
-            if (!rows_.empty() && y >= 280 && y < 800) {
-                const int r = std::clamp(focusRow_, 0, static_cast<int>(rows_.size()) - 1);
-                const auto& tiles = rows_[static_cast<size_t>(r)].tiles;
-                if (!tiles.empty()) {
-                    const int selected = std::clamp(focusCol_[static_cast<size_t>(r)], 0, static_cast<int>(tiles.size()) - 1);
-                    for (int offset = -2; offset <= 2; ++offset) {
-                        const int index = selected + offset;
-                        if (index < 0 || index >= static_cast<int>(tiles.size())) continue;
-                        const int distance = std::abs(offset);
-                        const int w = distance == 0 ? 284 : distance == 1 ? 218 : 169;
-                        const int h = distance == 0 ? 414 : distance == 1 ? 327 : 258;
-                        const int cx = kW / 2 + offset * 310 - w / 2;
-                        const int cy = distance == 0 ? 289 : distance == 1 ? 348 : 394;
-                        if (x < cx - 18 || x >= cx + w || y < cy || y >= cy + h) continue;
-                        if (offset == 0) openDetails(tiles[static_cast<size_t>(index)]);
-                        else {
-                            focusCol_[static_cast<size_t>(r)] = index;
-                            retarget();
-                            dirty_ = true;
+            if (!rows_.empty()) {
+                const int rowIndex = std::clamp(focusRow_, 0, static_cast<int>(rows_.size()) - 1);
+                const auto& tiles = rows_[static_cast<size_t>(rowIndex)].tiles;
+                const int count = static_cast<int>(tiles.size());
+                if (count > 0) {
+                    const int selected = std::clamp(focusCol_[static_cast<size_t>(rowIndex)], 0, count - 1);
+                    // Frontmost first. This matches occlusion in drawNimboxCarousel.
+                    for (int distance = 0; distance <= nimbox::kSideCases; ++distance) {
+                        for (int side : {-1, 1}) {
+                            if (distance == 0 && side == 1) continue;
+                            const int offset = distance * side;
+                            const int index = nimbox::indexForOffset(selected, count, offset);
+                            if (index < 0) continue;
+                            if (!nimbox::hit(nimbox::layout(offset), x, y)) continue;
+                            if (distance == 0) openDetails(tiles[static_cast<size_t>(index)]);
+                            else {
+                                focusCol_[static_cast<size_t>(rowIndex)] = index;
+                                retarget();
+                                dirty_ = true;
+                            }
+                            return ev;
                         }
-                        return ev;
                     }
                 }
             }
-            // Do not route carousel clicks into the old grid.
+            // Never accidentally hit invisible classic-grid cards.
             return ev;
         }
         if (tab_ == Tab::GamePass && y >= 140 && y < kH - 80) {
