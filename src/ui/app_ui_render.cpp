@@ -1082,7 +1082,7 @@ void AppUi::drawNimboxCarousel(Canvas& c, uint64_t nowMs) {
             c.line(textX + 13, bandY + 17, textX + 5, bandY + 25, 2.0f, kWhite);
             const char* platformName = tile.platform == "360" ? "XBOX 360" :
                                        tile.platform == "ONE" ? "XBOX ONE" :
-                                       tile.platform == "XS" ? "XBOX SERIES" : "NIMBOX";
+                                       tile.platform == "XS" ? "XBOX SERIES" : "XBOX CLOUD";
             fonts_.bold.draw(c, platformName, textX + (focused ? 26 : 22), bandY + 11,
                              focused ? 20 : 14, rgba(17, 53, 51));
             const auto lines = fonts_.bold.wrap(tile.name, focused ? 24 : 16,
