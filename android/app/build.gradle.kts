@@ -62,9 +62,15 @@ android {
         getByName("debug") {
             applicationIdSuffix = ".nimboxalpha"
             manifestPlaceholders["appLabel"] = "Nimbox Alpha"
+            manifestPlaceholders["appIcon"] = "@drawable/nimbox_alpha_icon"
+            manifestPlaceholders["appRoundIcon"] = "@drawable/nimbox_alpha_icon"
+            manifestPlaceholders["appBanner"] = "@drawable/nimbox_alpha_banner"
         }
         release {
             manifestPlaceholders["appLabel"] = "PSBOX"
+            manifestPlaceholders["appIcon"] = "@mipmap/ic_launcher"
+            manifestPlaceholders["appRoundIcon"] = "@mipmap/ic_launcher_round"
+            manifestPlaceholders["appBanner"] = "@drawable/banner"
             isMinifyEnabled = false
             val releaseSigning = signingConfigs.findByName("release")
             if (releaseSigning?.storeFile?.exists() == true) {
