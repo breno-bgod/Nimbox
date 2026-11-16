@@ -698,7 +698,7 @@ private:
     bool nimboxReturningHome_ = false; // finish exit before switching screens
     Tab tab_ = Tab::GamePass;
     // Experimental, opt-in, session-only visual mode. R3 toggles in Game Pass home.
-    bool nimboxCarousel_ = false;
+    bool nimboxCarousel_ = true; // approved Nimbox Home; R3 restores original UI
     std::vector<ConsoleTile> consoles_;
     bool allow1440_ = false;
     bool consolesKnown_ = false;
