@@ -520,9 +520,6 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
                 if (nimboxCarousel_ && tab_ == Tab::GamePass && !nimboxReducedMotion_) {
                     nimboxReturningHome_ = true;
                     nimboxDetailIntro_.target = 0.0f;
-                    nimboxCaseOpen_.target = 0.0f;
-                    nimboxBackCover_ = false;
-                    nimboxBackFlip_.value = nimboxBackFlip_.target = 1000.0f;
                 } else {
                     screen_ = Screen::Home;
                 }
@@ -1016,29 +1013,7 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
         if (achievementsOpen_) {
             return ev;
         }
-        // The animated jewel case occupies the right side of the details
-        // page. A tap opens/closes it without triggering the Play action.
-        if (nimboxCarousel_ && tab_ == Tab::GamePass &&
-            !detail_.purchasable && x >= 1160 && x <= 1470 && y >= 676 && y <= 735) {
-            nimboxBackCover_ = !nimboxBackCover_;
-            nimboxBackFlip_.value = nimboxReducedMotion_ ? 1000.0f : 0.0f;
-            nimboxBackFlip_.target = 1000.0f;
-            dirty_ = true;
-            return ev;
-        }
-        if (nimboxCarousel_ && tab_ == Tab::GamePass &&
-            !detail_.purchasable && x >= 1140 && x <= 1845 && y >= 168 && y <= 742) {
-            if (nimboxBackCover_) {
-                nimboxBackCover_ = false;
-                nimboxBackFlip_.value = nimboxReducedMotion_ ? 1000.0f : 0.0f;
-                nimboxBackFlip_.target = 1000.0f;
-            } else {
-                nimboxCaseOpen_.target = nimboxCaseOpen_.target >= 500.0f ? 0.0f : 1000.0f;
-                if (nimboxReducedMotion_) nimboxCaseOpen_.value = nimboxCaseOpen_.target;
-            }
-            dirty_ = true;
-            return ev;
-        }
+        // Decorative rotating CD has no additional touch action.
         const GameTile* g = &detail_;
         if (g->productId.empty() && g->titleId.empty()) return ev;
         bool isF2P = isFreeGame(*g);
@@ -1986,27 +1961,6 @@ UiEvent AppUi::handleLocked(const NavInput& in) {
                 dirty_ = true;
                 break;
             }
-            if (nimboxCarousel_ && tab_ == Tab::GamePass && in.r1 &&
-                !detail_.purchasable) {
-                nimboxBackCover_ = !nimboxBackCover_;
-                nimboxBackFlip_.value = nimboxReducedMotion_ ? 1000.0f : 0.0f;
-                nimboxBackFlip_.target = 1000.0f;
-                dirty_ = true;
-                break;
-            }
-            if (nimboxCarousel_ && tab_ == Tab::GamePass && in.r2 &&
-                !detail_.purchasable) {
-                if (nimboxBackCover_) {
-                    nimboxBackCover_ = false;
-                    nimboxBackFlip_.value = nimboxReducedMotion_ ? 1000.0f : 0.0f;
-                    nimboxBackFlip_.target = 1000.0f;
-                } else {
-                    nimboxCaseOpen_.target = nimboxCaseOpen_.target >= 500.0f ? 0.0f : 1000.0f;
-                    if (nimboxReducedMotion_) nimboxCaseOpen_.value = nimboxCaseOpen_.target;
-                }
-                dirty_ = true;
-                break;
-            }
             {
                 bool isF2P = isFreeGame(detail_);
                 bool effectivePlayable = isEffectivePlayableLocked(detail_);
@@ -2044,9 +1998,6 @@ UiEvent AppUi::handleLocked(const NavInput& in) {
                 if (nimboxCarousel_ && tab_ == Tab::GamePass && !nimboxReducedMotion_) {
                     nimboxReturningHome_ = true;
                     nimboxDetailIntro_.target = 0.0f;
-                    nimboxCaseOpen_.target = 0.0f;
-                    nimboxBackCover_ = false;
-                    nimboxBackFlip_.value = nimboxBackFlip_.target = 1000.0f;
                 } else {
                     screen_ = Screen::Home;
                 }

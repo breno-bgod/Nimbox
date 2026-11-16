@@ -20,6 +20,11 @@ bool AppUi::needsRedraw(uint64_t nowMs) const {
     std::lock_guard<std::mutex> lock(mutex_);
     if (screen_ == Screen::Streaming) return false;
     if (dirty_ || animating_) return true;
+    // Efficient 24 fps redraw for the continuously rotating disc.
+    if (screen_ == Screen::Details && nimboxCarousel_ && tab_ == Tab::GamePass &&
+        !nimboxReducedMotion_ && !detail_.purchasable &&
+        !gameSettingsOpen_ && !achievementsOpen_ &&
+        nowMs - lastRender_ >= 42) return true;
     if (mouseCursorVisible_ && nowMs >= mouseCursorVisibleUntil_) return true;
     // A desktop's toast came or went (the PS5 sends system notifications).
     if (platform::toastsEnabled() && platform::toasts().version(nowMs) != toastsDrawn_) return true;
@@ -1388,158 +1393,36 @@ void AppUi::drawHome(Canvas& c, uint64_t nowMs) {
     drawToast(c, nowMs);
 }
 
-// Animated physical jewel case on the game-details page. The rear tray
-// contains a virtual printed disc; the hinged front cover swings open through
-// a flattened cosine projection. No official disc/retail packaging is implied.
-void AppUi::drawNimboxOpenCase(Canvas& c, const GameTile& tile) {
-    // Entrance: the selected case travels from shelf centre into the details panel.
-    const float enter = std::clamp(nimboxDetailIntro_.value / 1000.0f, 0.0f, 1.0f);
-    const int hingeX = 1500 - static_cast<int>((1.0f - enter) * 145.0f);
-    const int y = 205 + static_cast<int>((1.0f - enter) * 42.0f);
-    constexpr int width = 313;
-    constexpr int height = 438;
-    // R1 rotates the case to an informational back insert. Only catalog
-    // facts are printed; retail screenshots, ratings and platform emblems are
-    // not fabricated. The intermediate width creates a half-turn illusion.
-    constexpr float pi = 3.14159265358979323846f;
-    const float flip = std::clamp(nimboxBackFlip_.value / 1000.0f, 0.0f, 1.0f);
-    const bool showBack = flip >= 0.5f ? nimboxBackCover_ : !nimboxBackCover_;
-    const float flipWidth = std::max(0.05f, std::fabs(std::cos(flip * pi)));
-    if (showBack) {
-        c.fillRect({1136, 168, 710, 548}, rgba(4, 13, 19, 180), 17);
-        c.strokeRect({1136, 168, 710, 548}, rgba(128, 217, 214, 62), 1, 17);
-        const int bw = std::max(14, static_cast<int>(470.0f * flipWidth));
-        const int bx = hingeX - bw / 2 + 15;
-        const int by = y + 4;
-        c.fillRect({bx + 12, by + 14, bw, height}, rgba(0, 0, 0, 110), 10);
-        c.fillRect({bx, by, bw, height}, rgba(20, 90, 65), 9);
-        c.strokeRect({bx, by, bw, height}, rgba(166, 228, 193), 3, 9);
-        if (bw > 20) c.fillRect({bx + 8, by + 9, bw - 16, height - 18}, rgba(17, 43, 46), 6);
-        if (bw > 310) {
-            const int inset = 23;
-            fonts_.bold.draw(c, "NIMBOX   /   FICHA DO JOGO", bx + inset, by + 27, 19, rgba(193, 233, 225));
-            const auto name = fonts_.bold.wrap(tile.name, 29, bw - 2 * inset, 2);
-            int titleY = by + 67;
-            for (const auto& line : name) {
-                fonts_.bold.draw(c, line, bx + inset, titleY, 29, kWhite);
-                titleY += 38;
-            }
-            const int artY = std::max(by + 148, titleY + 8);
-            const int artH = 121;
-            if (auto art = images_.get(tile.heroUrl, bw - 2 * inset, artH))
-                c.drawImage(*art, bx + inset, artY, 255, 3);
-            else if (auto art = images_.get(tile.tileUrl, 120, 120))
-                c.drawImage(*art, bx + inset, artY, 255, 3);
-            else c.fillRect({bx + inset, artY, bw - 2 * inset, artH}, rgba(37, 73, 73), 3);
-            int infoY = artY + artH + 16;
-            std::string meta = tile.publisher;
-            if (!tile.categories.empty())
-                meta += (meta.empty() ? "" : "  -  ") + tile.categories.front();
-            if (meta.empty()) meta = "Xbox Cloud";
-            for (const auto& line : fonts_.regular.wrap(meta, 17, bw - 2 * inset, 2)) {
-                fonts_.regular.draw(c, line, bx + inset, infoY, 17, rgba(191, 219, 218));
-                infoY += 23;
-            }
-            if (infoY + 40 < by + height) {
-                for (const auto& line : fonts_.regular.wrap(tile.description, 17, bw - 2 * inset, 3)) {
-                    if (infoY + 22 > by + height - 16) break;
-                    fonts_.regular.draw(c, line, bx + inset, infoY + 7, 17, rgba(224, 238, 232));
-                    infoY += 24;
-                }
-            }
-        }
-        c.fillRect({1160, 679, 310, 51}, rgba(13, 59, 65, 220), 10);
-        c.fillRect({1490, 679, 343, 51}, rgba(13, 59, 65, 220), 10);
-        fonts_.semibold.draw(c, "FRENTE  /  R1", 1180, 696, 18, rgba(213, 246, 240));
-        fonts_.semibold.draw(c, "ABRIR CAIXA  /  R2", 1504, 696, 18, rgba(213, 246, 240));
-        return;
+// Nimbox details display a single virtual CD containing the game's catalog
+// art. The image rotates within a circular mask; Play and metadata are untouched.
+void AppUi::drawNimboxDisc(Canvas& c, const GameTile& tile, uint64_t nowMs) {
+    const float t = std::clamp(nimboxDetailIntro_.value / 1000.0f, 0.0f, 1.0f);
+    const float ease = t * t * (3.0f - 2.0f * t);
+    const float cx = 960.0f + 527.0f * ease;
+    constexpr float cy = 463.0f;
+    const float radius = 148.0f + 59.0f * ease;
+    const float rotation = nimboxReducedMotion_ ? 0.0f :
+                           static_cast<float>(nowMs % 60000ull) * 0.00115f;
+    // A restrained halo keeps the circular artwork readable over hero images.
+    c.fillCircle(cx + 13, cy + 17, radius + 24, rgba(1, 7, 12, 93));
+    c.strokeCircle(cx, cy, radius + 19, 3.0f, rgba(113, 223, 227, 86));
+    c.strokeCircle(cx, cy, radius + 10, 6.0f, rgba(156, 175, 183, 118));
+    c.fillCircle(cx, cy, radius + 2, rgba(198, 216, 217, 250));
+    if (auto art = images_.get(tile.tileUrl, 512, 512)) {
+        c.drawImageDisc(*art, cx, cy, radius - 4, rotation);
+    } else {
+        c.fillCircle(cx, cy, radius - 4, rgba(29, 76, 87));
+        c.strokeArc(cx, cy, radius * 0.77f, 14.0f, 0.6f, 2.1f,
+                    rgba(90, 174, 193, 165));
     }
-    const Color shell = rgba(18, 80, 60);
-    const Color edge = rgba(113, 205, 164);
-    const float open = std::clamp(nimboxCaseOpen_.value / 1000.0f, 0.0f, 1.0f);
-    const float turn = std::cos(open * pi);
-    const int faceW = std::max(1, static_cast<int>(std::lround(std::fabs(turn) * width)));
-    const bool onLeft = turn < 0.0f;
-    const int faceX = onLeft ? hingeX - faceW : hingeX;
-
-    // A quiet backing allows a readable open case even over bright hero art.
-    c.fillRect({1136, 168, 710, 548}, rgba(4, 13, 19, 166), 17);
-    c.strokeRect({1136, 168, 710, 548}, rgba(128, 217, 214, 52), 1, 17);
-    c.fillRect({1200, 664, 580, 12}, rgba(0, 0, 0, 150), 6);
-
-    // Rear tray (right): deep plastic, transparent edges, virtual media disc.
-    c.fillRect({hingeX - 4, y - 6, width + 15, height + 12}, rgba(10, 35, 30), 6);
-    c.fillRect({hingeX + 5, y + 6, width - 9, height - 12}, shell, 5);
-    c.strokeRect({hingeX + 3, y + 4, width - 5, height - 7}, edge, 3, 6);
-    c.fillRect({hingeX + 16, y + 24, width - 30, height - 51}, rgba(13, 27, 27), 8);
-    const float dcx = static_cast<float>(hingeX + width / 2);
-    const float dcy = static_cast<float>(y + height / 2);
-    constexpr float discR = 129.0f;
-    c.fillCircle(dcx + 5, dcy + 6, discR + 6, rgba(0, 0, 0, 130));
-    c.fillCircle(dcx, dcy, discR + 4, rgba(169, 186, 185));
-    c.strokeCircle(dcx, dcy, discR + 1, 5, rgba(235, 251, 248, 220));
-    c.fillCircle(dcx, dcy, discR - 4, rgba(44, 73, 75));
-    if (auto discArt = images_.get(tile.tileUrl, 236, 236))
-        c.drawImage(*discArt, static_cast<int>(dcx) - 118,
-                    static_cast<int>(dcy) - 118, 239, -1);
-    else
-        c.fillCircle(dcx, dcy, 116, rgba(37, 92, 91));
-    c.strokeCircle(dcx, dcy, 119.0f, 3, rgba(236, 244, 239, 185));
-    c.strokeCircle(dcx, dcy, 108.0f, 2, rgba(0, 0, 0, 95));
-    // Distinct inner hub of a physical optical disc.
-    c.fillCircle(dcx, dcy, 32, rgba(221, 227, 222, 245));
-    c.strokeCircle(dcx, dcy, 32, 4, rgba(101, 118, 117));
-    c.fillCircle(dcx, dcy, 13, rgba(9, 24, 27));
-    c.strokeCircle(dcx, dcy, 10, 2, rgba(180, 211, 207));
-    for (int i = 0; i < 3; ++i) {
-        const float shade = static_cast<float>(i * 8);
-        c.strokeArc(dcx, dcy, discR - 16 - shade, 2,
-                    -1.05f + 0.35f * i, 1.05f, rgba(245, 253, 245, 58));
-    }
-
-    // Front lid hinges at x=hingeX. Closed: in front of the right tray.
-    // Open: laid to its left, revealing both printed cover and disc.
-    const Quad cover{Point{static_cast<float>(faceX), static_cast<float>(y + (onLeft ? 7 : 0))},
-                     Point{static_cast<float>(faceX + faceW), static_cast<float>(y + (onLeft ? 0 : 7))},
-                     Point{static_cast<float>(faceX + faceW), static_cast<float>(y + height - (onLeft ? 0 : 7))},
-                     Point{static_cast<float>(faceX), static_cast<float>(y + height - (onLeft ? 7 : 0))}};
-    c.fillQuad(cover, rgba(13, 100, 64));
-    c.fillQuad(nimbox::verticalSlice(cover, 0.012f, 0.11f), rgba(224, 239, 230));
-    const Quad printedArt = nimbox::verticalSlice(cover, 0.118f, 0.78f);
-    if (auto art = images_.get(tile.tileUrl, 278, 278))
-        c.drawImageQuad(*art, printedArt);
-    else
-        c.fillQuad(printedArt, rgba(31, 83, 89));
-    c.fillQuad(nimbox::verticalSlice(cover, 0.78f, 0.985f), rgba(9, 47, 41));
-    c.line(cover.tl.x, cover.tl.y, cover.tr.x, cover.tr.y, 2, edge);
-    c.line(cover.bl.x, cover.bl.y, cover.br.x, cover.br.y, 2, rgba(5, 20, 18));
-    c.line(cover.tl.x, cover.tl.y, cover.bl.x, cover.bl.y, 3, rgba(167, 232, 205));
-    c.line(cover.tr.x, cover.tr.y, cover.br.x, cover.br.y, 5, rgba(4, 24, 21));
-
-    // Text is drawn only near the endpoints; it does not need to deform
-    // while the cover is edge-on in the middle of the transition.
-    if (faceW > 235) {
-        const bool xboxPlatform = tile.platform == "360" ||
-                                  tile.platform == "ONE" || tile.platform == "XS";
-        const char* platformName = tile.platform == "360" ? "XBOX 360" :
-                                   tile.platform == "ONE" ? "XBOX ONE" :
-                                   tile.platform == "XS" ? "XBOX SERIES" :
-                                   xboxPlatform ? "XBOX" : "XBOX CLOUD";
-        c.fillCircle(static_cast<float>(faceX + 25), static_cast<float>(y + 26),
-                     11.0f, rgba(16, 120, 66));
-        c.line(faceX + 20, y + 20, faceX + 30, y + 30, 2, kWhite);
-        c.line(faceX + 30, y + 20, faceX + 20, y + 30, 2, kWhite);
-        fonts_.bold.draw(c, platformName, faceX + 45, y + 17, 21, rgba(18, 69, 57));
-        const auto printedTitle = fonts_.semibold.wrap(tile.name, 19, faceW - 32, 2);
-        for (size_t n = 0; n < printedTitle.size(); ++n)
-            fonts_.semibold.draw(c, printedTitle[n], faceX + 16,
-                                 y + height - 87 + static_cast<int>(n) * 24, 19, kWhite);
-    }
-    c.fillRect({hingeX - 4, y, 9, height}, rgba(129, 217, 184, 135), 3);
-    c.fillRect({1160, 679, 310, 51}, rgba(13, 59, 65, 220), 10);
-    c.fillRect({1490, 679, 343, 51}, rgba(13, 59, 65, 220), 10);
-    fonts_.semibold.draw(c, "VERSO  /  R1", 1180, 696, 18, rgba(213, 246, 240));
-    fonts_.semibold.draw(c, "ABRIR/FECHAR  /  R2", 1504, 696, 18, rgba(213, 246, 240));
+    c.strokeCircle(cx, cy, radius - 4, 2.5f, rgba(238, 250, 250, 202));
+    c.strokeCircle(cx, cy, radius * 0.88f, 1.5f, rgba(244, 253, 253, 72));
+    // Metallic inner hub with spindle hole; fixed while the art spins.
+    c.fillCircle(cx, cy, 40.0f, rgba(218, 228, 229, 247));
+    c.strokeCircle(cx, cy, 39.5f, 3.0f, rgba(95, 134, 143));
+    c.strokeCircle(cx, cy, 29.0f, 5.0f, rgba(250, 254, 254, 165));
+    c.fillCircle(cx, cy, 16.0f, rgba(8, 20, 29));
+    c.strokeCircle(cx, cy, 16.0f, 3.0f, rgba(147, 181, 187));
 }
 
 void AppUi::drawDetails(Canvas& c, uint64_t nowMs) {
@@ -1566,7 +1449,7 @@ void AppUi::drawDetails(Canvas& c, uint64_t nowMs) {
     // Preserve the entire original left-side details, Play button and menu.
     // The new media display is strictly the unused right-hand visual area.
     if (nimboxCarousel_ && tab_ == Tab::GamePass && !g->purchasable)
-        drawNimboxOpenCase(c, *g);
+        drawNimboxDisc(c, *g, nowMs);
     int y = 260;
     for (const auto& line : fonts_.bold.wrap(g->name, 68, 960, 2)) {
         fonts_.bold.draw(c, line, kMargin, y, 68, kWhite);
@@ -2295,8 +2178,6 @@ void AppUi::render(Canvas& c, uint64_t nowMs) {
     animating_ |= gridScroll_.step(dt);
     animating_ |= resultScroll_.step(dt);
     animating_ |= nimboxSlide_.step(dt);
-    animating_ |= nimboxCaseOpen_.step(dt);
-    animating_ |= nimboxBackFlip_.step(dt);
     animating_ |= nimboxDetailIntro_.step(dt);
     if (nimboxReturningHome_ && nimboxDetailIntro_.value <= 0.5f) {
         nimboxReturningHome_ = false;
