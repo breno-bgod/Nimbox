@@ -1,5 +1,5 @@
 # Nimbox 3D Library — Plano técnico (Fase 0)
-Status: protótipo experimental; NÃO substitui a interface nativa.
+Status: protótipo web + MVP visual 2.5D implementado na interface nativa; ainda SEM validação de compilação/dispositivo. Não substitui a interface clássica por padrão.
 Referência visual: vídeo fornecido pelo usuário em 16/11/2026 (carrossel de caixas físicas em perspectiva, caixa selecionada central, detalhes de verso, disco e encarte).
 
 ## Objetivo
@@ -20,11 +20,11 @@ Criar uma biblioteca visual original com apresentação de jogos como mídias f�
 - [x] Criar uma demonstração isolada em HTML/CSS/JS para validar o conceito de navegação e estética (não é o APK).
 - [ ] Revisar o protótipo com o usuário; definir design final de caixas e identidade.
 ### Fase 1 — MVP no aplicativo
-- [ ] Implementar layout de carrossel de capas com leve perspectiva na UI nativa, com foco central.
-- [ ] Reusar dados reais de `GameTile` e imagem existente de `ImageCache`; placeholder para capas indisponíveis.
-- [ ] Usar navegação de `NavInput` (esquerda/direita, aceitar, voltar) preservando a lógica de seleção já validada.
-- [ ] Colocar atrás de alternância experimental; preservar modo clássico para rollback.
-- [ ] Medir FPS, tempo de desenho e memória em Android.
+- [x] Implementar primeira renderização nativa de carrossel 2.5D (caixas com lombada, cinco posições, foco central). Não é rotação 3D real.
+- [x] Reusar `GameTile` e `ImageCache` com placeholder para capas indisponíveis.
+- [x] Reutilizar navegação existente de `NavInput` e fluxo de abertura de detalhes sem modificar a lógica de execução dos jogos.
+- [x] Alternância temporária com R3 na home Game Pass; modo clássico é padrão e continua intacto.
+- [ ] Compilar em CI, medir FPS, tempo de desenho e memória em Android.
 ### Fase 2 — Caixa 3D
 - [ ] Definir renderer: textura de capa/lombada/verso, transformações, sombra e oclusão.
 - [ ] Garantir desenho correto e suave em plataformas de destino, evitando regressões na UI nativa.
@@ -65,3 +65,11 @@ Criar uma biblioteca visual original com apresentação de jogos como mídias f�
 - Este documento é a especificação inicial.
 - `docs/prototypes/nimbox-3d-library.html` é um protótipo de interação sem ligação com xCloud; usa capas ilustrativas geradas por CSS, não imagens de jogos reais.
 - Integração nativa e APK virão apenas após validação do desenho e das regras de navegação.
+
+## Implementação inicial (continuação da Fase 1)
+- `src/ui/app_ui_render.cpp`: `drawNimboxCarousel` usa renderização 2D do Canvas para criar caixas em perspectiva aproximada, com lombada, borda de foco, placeholder e metadados reais.
+- `src/ui/app_ui.h`: flag temporária `nimboxCarousel_`, desligada por padrão; método de desenho declarado.
+- `src/ui/app_ui_input.cpp`: R3 alterna exibição quando o usuário está na Home, aba Game Pass, fora da pesquisa.
+- Sem mudanças em autenticação, catálogo, WebRTC, protocolo, decodificação ou sessão.
+- PENDÊNCIA CRÍTICA: compilar e validar visual; não afirmar que APK foi produzido ou que este MVP está homologado.
+- LIMITAÇÃO: as imagens fornecidas pelo catálogo podem ser quadradas e serão ajustadas a um retângulo vertical; a arte final exige tratamento específico.
