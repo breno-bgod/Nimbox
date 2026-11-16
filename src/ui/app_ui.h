@@ -562,7 +562,7 @@ private:
     void drawSignIn(Canvas& c, uint64_t nowMs);
     void drawHome(Canvas& c, uint64_t nowMs);
     void drawNimboxCarousel(Canvas& c, uint64_t nowMs);
-    void drawNimboxOpenCase(Canvas& c, const GameTile& tile);
+    void drawNimboxDisc(Canvas& c, const GameTile& tile, uint64_t nowMs);
     void drawTabs(Canvas& c);
     void drawConsoles(Canvas& c, uint64_t nowMs);
     void drawLibrary(Canvas& c, uint64_t nowMs);
@@ -692,16 +692,10 @@ private:
     // Scaled to 1000 because Anim::step uses a 0.5-unit snap threshold.
     // Signed visual displacement of newly selected case while it slides into place.
     Anim nimboxSlide_;
-    // 0 = closed case, 1000 = open case; only used in Nimbox details view.
-    Anim nimboxCaseOpen_;
-    // Session-only visual accessibility mode, usable without changing global
-    // settings or the streaming pipeline. R2 toggles it in the carousel.
+    // R2 toggles reduced motion only in the experimental carousel.
     bool nimboxReducedMotion_ = false;
-    // R1 toggles the virtual printed back cover on the details screen.
-    bool nimboxBackCover_ = false;
-    Anim nimboxBackFlip_;  // 0..1000: animated front/back turn
-    Anim nimboxDetailIntro_;  // 0..1000: cinematic fade-in of details stage
-    bool nimboxReturningHome_ = false;  // finish the exit transition before switching screens
+    Anim nimboxDetailIntro_;  // cinematic library-to-details transition
+    bool nimboxReturningHome_ = false; // finish exit before switching screens
     Tab tab_ = Tab::GamePass;
     // Experimental, opt-in, session-only visual mode. R3 toggles in Game Pass home.
     bool nimboxCarousel_ = false;

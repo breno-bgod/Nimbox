@@ -73,6 +73,9 @@ public:
     // Used only by the opt-in Nimbox box-carousel screen.
     void fillQuad(const Quad& quad, Color color);
     void drawImageQuad(const Image& img, const Quad& quad, uint8_t opacity = 255);
+    // Rotated artwork clipped to a genuine circle for the virtual optical disc.
+    void drawImageDisc(const Image& img, float cx, float cy, float radius,
+                       float radians, uint8_t opacity = 255);
     // Blends a single colour through an 8-bit coverage mask (text, QR).
     void drawMask(const uint8_t* mask, int mw, int mh, int stride, int x, int y, Color c);
 

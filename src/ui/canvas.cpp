@@ -356,6 +356,48 @@ void Canvas::drawQuadImpl(const Quad& q, Color solid, const Image* image, uint8_
     }
 }
 
+void Canvas::drawImageDisc(const Image& img, float cx, float cy, float radius,
+                           float radians, uint8_t opacity) {
+    if (radius <= 0.0f || opacity == 0 || img.w <= 0 || img.h <= 0 || img.px.empty()) return;
+    const Rect rect{static_cast<int>(std::floor(cx - radius - 1)),
+                    static_cast<int>(std::floor(cy - radius - 1)),
+                    static_cast<int>(std::ceil(radius * 2.0f + 3)),
+                    static_cast<int>(std::ceil(radius * 2.0f + 3))};
+    const Rect clip = intersect(rect, clip_);
+    const float cosine = std::cos(radians), sine = std::sin(radians);
+    const float radius2 = radius * radius;
+    for (int y = clip.y; y < clip.y + clip.h; ++y) {
+        for (int x = clip.x; x < clip.x + clip.w; ++x) {
+            const float dx = x + 0.5f - cx, dy = y + 0.5f - cy;
+            const float length2 = dx * dx + dy * dy;
+            if (length2 >= radius2) continue;
+            const float rx = cosine * dx + sine * dy;
+            const float ry = -sine * dx + cosine * dy;
+            const float u = std::clamp((rx / radius * 0.5f + 0.5f) * (img.w - 1), 0.0f, float(img.w - 1));
+            const float v = std::clamp((ry / radius * 0.5f + 0.5f) * (img.h - 1), 0.0f, float(img.h - 1));
+            const int x0 = static_cast<int>(u), y0 = static_cast<int>(v);
+            const int x1 = std::min(x0 + 1, img.w - 1), y1 = std::min(y0 + 1, img.h - 1);
+            const float tx = u - x0, ty = v - y0;
+            const uint32_t a = img.px[static_cast<size_t>(y0) * img.w + x0];
+            const uint32_t b = img.px[static_cast<size_t>(y0) * img.w + x1];
+            const uint32_t d = img.px[static_cast<size_t>(y1) * img.w + x0];
+            const uint32_t e = img.px[static_cast<size_t>(y1) * img.w + x1];
+            auto sample = [tx, ty](uint32_t aa, uint32_t bb, uint32_t dd, uint32_t ee, int shift) -> uint8_t {
+                const float first = float((aa >> shift) & 255u) * (1.0f - tx) +
+                                    float((bb >> shift) & 255u) * tx;
+                const float second = float((dd >> shift) & 255u) * (1.0f - tx) +
+                                     float((ee >> shift) & 255u) * tx;
+                return static_cast<uint8_t>(std::clamp(first * (1.0f - ty) + second * ty, 0.0f, 255.0f));
+            };
+            const Color color = rgba(sample(a,b,d,e,0), sample(a,b,d,e,8),
+                                     sample(a,b,d,e,16), sample(a,b,d,e,24));
+            const float coverage = std::clamp(radius + 0.5f - std::sqrt(length2), 0.0f, 1.0f);
+            const uint32_t alpha = static_cast<uint32_t>(alphaOf(color) * (opacity / 255.0f) * coverage);
+            blend(px_[static_cast<size_t>(y) * w_ + x], color, alpha);
+        }
+    }
+}
+
 void Canvas::fillQuad(const Quad& q, Color color) { drawQuadImpl(q, color, nullptr, 255); }
 
 void Canvas::drawImageQuad(const Image& img, const Quad& q, uint8_t opacity) {
