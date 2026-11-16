@@ -1002,10 +1002,90 @@ void AppUi::drawConsoles(Canvas& c, uint64_t nowMs) {
     drawToast(c, nowMs);
 }
 
+// Nimbox 3D Library: opt-in native 2.5D box carousel (phase 1 MVP).
+// Uses only existing Canvas primitives and ImageCache; no streaming changes.
+// Perspective is suggested by case spacing, size, spine and depth order.
+// True textured 3D transforms, back cover and case opening are phase 2.
+void AppUi::drawNimboxCarousel(Canvas& c, uint64_t nowMs) {
+    c.clear(rgba(9, 14, 25));
+    c.gradientV({0, 130, kW, 780}, rgba(20, 44, 61), rgba(9, 14, 25));
+    c.fillRect({120, 775, kW - 240, 2}, rgba(96, 184, 204, 95));
+    drawTopBar(c);
+    drawTabs(c);
+
+    if (rows_.empty()) {
+        drawCentered(c, fonts_.semibold, tr(Str::NoGames), 480, 34, kWhite);
+        drawHints(c, {{kIconR3, "Classic UI"}, {kIconOptions, tr(Str::Settings)}});
+        drawPads(c);
+        drawToast(c, nowMs);
+        return;
+    }
+
+    const int rowIdx = std::clamp(focusRow_, 0, static_cast<int>(rows_.size()) - 1);
+    const GameRow& row = rows_[static_cast<size_t>(rowIdx)];
+    const int count = static_cast<int>(row.tiles.size());
+    const int selected = count ? std::clamp(focusCol_[static_cast<size_t>(rowIdx)], 0, count - 1) : 0;
+
+    fonts_.semibold.draw(c, "NIMBOX 3D LIBRARY", 124, 177, 23, rgba(110, 222, 240));
+    fonts_.regular.draw(c, row.title, 124, 222, 26, kGray);
+
+    if (count) {
+        // Paint distant cases first, the selected case last; 5 visible at once.
+        for (int distance = 2; distance >= 0; --distance) {
+            for (int direction = -1; direction <= 1; ++direction) {
+                if ((distance == 0 && direction != 0) || (distance > 0 && direction == 0)) continue;
+                const int offset = distance * direction;
+                const int idx = selected + offset;
+                if (idx < 0 || idx >= count) continue;
+                const GameTile& tile = row.tiles[static_cast<size_t>(idx)];
+                const bool focused = offset == 0;
+                const int w = focused ? 284 : distance == 1 ? 218 : 169;
+                const int h = focused ? 414 : distance == 1 ? 327 : 258;
+                const int x = kW / 2 + offset * 310 - w / 2;
+                const int y = focused ? 289 : distance == 1 ? 348 : 394;
+                const int spine = focused ? 19 : 13;
+
+                c.fillRect({x + 20, y + h + 15, w - 12, 12}, rgba(0, 0, 0, focused ? 135 : 70), 6);
+                c.fillRect({x - spine, y + 6, spine + 8, h - 4}, rgba(48, 112, 139), 3);
+                c.gradientV({x, y, w, h}, rgba(39, 75, 96), rgba(16, 32, 50));
+                c.fillRect({x, y, w, 29}, rgba(191, 231, 240));
+                fonts_.bold.draw(c, "NIMBOX", x + 11, y + 6, 15, rgba(13, 44, 60));
+                if (auto cover = images_.get(tile.tileUrl, w - 12, h - 41)) {
+                    c.drawImage(*cover, x + 6, y + 34, focused ? 255 : 212, 2);
+                } else {
+                    c.fillRect({x + 6, y + 34, w - 12, h - 41}, rgba(35, 49, 67), 2);
+                    const auto label = fonts_.semibold.wrap(tile.name, 19, w - 34, 3);
+                    for (size_t n = 0; n < label.size(); ++n)
+                        fonts_.semibold.draw(c, label[n], x + 17, y + h / 2 + static_cast<int>(n) * 25, 19, kWhite);
+                }
+                c.strokeRect({x - spine, y, w + spine, h}, focused ? rgba(112, 224, 243) : rgba(142, 175, 195, 95),
+                             focused ? 3 : 1, 4);
+                if (focused && !tile.playable) drawLock(c, x + w - 26, y + 62);
+            }
+        }
+        const GameTile& tile = row.tiles[static_cast<size_t>(selected)];
+        drawCentered(c, fonts_.bold, tile.name, 828, 39, kWhite);
+        std::string meta = tile.publisher;
+        if (!tile.categories.empty()) {
+            if (!meta.empty()) meta += "  -  ";
+            meta += tile.categories.front();
+        }
+        drawCentered(c, fonts_.regular, meta, 882, 21, kGray);
+        drawCentered(c, fonts_.semibold, std::to_string(selected + 1) + " / " + std::to_string(count),
+                     925, 18, rgba(110, 222, 240));
+    }
+    c.gradientV({0, 968, kW, 112}, withAlpha(kBg, 0), kBg);
+    drawHints(c, {{kIconCross, tr(Str::Select)}, {kIconR3, "Classic UI"},
+                  {kIconTriangle, tr(Str::TabSearch)}, {kIconOptions, tr(Str::Settings)}});
+    drawPads(c);
+    drawToast(c, nowMs);
+}
+
 void AppUi::drawHome(Canvas& c, uint64_t nowMs) {
     if (searching_) return drawSearch(c, nowMs);
     if (tab_ == Tab::Library) return drawLibrary(c, nowMs);
     if (tab_ == Tab::Consoles) return drawConsoles(c, nowMs);
+    if (nimboxCarousel_) return drawNimboxCarousel(c, nowMs);
     const GameTile* focus = focusedTile();
     c.clear(kBg);
     std::string hero;
