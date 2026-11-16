@@ -121,3 +121,40 @@ Esta é uma implementação **experimental** da primeira interação da Fase 2, 
 3. R2 ou toque abre/fecha; segurar botão não dispara jogo acidentalmente.
 4. A animação de troca no carrossel mantém a seleção e o hit-test corretos.
 5. O antigo visual continua reversível e o streaming não é modificado.
+
+
+## Continuação — Polimento proposto e implementado em branch experimental (2026-11-16)
+
+Objetivo: incorporar melhorias solicitadas após as imagens de referência sem antecipar que todas estejam prontas para publicação. A interface continua em Canvas 2,5D.
+
+### Implementações desta iteração
+- [x] **Contracapa interativa** nos detalhes por R1: imprime nome, editora, gênero, descrição e uma imagem da sessão/hero, quando disponível. Não inventa informações de varejo nem imagens oficiais de contracapas.
+- [x] **Transições entre menus**: ao abrir detalhes, a caixa se desloca da posição central da biblioteca para a lateral e abre. Ao voltar, a caixa fecha e a tela retorna à biblioteca, sem iniciar o jogo por engano.
+- [x] **Luz de ambiente do catálogo**: a tonalidade de fundo é derivada da cor dominante da capa, já calculada/cached pelo código existente, com limitação de intensidade para assegurar legibilidade.
+- [x] **Coleções existentes visíveis**: título da linha e indicação de posição/quantidade; os controles cima/baixo continuam trocando as linhas da fonte original.
+- [x] **Animações reduzidas**: R2 na biblioteca Nimbox ou botão touch superior alternam o modo de movimento reduzido na sessão. Animação da tampa e transição de entrada são omitidas nesse modo. Na página de detalhes R2 continua abrindo/fechando a caixa.
+- [x] **Identidade Android Alpha**: ícone vetorial com monograma N e banner próprio na configuração debug; release mantém os recursos originais para evitar rebranding fora da branch experimental.
+
+### Implementações anteriores preservadas
+- [x] Carrossel de caixas em perspectiva, miniaturas reais, navegação circular.
+- [x] Caixa que abre automaticamente com bandeja de disco virtual na tela de detalhes.
+- [x] Branding NIMBOX na interface nativa experimental, sem remover créditos do projeto-base.
+
+### Limitações e próximos critérios
+- [ ] **Renderização GPU 3D real**: projeção com câmera, modelos e luzes físicas precisa ser projetada e avaliada à parte. O desenho atual é 2,5D por software e pode não atingir FPS ideais em aparelhos modestos.
+- [ ] **Reflexos fotorealistas e sombras**: efeitos avançados dependem de análise de desempenho e talvez de backend gráfico novo.
+- [ ] **Novas coleções por filtros**: ainda não reestruturar catálogo, favoritos ou dados de jogos; validar primeiro as categorias/linhas existentes.
+- [ ] **Rebranding definitivo**: o nome de pacote release, ícones release e outros textos legados requerem decisão explícita de versão pública, fora deste PR experimental.
+- [ ] **Teste do último commit no GitHub Actions**: Android build e artefato devem apontar para o SHA correto; Windows já possuía falha independente.
+- [ ] **Teste no Samsung S23**: captura de tela/vídeo das transições; verificar R1, R2, toque, foco de capas, sem-capa, desempenho, login e iniciar jogo.
+- [ ] Não mergear PR #1 antes de feedback visual e homologação funcional.
+
+### Guia de teste Alpha
+1. Instalar o novo APK debug com rótulo Nimbox Alpha ao lado do app existente.
+2. Acessar Home Game Pass; ativar carrossel por R3.
+3. Trocar coleções por cima/baixo e capas por esquerda/direita ou toque.
+4. R2 na biblioteca altera movimento normal/reduzido; no modo reduzido repetir navegação para confirmar ausência de animação.
+5. Abrir detalhes da caixa central; testar animação de abertura e fechamento por R2/toque.
+6. R1 mostra contracapa; voltar com R1; voltar à biblioteca e verificar a animação de retorno.
+7. Iniciar jogo, verificar o fluxo existente sem mudanças em streaming.
+
