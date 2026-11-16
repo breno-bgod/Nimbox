@@ -96,3 +96,28 @@ Criar uma biblioteca visual original com apresentação de jogos como mídias f�
 2. Caixa central maior com espessura e plataforma rotulada, sem confundir uma miniatura de catálogo com uma arte oficial de mídia física.
 3. Tocar numa caixa lateral muda a seleção; tocar na central abre detalhes; R3 devolve a UI clássica.
 4. Não executar merge do PR #1 antes da aceitação do usuário.
+
+## Continuação — Caixa aberta, disco e animações (pedido com captura de tela, 2026-11-16)
+Esta é uma implementação **experimental** da primeira interação da Fase 2, ainda dependente de homologação da Fase 1B no aparelho. Não representa a conclusão da Fase 2.
+
+### Mudanças
+- [x] `AppUi::drawNimboxOpenCase`: caixa virtual à direita do menu de detalhes, com tampa articulada à esquerda e bandeja do disco à direita, seguindo a composição da referência enviada.
+- [x] Etiqueta do disco derivada da arte já disponível em `GameTile::tileUrl`, com anéis e furo centrais. **Não é a arte oficial de um disco físico.**
+- [x] Animação automática de abertura ao entrar nos detalhes pelo carrossel Nimbox. Possível fechar/reabrir via R2 ou toque na caixa. A página clássica permanece inalterada.
+- [x] `nimboxSlide_`: transição suave das caixas ao navegar com direcional ou selecionar por toque, usando o mesmo conjunto de coordenadas no render e no hit-testing.
+- [x] Detalhes preservam título, metadados, Play, favoritos, wishlist, conquistas e ajustes; páginas de compra ainda exibem QR da loja em vez da nova caixa.
+- [ ] Testar exatamente o commit desta etapa no Android; capturar vídeo do movimento e da abertura da caixa.
+- [ ] Refinar efeitos de dobradiça, iluminação/reflexo do disco, fidelidade visual e desempenho, conforme avaliação em dispositivo real.
+
+### Controle e fallback
+- **Home Game Pass:** R3 ativa ou desativa carrossel experimental; seta esquerda/direita troca seleção animada.
+- **Detalhes do jogo no modo Nimbox:** caixa abre automaticamente; R2 ou toque na área da caixa inverte a animação.
+- **Modo clássico:** nenhum desenho de disco/caixa, nenhum novo gesto.
+- Compilação do *commit anterior* `9bd6b16` passou em Android e Linux, mas Windows falhou em job específico; esta alteração tem seu próprio CI pendente e não deve ser confundida com o APK anterior.
+
+### Critérios de aceite adicionais
+1. A caixa não cobre o botão Jogar ou as informações essenciais do jogo.
+2. Na tela de detalhes a tampa abre para a esquerda e o disco aparece à direita.
+3. R2 ou toque abre/fecha; segurar botão não dispara jogo acidentalmente.
+4. A animação de troca no carrossel mantém a seleção e o hit-test corretos.
+5. O antigo visual continua reversível e o streaming não é modificado.
