@@ -37,6 +37,11 @@ void AppUi::handleHome(const NavInput& in, UiEvent& ev) {
         if (tab_ == Tab::Consoles) ev.action = Action::ConsolesShown;
         return;
     }
+    if (in.r3 && !searching_ && tab_ == Tab::GamePass) {
+        nimboxCarousel_ = !nimboxCarousel_;
+        dirty_ = true;
+        return;
+    }
     if (in.l3 && !searching_) {
         ev.action = Action::RefreshLibrary;
         return;
