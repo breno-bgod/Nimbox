@@ -561,6 +561,7 @@ private:
     void drawSplash(Canvas& c, uint64_t nowMs);
     void drawSignIn(Canvas& c, uint64_t nowMs);
     void drawHome(Canvas& c, uint64_t nowMs);
+    void drawNimboxCarousel(Canvas& c, uint64_t nowMs);
     void drawTabs(Canvas& c);
     void drawConsoles(Canvas& c, uint64_t nowMs);
     void drawLibrary(Canvas& c, uint64_t nowMs);
@@ -688,6 +689,8 @@ private:
     std::vector<Anim> rowScroll_;
     Anim rowY_;
     Tab tab_ = Tab::GamePass;
+    // Experimental, opt-in, session-only visual mode. R3 toggles in Game Pass home.
+    bool nimboxCarousel_ = false;
     std::vector<ConsoleTile> consoles_;
     bool allow1440_ = false;
     bool consolesKnown_ = false;
