@@ -2259,6 +2259,11 @@ void AppUi::render(Canvas& c, uint64_t nowMs) {
     animating_ |= nimboxCaseOpen_.step(dt);
     animating_ |= nimboxBackFlip_.step(dt);
     animating_ |= nimboxDetailIntro_.step(dt);
+    if (nimboxReturningHome_ && nimboxDetailIntro_.value <= 0.5f) {
+        nimboxReturningHome_ = false;
+        screen_ = Screen::Home;
+        nimboxSlide_.value = nimboxSlide_.target = 0.0f;
+    }
     dirty_ = false;
     switch (screen_) {
         case Screen::Splash: drawSplash(c, nowMs); break;
@@ -2266,6 +2271,14 @@ void AppUi::render(Canvas& c, uint64_t nowMs) {
         case Screen::Home: drawHome(c, nowMs); break;
         case Screen::Details:
             drawDetails(c, nowMs);
+            // Dim the contents during entering/leaving the case display.
+            // The top bar and Play UI retain their original hit targets.
+            if (nimboxCarousel_ && tab_ == Tab::GamePass && !nimboxReducedMotion_ &&
+                nimboxDetailIntro_.value < 999.5f) {
+                const float fade = std::clamp(1.0f - nimboxDetailIntro_.value / 1000.0f, 0.0f, 1.0f);
+                c.fillRect({0, 138, kW, kH - 138},
+                           rgba(3, 13, 21, static_cast<uint8_t>(fade * 210.0f)));
+            }
             if (gameSettingsOpen_) drawGameSettings(c);
             if (achievementsOpen_) drawAchievementsModal(c, nowMs);
             break;
