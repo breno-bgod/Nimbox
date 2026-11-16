@@ -1044,8 +1044,14 @@ void AppUi::openDetails(const GameTile& tile) {
     claimRect_ = {};
     // Begin the physical-case opening once the Details screen is entered.
     // The classic detail screen is unchanged, regardless of this animation.
+    const bool nimboxDetails = nimboxCarousel_ && tab_ == Tab::GamePass;
     nimboxCaseOpen_.value = 0.0f;
-    nimboxCaseOpen_.target = (nimboxCarousel_ && tab_ == Tab::GamePass) ? 1000.0f : 0.0f;
+    nimboxCaseOpen_.target = nimboxDetails ? 1000.0f : 0.0f;
+    nimboxBackCover_ = false;
+    nimboxBackFlip_.value = nimboxBackFlip_.target = 1000.0f;
+    nimboxDetailIntro_.value = nimboxDetails && !nimboxReducedMotion_ ? 0.0f : 1000.0f;
+    nimboxDetailIntro_.target = 1000.0f;
+    if (nimboxReducedMotion_) nimboxCaseOpen_.value = nimboxCaseOpen_.target;
     screen_ = Screen::Details;
     refreshDetail();
     dirty_ = true;
