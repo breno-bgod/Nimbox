@@ -1009,8 +1009,26 @@ void AppUi::drawConsoles(Canvas& c, uint64_t nowMs) {
 void AppUi::drawNimboxCarousel(Canvas& c, uint64_t nowMs) {
     const Color deep = rgba(8, 15, 24);
     const Color aqua = rgba(105, 218, 232);
+    // Follow the selected game's dominant artwork colour, cached by title URL.
+    // Clamp luminance to keep the interface and headings readable.
+    Color topShade = rgba(19, 57, 68);
+    if (const GameTile* selectedArt = focusedTile(); selectedArt && !selectedArt->tileUrl.empty()) {
+        auto ac = accents_.find(selectedArt->tileUrl);
+        if (ac == accents_.end()) {
+            if (auto img = images_.get(selectedArt->tileUrl, kCard, kCard)) {
+                Color sample = rgba(32, 104, 119);
+                if (dominantColor(*img, sample)) ac = accents_.emplace(selectedArt->tileUrl, sample).first;
+            }
+        }
+        if (ac != accents_.end()) {
+            const Color rgb = ac->second;
+            topShade = rgba(static_cast<uint8_t>(14 + (rgb & 255u) / 5),
+                            static_cast<uint8_t>(21 + ((rgb >> 8) & 255u) / 5),
+                            static_cast<uint8_t>(31 + ((rgb >> 16) & 255u) / 5));
+        }
+    }
     c.clear(deep);
-    c.gradientV({0, 136, kW, 700}, rgba(19, 57, 68), deep);
+    c.gradientV({0, 136, kW, 700}, topShade, deep);
     c.gradientH({0, 220, kW, 490}, rgba(11, 30, 43, 110), rgba(15, 70, 75, 60));
     c.fillRect({0, 745, kW, 2}, rgba(143, 216, 229, 72));
     c.gradientV({0, 746, kW, 170}, rgba(41, 72, 80, 100), rgba(7, 13, 22, 5));
@@ -1031,6 +1049,16 @@ void AppUi::drawNimboxCarousel(Canvas& c, uint64_t nowMs) {
 
     fonts_.semibold.draw(c, "NIMBOX  /  GAME COLLECTION", 106, 163, 23, aqua);
     fonts_.regular.draw(c, row.title, 106, 204, 25, rgba(205, 226, 233));
+    // The row already represents a collection in the original catalog.
+    // Up/down changes it without rebuilding the catalog or losing favorites.
+    const std::string section = "COLECAO " + std::to_string(rowIdx + 1) +
+                                " / " + std::to_string(rows_.size()) + "  -  CIMA/BAIXO";
+    fonts_.regular.draw(c, section, 106, 238, 17, rgba(151, 187, 197));
+    c.fillRect({1422, 146, 402, 79}, rgba(7, 24, 32, 183), 12);
+    c.strokeRect({1422, 146, 402, 79}, rgba(116, 196, 208, 88), 1, 12);
+    fonts_.semibold.draw(c, nimboxReducedMotion_ ? "R2  MOVIMENTO REDUZIDO" :
+                         "R2  ANIMACOES SUAVES", 1447, 174, 20, rgba(202, 237, 239));
+    fonts_.regular.draw(c, "TOQUE PARA ALTERNAR", 1447, 200, 14, rgba(143, 190, 202));
 
     auto drawCase = [&](int offset) {
         const int index = nimbox::indexForOffset(selected, count, offset);
@@ -1330,14 +1358,68 @@ void AppUi::drawHome(Canvas& c, uint64_t nowMs) {
 // contains a virtual printed disc; the hinged front cover swings open through
 // a flattened cosine projection. No official disc/retail packaging is implied.
 void AppUi::drawNimboxOpenCase(Canvas& c, const GameTile& tile) {
-    constexpr int hingeX = 1500;
-    constexpr int y = 205;
+    // Entrance: the selected case travels from shelf centre into the details panel.
+    const float enter = std::clamp(nimboxDetailIntro_.value / 1000.0f, 0.0f, 1.0f);
+    const int hingeX = 1500 - static_cast<int>((1.0f - enter) * 145.0f);
+    const int y = 205 + static_cast<int>((1.0f - enter) * 42.0f);
     constexpr int width = 313;
     constexpr int height = 438;
+    // R1 rotates the case to an informational back insert. Only catalog
+    // facts are printed; retail screenshots, ratings and platform emblems are
+    // not fabricated. The intermediate width creates a half-turn illusion.
+    constexpr float pi = 3.14159265358979323846f;
+    const float flip = std::clamp(nimboxBackFlip_.value / 1000.0f, 0.0f, 1.0f);
+    const bool showBack = flip >= 0.5f ? nimboxBackCover_ : !nimboxBackCover_;
+    const float flipWidth = std::max(0.05f, std::fabs(std::cos(flip * pi)));
+    if (showBack) {
+        c.fillRect({1136, 168, 710, 548}, rgba(4, 13, 19, 180), 17);
+        c.strokeRect({1136, 168, 710, 548}, rgba(128, 217, 214, 62), 1, 17);
+        const int bw = std::max(14, static_cast<int>(470.0f * flipWidth));
+        const int bx = hingeX - bw / 2 + 15;
+        const int by = y + 4;
+        c.fillRect({bx + 12, by + 14, bw, height}, rgba(0, 0, 0, 110), 10);
+        c.fillRect({bx, by, bw, height}, rgba(20, 90, 65), 9);
+        c.strokeRect({bx, by, bw, height}, rgba(166, 228, 193), 3, 9);
+        c.fillRect({bx + 8, by + 9, bw - 16, height - 18}, rgba(17, 43, 46), 6);
+        if (bw > 310) {
+            const int inset = 23;
+            fonts_.bold.draw(c, "NIMBOX   /   FICHA DO JOGO", bx + inset, by + 27, 19, rgba(193, 233, 225));
+            const auto name = fonts_.bold.wrap(tile.name, 29, bw - 2 * inset, 2);
+            int titleY = by + 67;
+            for (const auto& line : name) {
+                fonts_.bold.draw(c, line, bx + inset, titleY, 29, kWhite);
+                titleY += 38;
+            }
+            const int artY = std::max(by + 148, titleY + 8);
+            const int artH = 121;
+            if (auto art = images_.get(tile.heroUrl, bw - 2 * inset, artH))
+                c.drawImage(*art, bx + inset, artY, 255, 3);
+            else if (auto art = images_.get(tile.tileUrl, 120, 120))
+                c.drawImage(*art, bx + inset, artY, 255, 3);
+            else c.fillRect({bx + inset, artY, bw - 2 * inset, artH}, rgba(37, 73, 73), 3);
+            int infoY = artY + artH + 16;
+            std::string meta = tile.publisher;
+            if (!tile.categories.empty())
+                meta += (meta.empty() ? "" : "  -  ") + tile.categories.front();
+            if (meta.empty()) meta = "Xbox Cloud";
+            for (const auto& line : fonts_.regular.wrap(meta, 17, bw - 2 * inset, 2)) {
+                fonts_.regular.draw(c, line, bx + inset, infoY, 17, rgba(191, 219, 218));
+                infoY += 23;
+            }
+            if (infoY + 40 < by + height) {
+                for (const auto& line : fonts_.regular.wrap(tile.description, 17, bw - 2 * inset, 3)) {
+                    if (infoY + 22 > by + height - 16) break;
+                    fonts_.regular.draw(c, line, bx + inset, infoY + 7, 17, rgba(224, 238, 232));
+                    infoY += 24;
+                }
+            }
+        }
+        fonts_.semibold.draw(c, "R1  FRENTE  /  R2  ABRIR CAIXA", 1240, 695, 17, rgba(186, 222, 217));
+        return;
+    }
     const Color shell = rgba(18, 80, 60);
     const Color edge = rgba(113, 205, 164);
     const float open = std::clamp(nimboxCaseOpen_.value / 1000.0f, 0.0f, 1.0f);
-    constexpr float pi = 3.14159265358979323846f;
     const float turn = std::cos(open * pi);
     const int faceW = std::max(1, static_cast<int>(std::lround(std::fabs(turn) * width)));
     const bool onLeft = turn < 0.0f;
@@ -1380,7 +1462,6 @@ void AppUi::drawNimboxOpenCase(Canvas& c, const GameTile& tile) {
 
     // Front lid hinges at x=hingeX. Closed: in front of the right tray.
     // Open: laid to its left, revealing both printed cover and disc.
-    const int tilt = onLeft ? 4 : -4;
     const Quad cover{Point{static_cast<float>(faceX), static_cast<float>(y + (onLeft ? 7 : 0))},
                      Point{static_cast<float>(faceX + faceW), static_cast<float>(y + (onLeft ? 0 : 7))},
                      Point{static_cast<float>(faceX + faceW), static_cast<float>(y + height - (onLeft ? 0 : 7))},
@@ -1418,8 +1499,8 @@ void AppUi::drawNimboxOpenCase(Canvas& c, const GameTile& tile) {
                                  y + height - 87 + static_cast<int>(n) * 24, 19, kWhite);
     }
     c.fillRect({hingeX - 4, y, 9, height}, rgba(129, 217, 184, 135), 3);
-    fonts_.semibold.draw(c, "R2  /  TOQUE NA CAIXA PARA ABRIR OU FECHAR",
-                         1205, 694, 15, rgba(169, 219, 212));
+    fonts_.semibold.draw(c, "R1  CONTRACAPA  /  R2  ABRIR-FECHAR  /  TOQUE",
+                         1205, 694, 16, rgba(169, 219, 212));
 }
 
 void AppUi::drawDetails(Canvas& c, uint64_t nowMs) {
@@ -2176,6 +2257,8 @@ void AppUi::render(Canvas& c, uint64_t nowMs) {
     animating_ |= resultScroll_.step(dt);
     animating_ |= nimboxSlide_.step(dt);
     animating_ |= nimboxCaseOpen_.step(dt);
+    animating_ |= nimboxBackFlip_.step(dt);
+    animating_ |= nimboxDetailIntro_.step(dt);
     dirty_ = false;
     switch (screen_) {
         case Screen::Splash: drawSplash(c, nowMs); break;
