@@ -43,6 +43,12 @@ void AppUi::handleHome(const NavInput& in, UiEvent& ev) {
         dirty_ = true;
         return;
     }
+    if (nimboxCarousel_ && tab_ == Tab::GamePass && !searching_ && in.r2) {
+        nimboxReducedMotion_ = !nimboxReducedMotion_;
+        if (nimboxReducedMotion_) nimboxSlide_.value = nimboxSlide_.target = 0.0f;
+        dirty_ = true;
+        return;
+    }
     if (in.l3 && !searching_) {
         ev.action = Action::RefreshLibrary;
         return;
@@ -131,7 +137,7 @@ void AppUi::handleHome(const NavInput& in, UiEvent& ev) {
             // to both sides. Keep existing details, hidden-games and play flows.
             if (nimboxCarousel_ && count > 0 && (in.left || in.right)) {
                 col = (col + (in.right ? 1 : -1) + count) % count;
-                nimboxSlide_.value = in.right ? 1000.0f : -1000.0f;
+                nimboxSlide_.value = nimboxReducedMotion_ ? 0.0f : (in.right ? 1000.0f : -1000.0f);
                 nimboxSlide_.target = 0.0f;
                 retarget();
                 dirty_ = true;
@@ -844,6 +850,13 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
 
     if (screen_ == Screen::Home && !searching_) {
         if (nimboxCarousel_ && tab_ == Tab::GamePass) {
+            // Accessible touch alternative to the R2 reduced-motion shortcut.
+            if (x >= 1430 && x < 1810 && y >= 143 && y < 233) {
+                nimboxReducedMotion_ = !nimboxReducedMotion_;
+                if (nimboxReducedMotion_) nimboxSlide_.value = nimboxSlide_.target = 0.0f;
+                dirty_ = true;
+                return ev;
+            }
             if (!rows_.empty()) {
                 const int rowIndex = std::clamp(focusRow_, 0, static_cast<int>(rows_.size()) - 1);
                 const auto& tiles = rows_[static_cast<size_t>(rowIndex)].tiles;
@@ -862,7 +875,7 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
                             if (distance == 0) openDetails(tiles[static_cast<size_t>(index)]);
                             else {
                                 focusCol_[static_cast<size_t>(rowIndex)] = index;
-                                nimboxSlide_.value = static_cast<float>(offset) * 1000.0f;
+                                nimboxSlide_.value = nimboxReducedMotion_ ? 0.0f : static_cast<float>(offset) * 1000.0f;
                                 nimboxSlide_.target = 0.0f;
                                 retarget();
                                 dirty_ = true;
@@ -995,7 +1008,14 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
         // page. A tap opens/closes it without triggering the Play action.
         if (nimboxCarousel_ && tab_ == Tab::GamePass &&
             !detail_.purchasable && x >= 1140 && x <= 1845 && y >= 168 && y <= 742) {
-            nimboxCaseOpen_.target = nimboxCaseOpen_.target >= 500.0f ? 0.0f : 1000.0f;
+            if (nimboxBackCover_) {
+                nimboxBackCover_ = false;
+                nimboxBackFlip_.value = nimboxReducedMotion_ ? 1000.0f : 0.0f;
+                nimboxBackFlip_.target = 1000.0f;
+            } else {
+                nimboxCaseOpen_.target = nimboxCaseOpen_.target >= 500.0f ? 0.0f : 1000.0f;
+                if (nimboxReducedMotion_) nimboxCaseOpen_.value = nimboxCaseOpen_.target;
+            }
             dirty_ = true;
             return ev;
         }
@@ -1945,8 +1965,24 @@ UiEvent AppUi::handleLocked(const NavInput& in) {
                 dirty_ = true;
                 break;
             }
-            if (nimboxCarousel_ && tab_ == Tab::GamePass && in.r2) {
-                nimboxCaseOpen_.target = nimboxCaseOpen_.target >= 500.0f ? 0.0f : 1000.0f;
+            if (nimboxCarousel_ && tab_ == Tab::GamePass && in.r1 &&
+                !detail_.purchasable) {
+                nimboxBackCover_ = !nimboxBackCover_;
+                nimboxBackFlip_.value = nimboxReducedMotion_ ? 1000.0f : 0.0f;
+                nimboxBackFlip_.target = 1000.0f;
+                dirty_ = true;
+                break;
+            }
+            if (nimboxCarousel_ && tab_ == Tab::GamePass && in.r2 &&
+                !detail_.purchasable) {
+                if (nimboxBackCover_) {
+                    nimboxBackCover_ = false;
+                    nimboxBackFlip_.value = nimboxReducedMotion_ ? 1000.0f : 0.0f;
+                    nimboxBackFlip_.target = 1000.0f;
+                } else {
+                    nimboxCaseOpen_.target = nimboxCaseOpen_.target >= 500.0f ? 0.0f : 1000.0f;
+                    if (nimboxReducedMotion_) nimboxCaseOpen_.value = nimboxCaseOpen_.target;
+                }
                 dirty_ = true;
                 break;
             }
