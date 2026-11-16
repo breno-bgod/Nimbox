@@ -1048,6 +1048,7 @@ void AppUi::openDetails(const GameTile& tile) {
     nimboxCaseOpen_.value = 0.0f;
     nimboxCaseOpen_.target = nimboxDetails ? 1000.0f : 0.0f;
     nimboxBackCover_ = false;
+    nimboxReturningHome_ = false;
     nimboxBackFlip_.value = nimboxBackFlip_.target = 1000.0f;
     nimboxDetailIntro_.value = nimboxDetails && !nimboxReducedMotion_ ? 0.0f : 1000.0f;
     nimboxDetailIntro_.target = 1000.0f;
