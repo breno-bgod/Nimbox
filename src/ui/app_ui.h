@@ -701,6 +701,7 @@ private:
     bool nimboxBackCover_ = false;
     Anim nimboxBackFlip_;  // 0..1000: animated front/back turn
     Anim nimboxDetailIntro_;  // 0..1000: cinematic fade-in of details stage
+    bool nimboxReturningHome_ = false;  // finish the exit transition before switching screens
     Tab tab_ = Tab::GamePass;
     // Experimental, opt-in, session-only visual mode. R3 toggles in Game Pass home.
     bool nimboxCarousel_ = false;
