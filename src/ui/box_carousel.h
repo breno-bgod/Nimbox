@@ -46,13 +46,13 @@ inline CaseGeometry layout(int offset) {
         // slice of the printed cover is visible (approximately 67-80 deg).
         // Near boxes overlap far boxes; not a row of frontal posters.
         const int side = offset < 0 ? -1 : 1;
-        g.w = static_cast<float>(std::max(52, 118 - (d - 1) * 13));
+        g.w = static_cast<float>(std::max(112, 214 - (d - 1) * 20));
         g.h = static_cast<float>(430 - (d - 1) * 11);
         g.y = static_cast<float>(268 + (d - 1) * 7);
-        const float shelf = 175.0f + (d - 1) * 112.0f;
+        const float shelf = 185.0f + (d - 1) * 113.0f;
         g.x = side < 0 ? 960.0f - shelf - g.w : 960.0f + shelf;
-        const float tilt = static_cast<float>(31 + std::min(d, 5) * 3);
-        const float sw = static_cast<float>(29 + std::min(d, 5));
+        const float tilt = static_cast<float>(49 + std::min(d, 5) * 4);
+        const float sw = static_cast<float>(26 + std::min(d, 5));
         if (side < 0) {
             g.front = {{g.x, g.y + tilt}, {g.x + g.w, g.y},
                        {g.x + g.w, g.y + g.h},
