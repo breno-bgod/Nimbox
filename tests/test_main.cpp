@@ -6036,7 +6036,7 @@ static void testBlock3Features() {
         auto htmlRes = ws.handleRequest("GET", "/", "");
         CHECK(htmlRes.status == 200);
         CHECK(htmlRes.contentType.find("text/html") != std::string::npos);
-        CHECK(htmlRes.body.find("PSBOX CLOUD GAMING") != std::string::npos);
+        CHECK(htmlRes.body.find("NIMBOX") != std::string::npos);
         CHECK(htmlRes.body.find("logo-icon") != std::string::npos);
         CHECK(htmlRes.body.find("#107C41") != std::string::npos);
         CHECK(htmlRes.body.find("tabBtnGamePass") != std::string::npos);
@@ -7934,11 +7934,11 @@ static void testPlayerSwitchAndUnresolvedTiles() {
 
         auto resGenUi = srv.handleRequest("GET", "/generative_ui", "");
         CHECK(resGenUi.status == 200);
-        CHECK(resGenUi.body.find("PSBox - Interactive UI Layout Editor") != std::string::npos);
+        CHECK(resGenUi.body.find("Nimbox - Interactive UI Layout Studio") != std::string::npos);
 
         auto resGenUiHtml = srv.handleRequest("GET", "/generative_ui.html", "");
         CHECK(resGenUiHtml.status == 200);
-        CHECK(resGenUiHtml.body.find("PSBox - Interactive UI Layout Editor") != std::string::npos);
+        CHECK(resGenUiHtml.body.find("Nimbox - Interactive UI Layout Studio") != std::string::npos);
 
         // Verify USB / secondary controller deadzone with unpopulated raw sticks
         input::setDeadzone(0.15f, 0.15f);
