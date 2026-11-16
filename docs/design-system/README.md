@@ -20,3 +20,11 @@ Nesta fase, a fonte visual é o **Preview Premium 3.0**, com o Preview 3.1 como 
 ## Fluxo por fase
 
 **01 · Design System** → **02 · Componentes** → **03 · Motion e som** → **04 · Telas / QA visual**.
+
+## Fase 04 — Revisão visual por tela
+
+- [Plano de auditoria e aceite](phase-04/README.md)
+- [Matriz JSON das telas](phase-04/screens.json)
+- [Painel offline de revisão visual](phase-04/review.html)
+
+**Estado:** design/documentação; a galeria não substitui a interface C++ nem prova equivalência nativa.
