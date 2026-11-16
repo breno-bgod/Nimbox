@@ -1036,7 +1036,8 @@ void AppUi::drawNimboxCarousel(Canvas& c, uint64_t nowMs) {
         const int index = nimbox::indexForOffset(selected, count, offset);
         if (index < 0) return;
         const GameTile& tile = row.tiles[static_cast<size_t>(index)];
-        const nimbox::CaseGeometry g = nimbox::layout(offset);
+        const nimbox::CaseGeometry g = nimbox::layoutAnimated(
+            static_cast<float>(offset) + nimboxSlide_.value / 1000.0f);
         const int d = g.distance;
         const bool focused = d == 0;
         const Color shadow = rgba(0, 0, 0, focused ? 155 : 90);
@@ -1105,12 +1106,18 @@ void AppUi::drawNimboxCarousel(Canvas& c, uint64_t nowMs) {
         }
     };
 
-    // Draw outermost cases first so the inner ones occlude them naturally.
-    for (int d = nimbox::kSideCases; d >= 1; --d) {
-        drawCase(-d);
-        drawCase(d);
+    // Sort by the *animated* position so cases overlap in the correct
+    // order even halfway through a left/right navigation transition.
+    std::vector<int> order;
+    for (int d = -nimbox::kSideCases; d <= nimbox::kSideCases; ++d) {
+        if (nimbox::indexForOffset(selected, count, d) >= 0) order.push_back(d);
     }
-    if (count) drawCase(0);
+    const float shift = nimboxSlide_.value / 1000.0f;
+    std::stable_sort(order.begin(), order.end(), [shift](int a, int b) {
+        return std::fabs(static_cast<float>(a) + shift) >
+               std::fabs(static_cast<float>(b) + shift);
+    });
+    for (int offset : order) drawCase(offset);
 
     if (count) {
         const GameTile& current = row.tiles[static_cast<size_t>(selected)];
@@ -1319,6 +1326,102 @@ void AppUi::drawHome(Canvas& c, uint64_t nowMs) {
     drawToast(c, nowMs);
 }
 
+// Animated physical jewel case on the game-details page. The rear tray
+// contains a virtual printed disc; the hinged front cover swings open through
+// a flattened cosine projection. No official disc/retail packaging is implied.
+void AppUi::drawNimboxOpenCase(Canvas& c, const GameTile& tile) {
+    constexpr int hingeX = 1500;
+    constexpr int y = 205;
+    constexpr int width = 313;
+    constexpr int height = 438;
+    const Color shell = rgba(18, 80, 60);
+    const Color edge = rgba(113, 205, 164);
+    const float open = std::clamp(nimboxCaseOpen_.value / 1000.0f, 0.0f, 1.0f);
+    constexpr float pi = 3.14159265358979323846f;
+    const float turn = std::cos(open * pi);
+    const int faceW = std::max(1, static_cast<int>(std::lround(std::fabs(turn) * width)));
+    const bool onLeft = turn < 0.0f;
+    const int faceX = onLeft ? hingeX - faceW : hingeX;
+
+    // A quiet backing allows a readable open case even over bright hero art.
+    c.fillRect({1136, 168, 710, 548}, rgba(4, 13, 19, 166), 17);
+    c.strokeRect({1136, 168, 710, 548}, rgba(128, 217, 214, 52), 1, 17);
+    c.fillRect({1200, 664, 580, 12}, rgba(0, 0, 0, 150), 6);
+
+    // Rear tray (right): deep plastic, transparent edges, virtual media disc.
+    c.fillRect({hingeX - 4, y - 6, width + 15, height + 12}, rgba(10, 35, 30), 6);
+    c.fillRect({hingeX + 5, y + 6, width - 9, height - 12}, shell, 5);
+    c.strokeRect({hingeX + 3, y + 4, width - 5, height - 7}, edge, 3, 6);
+    c.fillRect({hingeX + 16, y + 24, width - 30, height - 51}, rgba(13, 27, 27), 8);
+    const float dcx = static_cast<float>(hingeX + width / 2);
+    const float dcy = static_cast<float>(y + height / 2);
+    constexpr float discR = 129.0f;
+    c.fillCircle(dcx + 5, dcy + 6, discR + 6, rgba(0, 0, 0, 130));
+    c.fillCircle(dcx, dcy, discR + 4, rgba(169, 186, 185));
+    c.strokeCircle(dcx, dcy, discR + 1, 5, rgba(235, 251, 248, 220));
+    c.fillCircle(dcx, dcy, discR - 4, rgba(44, 73, 75));
+    if (auto discArt = images_.get(tile.tileUrl, 236, 236))
+        c.drawImage(*discArt, static_cast<int>(dcx) - 118,
+                    static_cast<int>(dcy) - 118, 239, -1);
+    else
+        c.fillCircle(dcx, dcy, 116, rgba(37, 92, 91));
+    c.strokeCircle(dcx, dcy, 119.0f, 3, rgba(236, 244, 239, 185));
+    c.strokeCircle(dcx, dcy, 108.0f, 2, rgba(0, 0, 0, 95));
+    // Distinct inner hub of a physical optical disc.
+    c.fillCircle(dcx, dcy, 32, rgba(221, 227, 222, 245));
+    c.strokeCircle(dcx, dcy, 32, 4, rgba(101, 118, 117));
+    c.fillCircle(dcx, dcy, 13, rgba(9, 24, 27));
+    c.strokeCircle(dcx, dcy, 10, 2, rgba(180, 211, 207));
+    for (int i = 0; i < 3; ++i) {
+        const float shade = static_cast<float>(i * 8);
+        c.strokeArc(dcx, dcy, discR - 16 - shade, 2,
+                    -1.05f + 0.35f * i, 1.05f, rgba(245, 253, 245, 58));
+    }
+
+    // Front lid hinges at x=hingeX. Closed: in front of the right tray.
+    // Open: laid to its left, revealing both printed cover and disc.
+    const int tilt = onLeft ? 4 : -4;
+    const Quad cover{Point{static_cast<float>(faceX), static_cast<float>(y + (onLeft ? 7 : 0))},
+                     Point{static_cast<float>(faceX + faceW), static_cast<float>(y + (onLeft ? 0 : 7))},
+                     Point{static_cast<float>(faceX + faceW), static_cast<float>(y + height - (onLeft ? 0 : 7))},
+                     Point{static_cast<float>(faceX), static_cast<float>(y + height - (onLeft ? 7 : 0))}};
+    c.fillQuad(cover, rgba(13, 100, 64));
+    c.fillQuad(nimbox::verticalSlice(cover, 0.012f, 0.11f), rgba(224, 239, 230));
+    const Quad printedArt = nimbox::verticalSlice(cover, 0.118f, 0.78f);
+    if (auto art = images_.get(tile.tileUrl, 278, 278))
+        c.drawImageQuad(*art, printedArt);
+    else
+        c.fillQuad(printedArt, rgba(31, 83, 89));
+    c.fillQuad(nimbox::verticalSlice(cover, 0.78f, 0.985f), rgba(9, 47, 41));
+    c.line(cover.tl.x, cover.tl.y, cover.tr.x, cover.tr.y, 2, edge);
+    c.line(cover.bl.x, cover.bl.y, cover.br.x, cover.br.y, 2, rgba(5, 20, 18));
+    c.line(cover.tl.x, cover.tl.y, cover.bl.x, cover.bl.y, 3, rgba(167, 232, 205));
+    c.line(cover.tr.x, cover.tr.y, cover.br.x, cover.br.y, 5, rgba(4, 24, 21));
+
+    // Text is drawn only near the endpoints; it does not need to deform
+    // while the cover is edge-on in the middle of the transition.
+    if (faceW > 235) {
+        const bool xboxPlatform = tile.platform == "360" ||
+                                  tile.platform == "ONE" || tile.platform == "XS";
+        const char* platformName = tile.platform == "360" ? "XBOX 360" :
+                                   tile.platform == "ONE" ? "XBOX ONE" :
+                                   tile.platform == "XS" ? "XBOX SERIES" :
+                                   xboxPlatform ? "XBOX" : "XBOX CLOUD";
+        c.fillCircle(static_cast<float>(faceX + 25), static_cast<float>(y + 26),
+                     11.0f, rgba(16, 120, 66));
+        c.line(faceX + 20, y + 20, faceX + 30, y + 30, 2, kWhite);
+        c.line(faceX + 30, y + 20, faceX + 20, y + 30, 2, kWhite);
+        fonts_.bold.draw(c, platformName, faceX + 45, y + 17, 21, rgba(18, 69, 57));
+        const auto printedTitle = fonts_.semibold.wrap(tile.name, 19, faceW - 32, 2);
+        for (size_t n = 0; n < printedTitle.size(); ++n)
+            fonts_.semibold.draw(c, printedTitle[n], faceX + 16,
+                                 y + height - 87 + static_cast<int>(n) * 24, 19, kWhite);
+    }
+    c.fillRect({hingeX - 4, y, 9, height}, rgba(129, 217, 184, 135), 3);
+    fonts_.semibold.draw(c, "R2  /  TOQUE NA CAIXA PARA ABRIR OU FECHAR",
+                         1205, 694, 15, rgba(169, 219, 212));
+}
+
 void AppUi::drawDetails(Canvas& c, uint64_t nowMs) {
     const GameTile* g = &detail_;
     playRect_ = {};
@@ -1333,12 +1436,17 @@ void AppUi::drawDetails(Canvas& c, uint64_t nowMs) {
     if (!drawHero(c, nowMs, g->heroUrl, true)) {
         // No hero art (yet): the cover, until the art arrives and fades in.
         drawBackground(c);
-        if (g->playable || !g->purchasable || isFreeGame(*g)) {  // paid games show their QR code there instead
+        if (!(nimboxCarousel_ && tab_ == Tab::GamePass && !g->purchasable) &&
+            (g->playable || !g->purchasable || isFreeGame(*g))) {  // paid games show their QR code instead
             if (auto img = images_.get(g->tileUrl, kCover, kCover)) c.drawImage(*img, cover.x, cover.y, 255, 16);
             else c.fillRect(cover, kPlaceholder, 16);
         }
     }
     drawTopBar(c);
+    // Preserve the entire original left-side details, Play button and menu.
+    // The new media display is strictly the unused right-hand visual area.
+    if (nimboxCarousel_ && tab_ == Tab::GamePass && !g->purchasable)
+        drawNimboxOpenCase(c, *g);
     int y = 260;
     for (const auto& line : fonts_.bold.wrap(g->name, 68, 960, 2)) {
         fonts_.bold.draw(c, line, kMargin, y, 68, kWhite);
@@ -2066,6 +2174,8 @@ void AppUi::render(Canvas& c, uint64_t nowMs) {
     for (auto& a : rowScroll_) animating_ |= a.step(dt);
     animating_ |= gridScroll_.step(dt);
     animating_ |= resultScroll_.step(dt);
+    animating_ |= nimboxSlide_.step(dt);
+    animating_ |= nimboxCaseOpen_.step(dt);
     dirty_ = false;
     switch (screen_) {
         case Screen::Splash: drawSplash(c, nowMs); break;
