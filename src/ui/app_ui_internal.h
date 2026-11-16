@@ -82,7 +82,7 @@ constexpr bool kGameGroupStart[kGameRowCount] = {false, true, false, false, fals
 // The keyboard keys' screen: two columns of inputs, then "Reset to default".
 constexpr int kKeysPerColumn = input::kKeyActions / 2;
 // Updates on a desktop: the newest release's page (the app doesn't install it there).
-constexpr const char* kReleasesPage = "https://github.com/RafaelNGP/psbox-cloud-gaming/releases/latest";
+constexpr const char* kReleasesPage = "https://github.com/breno-bgod/Nimbox/releases";
 
 #if defined(__ANDROID__)
 constexpr int kSettingsRowW = 1140, kSettingsRowH = 46, kSettingsGap = 4, kSettingsGroupGap = 12, kSettingsRowPx = 25;
