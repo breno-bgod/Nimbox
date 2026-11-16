@@ -26,7 +26,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class MainActivity extends SDLActivity {
-    private static final String TAG = "PSBox";
+    private static final String TAG = "Nimbox";
     private static final int PERMISSION_REQUEST_BT = 1001;
     private static final int PERMISSION_REQUEST_AUDIO = 1002;
 
@@ -200,10 +200,10 @@ public class MainActivity extends SDLActivity {
                         mode = WifiManager.WIFI_MODE_FULL_LOW_LATENCY;
                     }
                     try {
-                        sWifiLock = wm.createWifiLock(mode, "PSBox:StreamingLock");
+                        sWifiLock = wm.createWifiLock(mode, "Nimbox:StreamingLock");
                     } catch (Exception ex) {
                         Log.w(TAG, "Failed creating low-latency wifi lock, falling back to high-perf: " + ex.getMessage());
-                        sWifiLock = wm.createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF, "PSBox:StreamingLock");
+                        sWifiLock = wm.createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF, "Nimbox:StreamingLock");
                     }
                     if (sWifiLock != null) {
                         sWifiLock.setReferenceCounted(false);

@@ -2,7 +2,9 @@
 // Copyright (C) 2026 RafaelNGP
 #include "app/report.h"
 
+#include <algorithm>
 #include <cctype>
+#include <initializer_list>
 #include <cstring>
 #include <set>
 
@@ -13,6 +15,7 @@ namespace {
 constexpr const char* kForm =
     "https://github.com/breno-bgod/Nimbox/issues/new?template=bug_report.yml";
 constexpr const char* kSessionStart = "=== PSBox Cloud Gaming starting ===";
+constexpr const char* kNimboxSessionStart = "=== Nimbox starting ===";
 
 // A query value: unreserved characters and a few safe ones as they are,
 // space as '+', the rest percent-encoded.
@@ -94,10 +97,16 @@ std::string sanitize(const std::string& text, const std::vector<std::string>& pr
 std::string logExcerpt(const std::string& logText, bool previousSession, size_t lastLines) {
     // The sessions' starts; the one wanted runs to the next (or the end).
     std::vector<size_t> starts;
-    for (size_t at = logText.find(kSessionStart); at != std::string::npos; at = logText.find(kSessionStart, at + 1)) {
-        size_t lineStart = logText.rfind('\n', at);
-        starts.push_back(lineStart == std::string::npos ? 0 : lineStart + 1);
+    // Keep recognizing legacy PSBox sessions while new Nimbox logs use the
+    // product's own name, without breaking previous-session diagnostics.
+    for (const char* marker : {kSessionStart, kNimboxSessionStart}) {
+        for (size_t at = logText.find(marker); at != std::string::npos; at = logText.find(marker, at + 1)) {
+            size_t lineStart = logText.rfind('\n', at);
+            starts.push_back(lineStart == std::string::npos ? 0 : lineStart + 1);
+        }
     }
+    std::sort(starts.begin(), starts.end());
+    starts.erase(std::unique(starts.begin(), starts.end()), starts.end());
     if (starts.empty()) starts.push_back(0);
     size_t idx = starts.size() - 1;
     if (previousSession) {
