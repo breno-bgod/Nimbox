@@ -1019,6 +1019,14 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
         // The animated jewel case occupies the right side of the details
         // page. A tap opens/closes it without triggering the Play action.
         if (nimboxCarousel_ && tab_ == Tab::GamePass &&
+            !detail_.purchasable && x >= 1160 && x <= 1470 && y >= 676 && y <= 735) {
+            nimboxBackCover_ = !nimboxBackCover_;
+            nimboxBackFlip_.value = nimboxReducedMotion_ ? 1000.0f : 0.0f;
+            nimboxBackFlip_.target = 1000.0f;
+            dirty_ = true;
+            return ev;
+        }
+        if (nimboxCarousel_ && tab_ == Tab::GamePass &&
             !detail_.purchasable && x >= 1140 && x <= 1845 && y >= 168 && y <= 742) {
             if (nimboxBackCover_) {
                 nimboxBackCover_ = false;
