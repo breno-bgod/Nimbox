@@ -4,6 +4,7 @@
 #include "ui/canvas.h"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstring>
 
@@ -306,6 +307,59 @@ void Canvas::line(float x0, float y0, float x1, float y1, float thickness, Color
             uint32_t cov = clampCoverage(half + 0.5f - std::sqrt(dx * dx + dy * dy));
             if (cov) blend(px_[static_cast<size_t>(y) * w_ + x], c, (a * cov + 127) / 255);
         }
+}
+
+// A small software rasterizer for flat-shaded and textured quadrilaterals.
+// Each convex quad is split into two triangles with affine UV interpolation.
+// This is a deliberate 2.5D implementation, not a GPU 3D renderer.
+void Canvas::drawQuadImpl(const Quad& q, Color solid, const Image* image, uint8_t opacity) {
+    if (opacity == 0 || (image && (image->w <= 0 || image->h <= 0 || image->px.empty()))) return;
+    const std::array<Point, 4> p = {q.tl, q.tr, q.br, q.bl};
+    const std::array<Point, 4> uv = {Point{0, 0}, Point{1, 0}, Point{1, 1}, Point{0, 1}};
+    constexpr int triangles[2][3] = {{0, 1, 2}, {0, 2, 3}};
+    for (const auto& tri : triangles) {
+        const Point a = p[tri[0]], b = p[tri[1]], d = p[tri[2]];
+        const float den = (b.x - a.x) * (d.y - a.y) - (b.y - a.y) * (d.x - a.x);
+        if (std::fabs(den) < 0.001f) continue;
+        const float invDen = 1.0f / den;
+        const float xMin = std::min({a.x, b.x, d.x});
+        const float xMax = std::max({a.x, b.x, d.x});
+        const float yMin = std::min({a.y, b.y, d.y});
+        const float yMax = std::max({a.y, b.y, d.y});
+        Rect bound{static_cast<int>(std::floor(xMin)), static_cast<int>(std::floor(yMin)),
+                   static_cast<int>(std::ceil(xMax) - std::floor(xMin)),
+                   static_cast<int>(std::ceil(yMax) - std::floor(yMin))};
+        const Rect box = intersect(bound, clip_);
+        if (box.w <= 0 || box.h <= 0) continue;
+        for (int y = box.y; y < box.y + box.h; ++y) {
+            uint32_t* dst = &px_[static_cast<size_t>(y) * w_];
+            const float py = static_cast<float>(y) + 0.5f - a.y;
+            for (int x = box.x; x < box.x + box.w; ++x) {
+                const float px = static_cast<float>(x) + 0.5f - a.x;
+                const float w1 = (px * (d.y - a.y) - py * (d.x - a.x)) * invDen;
+                const float w2 = ((b.x - a.x) * py - (b.y - a.y) * px) * invDen;
+                const float w0 = 1.0f - w1 - w2;
+                if (w0 < 0.0f || w1 < 0.0f || w2 < 0.0f) continue;
+                Color pixel = solid;
+                if (image) {
+                    const Point ta = uv[tri[0]], tb = uv[tri[1]], td = uv[tri[2]];
+                    const float u = w0 * ta.x + w1 * tb.x + w2 * td.x;
+                    const float v = w0 * ta.y + w1 * tb.y + w2 * td.y;
+                    const int ix = std::clamp(static_cast<int>(u * (image->w - 1) + 0.5f), 0, image->w - 1);
+                    const int iy = std::clamp(static_cast<int>(v * (image->h - 1) + 0.5f), 0, image->h - 1);
+                    pixel = image->px[static_cast<size_t>(iy) * image->w + ix];
+                }
+                const uint32_t a8 = (static_cast<uint32_t>(alphaOf(pixel)) * opacity + 127) / 255;
+                blend(dst[x], pixel, a8);
+            }
+        }
+    }
+}
+
+void Canvas::fillQuad(const Quad& q, Color color) { drawQuadImpl(q, color, nullptr, 255); }
+
+void Canvas::drawImageQuad(const Image& img, const Quad& q, uint8_t opacity) {
+    drawQuadImpl(q, rgba(255, 255, 255), &img, opacity);
 }
 
 void Canvas::drawImage(const Image& img, int x, int y, uint8_t opacity, int radius) {
