@@ -96,7 +96,7 @@ void AppUi::drawCloudTime(Canvas& c, int x, int y) {
 #else
     constexpr int kBrandPx = 22;
 #endif
-    const int w = std::max(fonts_.semibold.measure(tr(Str::CloudGaming), kBrandPx), end - x);
+    const int w = std::max(fonts_.semibold.measure("NIMBOX", kBrandPx), end - x);
     const Rect bar{x, y + kLineH + 2, w, kBarH};
     c.fillRect(bar, rgba(255, 255, 255, 36), 2);
     const double f = std::clamp(static_cast<double>(playtimeRemaining_) / static_cast<double>(playtimeMax_), 0.0, 1.0);
@@ -133,10 +133,10 @@ void AppUi::drawTopBar(Canvas& c) {
 
     int brandX = kMargin + kLogoR * 2 + 20;
     if (hasCloudTime) {
-        fonts_.semibold.draw(c, tr(Str::CloudGaming), brandX, 42, kBrandPx, kWhite);
+        fonts_.semibold.draw(c, "NIMBOX", brandX, 42, kBrandPx, kWhite);
         drawCloudTime(c, brandX, 72);
     } else {
-        fonts_.semibold.draw(c, tr(Str::CloudGaming), brandX, 58, kBrandPx, kWhite);
+        fonts_.semibold.draw(c, "NIMBOX", brandX, 58, kBrandPx, kWhite);
     }
 
     // Avatar and centered Settings touch button
