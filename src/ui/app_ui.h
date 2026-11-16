@@ -688,6 +688,11 @@ private:
     std::vector<int> focusCol_;
     std::vector<Anim> rowScroll_;
     Anim rowY_;
+    // Scaled to 1000 because Anim::step uses a 0.5-unit snap threshold.
+    // Signed visual displacement of newly selected case while it slides into place.
+    Anim nimboxSlide_;
+    // 0 = closed case, 1000 = open case; only used in Nimbox details view.
+    Anim nimboxCaseOpen_;
     Tab tab_ = Tab::GamePass;
     // Experimental, opt-in, session-only visual mode. R3 toggles in Game Pass home.
     bool nimboxCarousel_ = false;
