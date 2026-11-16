@@ -857,7 +857,8 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
                             const int offset = distance * side;
                             const int index = nimbox::indexForOffset(selected, count, offset);
                             if (index < 0) continue;
-                            if (!nimbox::hit(nimbox::layout(offset), x, y)) continue;
+                            if (!nimbox::hit(nimbox::layoutAnimated(static_cast<float>(offset) +
+                                nimboxSlide_.value / 1000.0f), x, y)) continue;
                             if (distance == 0) openDetails(tiles[static_cast<size_t>(index)]);
                             else {
                                 focusCol_[static_cast<size_t>(rowIndex)] = index;
