@@ -1,0 +1,364 @@
+{
+  "name": "Nimbox Component Library",
+  "version": "1.0.0",
+  "phase": "02",
+  "status": "design-proposal-not-shipped",
+  "basis": "Official Design System 1.0.0, Preview Premium 3.0/3.1",
+  "scope": "visual specifications, interactive demos, mapping to existing native files; no executable C++ changes",
+  "reference": {
+    "viewport": {
+      "width": 1600,
+      "height": 900
+    },
+    "motion": {
+      "focusMs": 120,
+      "pressMs": 95,
+      "pageMs": 300,
+      "modalMs": 220,
+      "carouselMs": 920,
+      "feedbackMs": 180,
+      "discRevolutionMs": 7500,
+      "carouselEasing": [
+        0.21,
+        0.76,
+        0.16,
+        1
+      ],
+      "reducedMotion": "remove nonessential rotation/parallax; instant or short fade"
+    },
+    "palette": {
+      "surface": {
+        "void": "#040B16",
+        "base": "#061A2B",
+        "header": "#051B2C",
+        "panel": "#09283D",
+        "raised": "#123B55"
+      },
+      "text": {
+        "primary": "#EFF9FF",
+        "secondary": "#BDCEDA",
+        "tertiary": "#8EACBE"
+      },
+      "accent": {
+        "primary": "#79DFFF",
+        "bright": "#97F5FF",
+        "secondary": "#51CBDF"
+      },
+      "border": {
+        "default": "#5E9CB5"
+      },
+      "status": {
+        "success": "#71E6A3",
+        "warning": "#FFC978",
+        "danger": "#FF7C8D"
+      }
+    },
+    "spacingPx": [
+      4,
+      8,
+      12,
+      16,
+      24,
+      32,
+      48,
+      64
+    ]
+  },
+  "components": [
+    {
+      "id": "NX/AppShell",
+      "priority": "P0",
+      "roles": [
+        "site identity",
+        "layout zones",
+        "safe areas",
+        "contextual hints"
+      ],
+      "slots": [
+        "brand",
+        "tabs",
+        "content",
+        "context-footer"
+      ],
+      "states": [
+        "default",
+        "focused",
+        "active"
+      ],
+      "navigation": "Screen-level zone hierarchy; Back restores previous focus and context"
+    },
+    {
+      "id": "NX/TopNav",
+      "priority": "P0",
+      "roles": [
+        "screen navigation"
+      ],
+      "items": [
+        "Início",
+        "Biblioteca",
+        "Game Pass",
+        "Detalhes",
+        "Configurações"
+      ],
+      "states": [
+        "default",
+        "hover",
+        "focus",
+        "current",
+        "disabled"
+      ],
+      "keyboard": "Left/Right next tab within navigation; confirmation opens; Back returns previous screen"
+    },
+    {
+      "id": "NX/FocusRing",
+      "priority": "P0",
+      "props": {
+        "color": "#97F5FF",
+        "offsetPx": 3,
+        "strokePx": 2,
+        "animationMs": 120
+      },
+      "states": [
+        "keyboard",
+        "controller",
+        "pointer"
+      ],
+      "rule": "Always distinguish active focus without color alone"
+    },
+    {
+      "id": "NX/GameCase3D",
+      "priority": "P0",
+      "props": {
+        "sizePx1600x900": {
+          "width": 286,
+          "height": 389
+        },
+        "aspectRatio": 0.735,
+        "thicknessPx": 35,
+        "preserveArtworkRatio": true,
+        "spine": true,
+        "face": true,
+        "reflectionOpacity": 0.44
+      },
+      "states": [
+        "idle",
+        "neighbor",
+        "focused",
+        "selected",
+        "loading-art",
+        "missing-art"
+      ],
+      "rule": "One single dominant selected case, never a flat card grid pretending to be 3D"
+    },
+    {
+      "id": "NX/CaseCarousel",
+      "priority": "P0",
+      "props": {
+        "visibleNeighborsPerSide": 4,
+        "perspectivePx": 1250,
+        "positionPx": [
+          0,
+          280,
+          450,
+          580,
+          690
+        ],
+        "rotationDeg": [
+          0,
+          48,
+          57,
+          64,
+          67
+        ],
+        "scale": [
+          1,
+          0.9,
+          0.8,
+          0.72,
+          0.65
+        ],
+        "depthZPx": [
+          160,
+          -58,
+          -116,
+          -174,
+          -232
+        ],
+        "durationMs": 920,
+        "easing": [
+          0.21,
+          0.76,
+          0.16,
+          1
+        ]
+      },
+      "states": [
+        "idle",
+        "moving",
+        "reduced-motion",
+        "empty",
+        "loading"
+      ],
+      "navigation": "Left/Right changes selected case; Confirm opens details; retain selected title ID on Back",
+      "acceptance": "Visual screenshot of native renderer vs. Preview 3.0/3.1 at identical viewport"
+    },
+    {
+      "id": "NX/GameDetails",
+      "priority": "P1",
+      "roles": [
+        "selected artwork",
+        "metadata",
+        "real actions only"
+      ],
+      "states": [
+        "idle",
+        "information-only",
+        "available",
+        "unavailable"
+      ],
+      "rule": "Play action must be bound to actual stream availability; component preview has no Play button"
+    },
+    {
+      "id": "NX/GameRail",
+      "priority": "P1",
+      "roles": [
+        "secondary catalog navigation"
+      ],
+      "states": [
+        "idle",
+        "focused",
+        "selected",
+        "loading",
+        "empty"
+      ],
+      "navigation": "Horizontal focus navigation, no invisible controls"
+    },
+    {
+      "id": "NX/Button",
+      "priority": "P1",
+      "variants": [
+        "primary",
+        "secondary",
+        "quiet",
+        "danger"
+      ],
+      "states": [
+        "idle",
+        "hover",
+        "focused",
+        "pressed",
+        "disabled",
+        "loading"
+      ],
+      "rule": "No fake play, account or update actions"
+    },
+    {
+      "id": "NX/Chip",
+      "priority": "P1",
+      "variants": [
+        "metadata",
+        "filter",
+        "status"
+      ],
+      "states": [
+        "idle",
+        "selected",
+        "disabled"
+      ]
+    },
+    {
+      "id": "NX/Panel",
+      "priority": "P1",
+      "materials": [
+        "Frosted Navy",
+        "Raised Navy"
+      ],
+      "states": [
+        "idle",
+        "open",
+        "focused",
+        "disabled"
+      ]
+    },
+    {
+      "id": "NX/SettingRow",
+      "priority": "P1",
+      "variants": [
+        "toggle",
+        "select",
+        "range",
+        "readonly"
+      ],
+      "states": [
+        "idle",
+        "focus",
+        "changed",
+        "disabled"
+      ],
+      "rule": "Sample editing in prototype is never a system configuration change"
+    },
+    {
+      "id": "NX/Modal",
+      "priority": "P1",
+      "states": [
+        "open",
+        "confirm",
+        "dismiss"
+      ],
+      "navigation": "Focus trapped inside modal; Back dismisses when safe"
+    },
+    {
+      "id": "NX/Toast",
+      "priority": "P2",
+      "states": [
+        "informational",
+        "success",
+        "warning",
+        "error"
+      ],
+      "rule": "Non-blocking; errors must not rely on toast only"
+    },
+    {
+      "id": "NX/InputHint",
+      "priority": "P1",
+      "contexts": [
+        "gamepad",
+        "keyboard",
+        "touch",
+        "mouse"
+      ],
+      "rule": "Show only actions available in current context"
+    }
+  ],
+  "qa": {
+    "reference": "Nimbox Preview Premium 3.0 / Preview 3.1",
+    "requiredViews": [
+      "1600x900",
+      "1920x1080",
+      "1280x720",
+      "Android landscape",
+      "portrait review UI"
+    ],
+    "checks": [
+      "case width/spacing/angle",
+      "reflections and lighting",
+      "focus survives back",
+      "no fake actions",
+      "reduced motion",
+      "text legibility",
+      "input mapping",
+      "same game ordering",
+      "100% functional engine unchanged"
+    ]
+  },
+  "integrationMap": {
+    "NX/AppShell": "src/ui/app_ui_render.cpp + app_ui_input.cpp",
+    "NX/GameCase3D": "src/ui/box_carousel.h + app_ui_render.cpp",
+    "NX/CaseCarousel": "src/ui/box_carousel.h + app_ui_input.cpp",
+    "NX/FocusRing": "src/ui/app_ui_render.cpp",
+    "NX/GameDetails": "src/ui/app_ui_render.cpp + app_ui_input.cpp",
+    "NX/SettingRow": "src/ui/app_ui_settings.cpp",
+    "render backend": "src/ui/canvas.cpp",
+    "phase status": "mapping only; no C++ code generated or modified"
+  }
+}
