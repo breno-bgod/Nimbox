@@ -64,18 +64,35 @@ Criar uma biblioteca visual original com apresentação de jogos como mídias f�
 ## Entregas
 - Este documento é a especificação inicial.
 - `docs/prototypes/nimbox-3d-library.html` é um protótipo de interação sem ligação com xCloud; usa capas ilustrativas geradas por CSS, não imagens de jogos reais.
-- Integração nativa e APK virão apenas após validação do desenho e das regras de navegação.
+- Integração nativa 2.5D já iniciou. APK para a fase 1B depende da confirmação de CI do commit correspondente e testes no Android.
 
 ## Implementação inicial (continuação da Fase 1)
 - `src/ui/app_ui_render.cpp`: `drawNimboxCarousel` usa renderização 2D do Canvas para criar caixas em perspectiva aproximada, com lombada, borda de foco, placeholder e metadados reais.
 - `src/ui/app_ui.h`: flag temporária `nimboxCarousel_`, desligada por padrão; método de desenho declarado.
 - `src/ui/app_ui_input.cpp`: R3 alterna exibição quando o usuário está na Home, aba Game Pass, fora da pesquisa.
 - Sem mudanças em autenticação, catálogo, WebRTC, protocolo, decodificação ou sessão.
-- PENDÊNCIA CRÍTICA: compilar e validar visual; não afirmar que APK foi produzido ou que este MVP está homologado.
-- LIMITAÇÃO: as imagens fornecidas pelo catálogo podem ser quadradas e serão ajustadas a um retângulo vertical; a arte final exige tratamento específico.
+- O MVP inicial compilou com sucesso no Android no CI do commit `73301db` (run 43912831124); Windows falhou separadamente. **A Fase 1B ainda não foi compilada/validada em aparelho.**
+- LIMITAÇÃO: o catálogo oferece miniaturas quadradas; a Fase 1B utiliza a imagem inteira em uma inserção quase quadrada sobre a caixa vertical, com placa de título abaixo. Ainda não há imagens oficiais de contracapa/lombada nem imagens físicas de varejo.
 
 ## Continuação — preparação do Alpha e toque
 - `android/app/build.gradle.kts`: apenas o build **debug** recebe sufixo `.nimboxalpha`; build release mantém ID original. A identificação Java/JNI não foi renomeada.
 - `android/app/src/main/AndroidManifest.xml`: rótulo da aplicação vem de placeholder do build (`Nimbox Alpha` em debug, `PSBOX` em release).
 - `src/ui/app_ui_input.cpp`: hit-testing do carrossel alinha as regiões clicáveis com as caixas; tocar numa lateral a seleciona, tocar na central abre detalhes. Hover não reutiliza a grade antiga.
 - Ainda falta compilar e testar controles/touch reais. APK gerado antes dessas alterações NÃO contém este recurso.
+
+## Fase 1B — refinamento visual solicitado após comparação com vídeo de referência (2026-11-16)
+- [x] Marca visível do menu trocada para **NIMBOX** em `src/ui/app_ui_render.cpp`. `src/ui/brand.cpp` usa um novo monograma "N" e nome NIMBOX em splash/ícone gerado por código.
+- [x] `src/ui/canvas.h/.cpp`: métodos `fillQuad` e `drawImageQuad` para rasterizar quadriláteros em perspectiva por software. Não representa motor gráfico 3D completo.
+- [x] `src/ui/box_carousel.h`: geometria compartilhada com projeção inclinada, espessura física (lombada), seis caixas de cada lado, fileiras sobrepostas, hit-test e índices circulares.
+- [x] `src/ui/app_ui_render.cpp`: usa capas reais sem cortes agressivos, faixa de plataforma baseada somente no metadado disponível, caixa central em foco, brilho discreto, sombras e placas de título. Não fabrica contracapas nem discos.
+- [x] `src/ui/app_ui_input.cpp`: toque usa a mesma geometria das caixas, navegação esquerda/direita circular quando o carrossel está ativo.
+- [ ] Validar CI do último commit, Android APK, regressões e desempenho em Android real.
+- [ ] Comparar screenshots no aparelho com referência; ajustar profundidade, oclusão, tipo de arte, proporções, iluminação e fluidez.
+- [ ] Atualizar ícones Android/TV estáticos e demais textos legados de marca em uma etapa específica de rebranding (o nome no topo já está corrigido).
+- [ ] Fase 2 (rotação livre, verso, abertura e disco) **não iniciada**.
+
+### Validação visual explícita
+1. Mostrar capas menores parcialmente encobertas, semi inclinadas, em ambos os lados do item central mesmo no primeiro título (carrossel circular).
+2. Caixa central maior com espessura e plataforma rotulada, sem confundir uma miniatura de catálogo com uma arte oficial de mídia física.
+3. Tocar numa caixa lateral muda a seleção; tocar na central abre detalhes; R3 devolve a UI clássica.
+4. Não executar merge do PR #1 antes da aceitação do usuário.
