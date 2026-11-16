@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 RafaelNGP
 constexpr Column kItalian = {
-    "PSBox Cloud Gaming",
-    "PSBOX CLOUD GAMING",
+    "Nimbox",
+    "NIMBOX",
     "Accesso in corso...",
     "Richiesta di un codice di accesso...",
     "Caricamento dei tuoi giochi...",
@@ -160,7 +160,7 @@ constexpr Column kItalian = {
     "Verifica della firma...",
     "Installazione...",
     "Aggiornato. Riavvio...",
-    "PSBox aggiornato: riapri l'app",
+    "Nimbox aggiornato: riapri l'app",
     "Aggiornamento non riuscito: nulla è cambiato",
     "Colore del gioco",
     "Colore personalizzato",
@@ -216,7 +216,7 @@ constexpr Column kItalian = {
     "Segnala un problema",
     "Inquadralo con il telefono: si apre il modulo dei bug di GitHub già compilato. Lo controlli prima di inviarlo.",
     "Include la versione dell'app, l'errore e righe del log, senza dati personali.",
-    "PSBox si è chiuso inaspettatamente l'ultima volta",
+    "Nimbox si è chiuso inaspettatamente l'ultima volta",
     "Paese di accesso",
     "Disattivato (quello della console)",
     "Accedi come un altro paese",
@@ -267,7 +267,7 @@ constexpr Column kItalian = {
     "Modalità schermo", // DisplayMode
     "Finestra", // DisplayWindow
     "Schermo intero", // DisplayFullscreen
-    "Uscire da PSBox?", // QuitTitle
+    "Uscire da Nimbox?", // QuitTitle
     "Esci", // QuitConfirm
     "Pulsanti del controller", // ControllerButtons
     "Premi il pulsante per %s", // PadPressButton
@@ -339,8 +339,8 @@ constexpr Column kItalian = {
     "%s è in saldo!",                                 // WishlistOnSale
     "%s è arrivato su Game Pass!",                    // WishlistInGamePass
     "Supporta il progetto",                           // SupportProject
-    "Supporta lo Sviluppo di PSBox",                  // SupportTitle
-    "PSBox è un progetto open source sviluppato con passione per portare la migliore esperienza di Xbox Cloud Gaming su PlayStation 5. Se ti piace l'app e vuoi sostenere lo sviluppo continuo e le nuove funzionalità, considera di offrirmi un caffè su Ko-Fi!", // SupportMessage
+    "Supporta lo Sviluppo di Nimbox",                  // SupportTitle
+    "Nimbox si basa su un progetto open source. Questo link Ko-Fi sostiene lo sviluppatore originale, non Nimbox. I crediti e le licenze originali rimangono disponibili nel repository.", // SupportMessage
     "Ko-fi",                                          // SupportKoFi
     "Inquadra con lo smartphone",                     // ScanToDonate
     "Prova suono",                                    // TestSound
@@ -450,9 +450,9 @@ constexpr Column kItalian = {
     "Ho capito",                                      // TrophiesDisclaimerAware
     "Annulla",                                        // TrophiesDisclaimerCancel
     "Rimuovi trofei sincronizzati",                   // RemoveTrophies
-    "Rimuove tutti i trofei aggiunti da PSBox da questo profilo locale, evitando rischi di ban su PSN. Potrai risincronizzarli in qualsiasi momento dal tuo account Xbox.", // SettingDescRemoveTrophies
+    "Rimuove tutti i trofei aggiunti da Nimbox da questo profilo locale, evitando rischi di ban su PSN. Potrai risincronizzarli in qualsiasi momento dal tuo account Xbox.", // SettingDescRemoveTrophies
     "Rimuovere i trofei sincronizzati?",              // RemoveTrophiesConfirmTitle
-    "Questo cancellerà i pacchetti di trofei locali di PSBox per questo profilo. I tuoi obiettivi rimangono al sicuro sul tuo account Microsoft/Xbox.", // RemoveTrophiesConfirmBody
+    "Questo cancellerà i pacchetti di trofei locali di Nimbox per questo profilo. I tuoi obiettivi rimangono al sicuro sul tuo account Microsoft/Xbox.", // RemoveTrophiesConfirmBody
     "Rimuovi",                                        // RemoveTrophiesConfirm
     "Rimossi %s titoli di trofei da questo profilo.", // TrophiesRemovedToast
     "Sincronizzazione obiettivi...",                  // SyncingTrophies
@@ -467,7 +467,7 @@ constexpr Column kItalian = {
     "Schede",                                         // MenuTabsLabel
     "Impostazioni salvate",                           // SettingsSavedToast
     "Impostazioni di gioco salvate",                  // GameSettingsSavedToast
-    "PSBox: connessioni sicure non disponibili",      // SecureConnUnavailableToast
+    "Nimbox: connessioni sicure non disponibili",      // SecureConnUnavailableToast
     "Sincronizzazione trofei non riuscita: %s",       // TrophySyncFailedToast
     "Telemetria attivata",                            // TelemetryOnToast
     "Telemetria disattivata",                         // TelemetryOffToast
