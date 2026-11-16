@@ -268,6 +268,8 @@ UiEvent AppUi::onMouseMove(float x, float y) {
         return ev;
     }
     if (screen_ == Screen::Home && !searching_ && !reportOpen_ && !updatePrompt_ && !quitPrompt_) {
+        // Ignore obsolete classic-grid hover regions while the carousel is visible.
+        if (nimboxCarousel_ && tab_ == Tab::GamePass) return ev;
         if (tab_ == Tab::GamePass && y >= 140 && y < kH - 80) {
             constexpr int kGridW = kLibraryCols * kCardPitch - kCardGap;
             const int gridLeft = (kW - kGridW) / 2;
@@ -829,6 +831,34 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
     }
 
     if (screen_ == Screen::Home && !searching_) {
+        if (nimboxCarousel_ && tab_ == Tab::GamePass) {
+            if (!rows_.empty() && y >= 280 && y < 800) {
+                const int r = std::clamp(focusRow_, 0, static_cast<int>(rows_.size()) - 1);
+                const auto& tiles = rows_[static_cast<size_t>(r)].tiles;
+                if (!tiles.empty()) {
+                    const int selected = std::clamp(focusCol_[static_cast<size_t>(r)], 0, static_cast<int>(tiles.size()) - 1);
+                    for (int offset = -2; offset <= 2; ++offset) {
+                        const int index = selected + offset;
+                        if (index < 0 || index >= static_cast<int>(tiles.size())) continue;
+                        const int distance = std::abs(offset);
+                        const int w = distance == 0 ? 284 : distance == 1 ? 218 : 169;
+                        const int h = distance == 0 ? 414 : distance == 1 ? 327 : 258;
+                        const int cx = kW / 2 + offset * 310 - w / 2;
+                        const int cy = distance == 0 ? 289 : distance == 1 ? 348 : 394;
+                        if (x < cx - 18 || x >= cx + w || y < cy || y >= cy + h) continue;
+                        if (offset == 0) openDetails(tiles[static_cast<size_t>(index)]);
+                        else {
+                            focusCol_[static_cast<size_t>(r)] = index;
+                            retarget();
+                            dirty_ = true;
+                        }
+                        return ev;
+                    }
+                }
+            }
+            // Do not route carousel clicks into the old grid.
+            return ev;
+        }
         if (tab_ == Tab::GamePass && y >= 140 && y < kH - 80) {
             constexpr int kGridW = kLibraryCols * kCardPitch - kCardGap;
             const int gridLeft = (kW - kGridW) / 2;
