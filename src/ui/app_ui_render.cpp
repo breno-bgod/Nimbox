@@ -1036,7 +1036,9 @@ void AppUi::drawNimboxCarousel(Canvas& c, uint64_t nowMs) {
         }
     }
     c.clear(deep);
-    c.gradientV({0, 136, kW, 700}, topShade, deep);\n    // Lighter infinity-room atmosphere; the cases remain the main focus.\n    c.gradientV({0, 380, kW, 310}, rgba(108, 163, 190, 42), rgba(23, 49, 71, 33));
+    c.gradientV({0, 136, kW, 700}, topShade, deep);
+    // Lighter infinity-room atmosphere; the cases remain the main focus.
+    c.gradientV({0, 380, kW, 310}, rgba(108, 163, 190, 42), rgba(23, 49, 71, 33));
     c.gradientH({0, 220, kW, 490}, rgba(11, 30, 43, 110), rgba(15, 70, 75, 60));
     // No hard horizontal shelf line. Subtle ambient falloff behind reflected art.
     c.gradientV({0, 695, kW, 240}, rgba(79, 133, 165, 45), rgba(11, 30, 51, 95));
