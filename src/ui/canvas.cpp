@@ -345,9 +345,27 @@ void Canvas::drawQuadImpl(const Quad& q, Color solid, const Image* image, uint8_
                     const Point ta = uv[tri[0]], tb = uv[tri[1]], td = uv[tri[2]];
                     const float u = w0 * ta.x + w1 * tb.x + w2 * td.x;
                     const float v = w0 * ta.y + w1 * tb.y + w2 * td.y;
-                    const int ix = std::clamp(static_cast<int>(u * (image->w - 1) + 0.5f), 0, image->w - 1);
-                    const int iy = std::clamp(static_cast<int>(v * (image->h - 1) + 0.5f), 0, image->h - 1);
-                    pixel = image->px[static_cast<size_t>(iy) * image->w + ix];
+                    // Bilinear texel filtering gives much cleaner angled
+                    // covers and reduces the blocky stair-step of the MVP.
+                    const float fx = std::clamp(u * (image->w - 1), 0.0f, float(image->w - 1));
+                    const float fy = std::clamp(v * (image->h - 1), 0.0f, float(image->h - 1));
+                    const int x0 = static_cast<int>(fx), y0 = static_cast<int>(fy);
+                    const int x1 = std::min(x0 + 1, image->w - 1);
+                    const int y1 = std::min(y0 + 1, image->h - 1);
+                    const float tu = fx - x0, tv = fy - y0;
+                    const Color a0 = image->px[static_cast<size_t>(y0) * image->w + x0];
+                    const Color a1 = image->px[static_cast<size_t>(y0) * image->w + x1];
+                    const Color b0 = image->px[static_cast<size_t>(y1) * image->w + x0];
+                    const Color b1 = image->px[static_cast<size_t>(y1) * image->w + x1];
+                    auto channel = [tu, tv](Color a, Color b, Color c, Color d, int shift) -> uint8_t {
+                        const float top = float((a >> shift) & 255u) * (1.0f - tu) +
+                                          float((b >> shift) & 255u) * tu;
+                        const float bottom = float((c >> shift) & 255u) * (1.0f - tu) +
+                                             float((d >> shift) & 255u) * tu;
+                        return static_cast<uint8_t>(std::clamp(top * (1.0f - tv) + bottom * tv, 0.0f, 255.0f));
+                    };
+                    pixel = rgba(channel(a0,a1,b0,b1,0), channel(a0,a1,b0,b1,8),
+                                 channel(a0,a1,b0,b1,16), channel(a0,a1,b0,b1,24));
                 }
                 const uint32_t a8 = (static_cast<uint32_t>(alphaOf(pixel)) * opacity + 127) / 255;
                 blend(dst[x], pixel, a8);

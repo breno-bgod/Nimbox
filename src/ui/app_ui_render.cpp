@@ -1094,8 +1094,14 @@ void AppUi::drawNimboxCarousel(Canvas& c, uint64_t nowMs) {
         const Quad art = nimbox::verticalSlice(g.front, 0.11f, 0.78f);
         // Catalog thumbnails are square; preserve their full composition in a
         // square-ish printed insert, rather than cutting off the game's title.
-        if (auto image = images_.get(tile.tileUrl, static_cast<int>(g.w), static_cast<int>(g.w))) {
-            c.drawImageQuad(*image, art, focused ? 255 : static_cast<uint8_t>(std::max(138, 246 - d * 17)));
+        // Ask for a larger cached decode on the selected case. This helps
+        // texture detail when the catalog provides a high-resolution source;
+        // it cannot recover detail absent from the remote artwork itself.
+        const int artSize = focused ? 512 : (d <= 2 ? 256 : 128);
+        auto coverImage = images_.get(tile.tileUrl, artSize, artSize);
+        if (coverImage) {
+            c.drawImageQuad(*coverImage, art,
+                            focused ? 255 : static_cast<uint8_t>(std::max(138, 246 - d * 17)));
         } else {
             c.fillQuad(art, rgba(49, 78, 91));
         }
@@ -1155,10 +1161,8 @@ void AppUi::drawNimboxCarousel(Canvas& c, uint64_t nowMs) {
                               {g.front.br.x, floorY + reflectH},
                               {g.front.br.x, floorY},
                               {g.front.bl.x, floorY}};
-            if (auto mirrorImage = images_.get(tile.tileUrl,
-                                              std::max(64, static_cast<int>(g.w)),
-                                              std::max(64, static_cast<int>(g.w)))) {
-                c.drawImageQuad(*mirrorImage, mirror,
+            if (coverImage) {
+                c.drawImageQuad(*coverImage, mirror,
                                 focused ? 42 : static_cast<uint8_t>(d == 1 ? 22 : 10));
             }
         }
