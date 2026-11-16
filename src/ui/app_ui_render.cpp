@@ -1015,11 +1015,11 @@ void AppUi::drawConsoles(Canvas& c, uint64_t nowMs) {
 // This is an opt-in, software-rendered 2.5D presentation, with case faces
 // projected into trapezoids. No change to GameTile data or streaming actions.
 void AppUi::drawNimboxCarousel(Canvas& c, uint64_t nowMs) {
-    const Color deep = rgba(8, 15, 24);
+    const Color deep = rgba(16, 34, 52);
     const Color aqua = rgba(105, 218, 232);
     // Follow the selected game's dominant artwork colour, cached by title URL.
     // Clamp luminance to keep the interface and headings readable.
-    Color topShade = rgba(19, 57, 68);
+    Color topShade = rgba(66, 112, 136);
     if (const GameTile* selectedArt = focusedTile(); selectedArt && !selectedArt->tileUrl.empty()) {
         auto ac = accents_.find(selectedArt->tileUrl);
         if (ac == accents_.end()) {
@@ -1030,16 +1030,16 @@ void AppUi::drawNimboxCarousel(Canvas& c, uint64_t nowMs) {
         }
         if (ac != accents_.end()) {
             const Color rgb = ac->second;
-            topShade = rgba(static_cast<uint8_t>(14 + (rgb & 255u) / 5),
-                            static_cast<uint8_t>(21 + ((rgb >> 8) & 255u) / 5),
-                            static_cast<uint8_t>(31 + ((rgb >> 16) & 255u) / 5));
+            topShade = rgba(static_cast<uint8_t>(58 + (rgb & 255u) / 5),
+                            static_cast<uint8_t>(81 + ((rgb >> 8) & 255u) / 6),
+                            static_cast<uint8_t>(100 + ((rgb >> 16) & 255u) / 7));
         }
     }
     c.clear(deep);
-    c.gradientV({0, 136, kW, 700}, topShade, deep);
+    c.gradientV({0, 136, kW, 700}, topShade, deep);\n    // Lighter infinity-room atmosphere; the cases remain the main focus.\n    c.gradientV({0, 380, kW, 310}, rgba(108, 163, 190, 42), rgba(23, 49, 71, 33));
     c.gradientH({0, 220, kW, 490}, rgba(11, 30, 43, 110), rgba(15, 70, 75, 60));
     // No hard horizontal shelf line. Subtle ambient falloff behind reflected art.
-    c.gradientV({0, 695, kW, 240}, rgba(43, 84, 91, 21), rgba(5, 12, 20, 85));
+    c.gradientV({0, 695, kW, 240}, rgba(79, 133, 165, 45), rgba(11, 30, 51, 95));
     drawTopBar(c);
     drawTabs(c);
 
@@ -1163,7 +1163,7 @@ void AppUi::drawNimboxCarousel(Canvas& c, uint64_t nowMs) {
                               {g.front.bl.x, floorY}};
             if (coverImage) {
                 c.drawImageQuad(*coverImage, mirror,
-                                focused ? 42 : static_cast<uint8_t>(d == 1 ? 22 : 10));
+                                focused ? 77 : static_cast<uint8_t>(d == 1 ? 41 : 18));
             }
         }
         // The further-away boxes are visibly dimmer; their artwork still
@@ -1191,7 +1191,7 @@ void AppUi::drawNimboxCarousel(Canvas& c, uint64_t nowMs) {
     });
     for (int offset : order) drawCase(offset);
     // Fade the virtual reflections instead of drawing a shelf-divider line.
-    c.gradientV({0, 738, kW, 150}, rgba(5, 13, 21, 0), rgba(5, 13, 21, 188));
+    c.gradientV({0, 738, kW, 150}, rgba(17, 39, 60, 0), rgba(17, 39, 60, 174));
 
     if (count) {
         const GameTile& current = row.tiles[static_cast<size_t>(selected)];
