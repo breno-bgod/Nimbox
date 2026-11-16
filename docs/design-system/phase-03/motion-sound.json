@@ -1,0 +1,130 @@
+{
+  "name": "Nimbox Motion & Sonic System",
+  "version": "1.0.0",
+  "phase": "03",
+  "status": "design-proposal-not-shipped",
+  "reference": [
+    "Nimbox Preview Premium 3.0 / Preview 3.1",
+    "Nimbox Design System 1.0",
+    "Nimbox Components Phase 02"
+  ],
+  "scope": "motion design + original procedural sound prototypes; no native app modifications",
+  "behavior": {
+    "immediateInputFeedback": true,
+    "interruptible": true,
+    "focusAlwaysVisible": true,
+    "restoreFocusOnBack": true,
+    "noFakeFunctionalButtons": true,
+    "noAutoplayAudio": true,
+    "respectReducedMotion": true
+  },
+  "motion": {
+    "focus": {
+      "ms": 120,
+      "curve": "ease-out",
+      "semantic": "ring catches target; no major scale"
+    },
+    "press": {
+      "ms": 95,
+      "curve": "ease-out",
+      "semantic": "light surface compression"
+    },
+    "page": {
+      "ms": 300,
+      "curve": "ease-in-out",
+      "semantic": "contextual soft slide/fade"
+    },
+    "modal": {
+      "ms": 220,
+      "curve": "ease-out",
+      "semantic": "short lift and fade; retains focus"
+    },
+    "carousel": {
+      "ms": 920,
+      "curve": [
+        0.21,
+        0.76,
+        0.16,
+        1
+      ],
+      "semantic": "physical cover translation with orientation and depth"
+    },
+    "feedback": {
+      "ms": 180,
+      "curve": "ease-out",
+      "semantic": "nonblocking status acknowledgement"
+    },
+    "disc": {
+      "revolutionMs": 7500,
+      "curve": "linear",
+      "semantic": "decorative only in game details"
+    }
+  },
+  "reducedMotion": {
+    "nonessentialRotation": "disabled",
+    "parallax": "disabled",
+    "carouselMs": 0,
+    "pageMs": 0,
+    "modalMs": 0,
+    "focusMs": 0,
+    "disc": "paused",
+    "focusContrast": "preserved"
+  },
+  "sonic": {
+    "source": "original procedural SFX sketch; no commercial or copyrighted source audio",
+    "engine": "Web Audio oscillator prototypes - design laboratory only",
+    "defaultMuted": true,
+    "gainDefaultPercent": 28,
+    "gainMaxRecommendedPercent": 60,
+    "focusCooldownMs": 125,
+    "rapidNavigationPolicy": "mute duplicate focus events; no queue piling",
+    "audioLifecycle": "start only after explicit enable or user press on sample; suspend on page hide when possible",
+    "events": {
+      "ui.focus": {
+        "durationMs": 56,
+        "character": "airy muted tactile blip",
+        "priority": "low"
+      },
+      "ui.select": {
+        "durationMs": 126,
+        "character": "clean bright dual harmonic",
+        "priority": "medium"
+      },
+      "ui.back": {
+        "durationMs": 94,
+        "character": "soft descending tone",
+        "priority": "medium"
+      },
+      "ui.open": {
+        "durationMs": 170,
+        "character": "gentle airy transition",
+        "priority": "low"
+      },
+      "ui.error": {
+        "durationMs": 182,
+        "character": "soft caution pulse without piercing alarm",
+        "priority": "high"
+      },
+      "ui.ready": {
+        "durationMs": 190,
+        "character": "warm restrained completion",
+        "priority": "medium"
+      }
+    },
+    "accessibility": [
+      "UI volume independent of game",
+      "mute accessible",
+      "honor system/platform settings in native phase",
+      "no autoplay",
+      "no music loop",
+      "avoid excessive notifications"
+    ]
+  },
+  "input": {
+    "controller": "D-pad/left stick navigate; A/Cross confirm; B/Circle back, subject to console mapping",
+    "keyboard": "arrows, Enter and Escape",
+    "touch": "tap, swipe, contextual back"
+  },
+  "implementation": "design only: export JSON contracts, not C++ or audio assets; parity on target platforms is not proven",
+  "next": "Phase 04: validate motion, sound, and visual behavior screen-by-screen on target native renderers"
+}
