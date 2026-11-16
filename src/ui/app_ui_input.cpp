@@ -514,9 +514,20 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
             return ev;
         }
         if (screen_ == Screen::Details) {
-            syncHeroToRowsLocked(detail_.productId, detail_.titleId, detail_.heroUrl, detail_.description, detail_.publisher, detail_.categories);
-            screen_ = Screen::Home;
-            dirty_ = true;
+            if (!nimboxReturningHome_) {
+                syncHeroToRowsLocked(detail_.productId, detail_.titleId, detail_.heroUrl,
+                                     detail_.description, detail_.publisher, detail_.categories);
+                if (nimboxCarousel_ && tab_ == Tab::GamePass && !nimboxReducedMotion_) {
+                    nimboxReturningHome_ = true;
+                    nimboxDetailIntro_.target = 0.0f;
+                    nimboxCaseOpen_.target = 0.0f;
+                    nimboxBackCover_ = false;
+                    nimboxBackFlip_.value = nimboxBackFlip_.target = 1000.0f;
+                } else {
+                    screen_ = Screen::Home;
+                }
+                dirty_ = true;
+            }
             return ev;
         }
         return ev;
@@ -973,6 +984,7 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
             }
         }
     } else if (screen_ == Screen::Details) {
+        if (nimboxReturningHome_) return ev;
         if (gameSettingsOpen_) {
             constexpr int kModalW = 1140, kModalH = 960;
             constexpr int kRowH = 38, kGap = 4, kGroupGap = 7;
@@ -1937,6 +1949,7 @@ UiEvent AppUi::handleLocked(const NavInput& in) {
             }
             break;
         case Screen::Details:
+            if (nimboxReturningHome_) break;
             if (achievementsOpen_) {
                 if (in.up && achScroll_ > 0) {
                     achScroll_--;
@@ -2018,8 +2031,17 @@ UiEvent AppUi::handleLocked(const NavInput& in) {
             if (in.r3 && !isAcquired(detail_)) toggleWishlist(detail_, ev);
             if (in.l3 && !detail_.xboxTitleId.empty()) openAchievements();
             if (in.back) {
-                syncHeroToRowsLocked(detail_.productId, detail_.titleId, detail_.heroUrl, detail_.description, detail_.publisher, detail_.categories);
-                screen_ = Screen::Home;
+                syncHeroToRowsLocked(detail_.productId, detail_.titleId, detail_.heroUrl,
+                                     detail_.description, detail_.publisher, detail_.categories);
+                if (nimboxCarousel_ && tab_ == Tab::GamePass && !nimboxReducedMotion_) {
+                    nimboxReturningHome_ = true;
+                    nimboxDetailIntro_.target = 0.0f;
+                    nimboxCaseOpen_.target = 0.0f;
+                    nimboxBackCover_ = false;
+                    nimboxBackFlip_.value = nimboxBackFlip_.target = 1000.0f;
+                } else {
+                    screen_ = Screen::Home;
+                }
                 dirty_ = true;
             }
             break;
