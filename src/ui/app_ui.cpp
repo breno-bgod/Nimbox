@@ -1042,6 +1042,10 @@ void AppUi::openDetails(const GameTile& tile) {
     playRect_ = {};
     achRect_ = {};
     claimRect_ = {};
+    // Begin the physical-case opening once the Details screen is entered.
+    // The classic detail screen is unchanged, regardless of this animation.
+    nimboxCaseOpen_.value = 0.0f;
+    nimboxCaseOpen_.target = (nimboxCarousel_ && tab_ == Tab::GamePass) ? 1000.0f : 0.0f;
     screen_ = Screen::Details;
     refreshDetail();
     dirty_ = true;
