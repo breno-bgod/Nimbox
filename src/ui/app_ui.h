@@ -562,6 +562,7 @@ private:
     void drawSignIn(Canvas& c, uint64_t nowMs);
     void drawHome(Canvas& c, uint64_t nowMs);
     void drawNimboxCarousel(Canvas& c, uint64_t nowMs);
+    void drawNimboxOpenCase(Canvas& c, const GameTile& tile);
     void drawTabs(Canvas& c);
     void drawConsoles(Canvas& c, uint64_t nowMs);
     void drawLibrary(Canvas& c, uint64_t nowMs);
