@@ -131,6 +131,8 @@ void AppUi::handleHome(const NavInput& in, UiEvent& ev) {
             // to both sides. Keep existing details, hidden-games and play flows.
             if (nimboxCarousel_ && count > 0 && (in.left || in.right)) {
                 col = (col + (in.right ? 1 : -1) + count) % count;
+                nimboxSlide_.value = in.right ? 1000.0f : -1000.0f;
+                nimboxSlide_.target = 0.0f;
                 retarget();
                 dirty_ = true;
                 return;
@@ -859,6 +861,8 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
                             if (distance == 0) openDetails(tiles[static_cast<size_t>(index)]);
                             else {
                                 focusCol_[static_cast<size_t>(rowIndex)] = index;
+                                nimboxSlide_.value = static_cast<float>(offset) * 1000.0f;
+                                nimboxSlide_.target = 0.0f;
                                 retarget();
                                 dirty_ = true;
                             }
@@ -984,6 +988,14 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
             return ev;
         }
         if (achievementsOpen_) {
+            return ev;
+        }
+        // The animated jewel case occupies the right side of the details
+        // page. A tap opens/closes it without triggering the Play action.
+        if (nimboxCarousel_ && tab_ == Tab::GamePass &&
+            !detail_.purchasable && x >= 1140 && x <= 1845 && y >= 168 && y <= 742) {
+            nimboxCaseOpen_.target = nimboxCaseOpen_.target >= 500.0f ? 0.0f : 1000.0f;
+            dirty_ = true;
             return ev;
         }
         const GameTile* g = &detail_;
@@ -1929,6 +1941,11 @@ UiEvent AppUi::handleLocked(const NavInput& in) {
             }
             if (in.options) {
                 openGameSettings();
+                dirty_ = true;
+                break;
+            }
+            if (nimboxCarousel_ && tab_ == Tab::GamePass && in.r2) {
+                nimboxCaseOpen_.target = nimboxCaseOpen_.target >= 500.0f ? 0.0f : 1000.0f;
                 dirty_ = true;
                 break;
             }
