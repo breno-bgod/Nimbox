@@ -2018,9 +2018,10 @@ void AppUi::drawDonationModal(Canvas& c) {
     fonts_.semibold.draw(c, kNimboxSupportPage, textX, textY, 24, rgba(255, 215, 80));
 
     c.fillRect({0, kH - 80, kW, 80}, kBg);
-    drawHints(c, caps_.openUrl
-        ? std::vector<std::pair<int, std::string>>{{kIconCross, tr(Str::Select)}, {kIconCircle, tr(Str::Back)}}
-        : std::vector<std::pair<int, std::string>>{{kIconCircle, tr(Str::Back)}});
+    if (caps_.openUrl)
+        drawHints(c, {{kIconCross, tr(Str::OpenInBrowser)}, {kIconCircle, tr(Str::Back)}});
+    else
+        drawHints(c, {{kIconCircle, tr(Str::Back)}});
 }
 
 void AppUi::drawTrophyDisclaimerModal(Canvas& c) {
