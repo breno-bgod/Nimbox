@@ -1211,18 +1211,33 @@ void AppUi::handleGameSettings(const NavInput& in, UiEvent& ev) {
 }
 
 void AppUi::drawSettings(Canvas& c) {
-    drawBackground(c);
+    // Nimbox Visual Studio: layered smoked-glass panels on a low-contrast
+    // gradient. The settings, their identifiers, hit testing and values
+    // remain EXACTLY the original functional implementation.
+    c.clear(rgba(6, 15, 24));
+    c.gradientV({0, 0, kW, kH}, rgba(16, 45, 59), rgba(5, 11, 22));
+    c.gradientH({0, 140, kW, 780}, rgba(12, 68, 82, 110), rgba(9, 32, 49, 65));
+    for (int i = 0; i < 9; ++i) {
+        const float y = 175.0f + 95.0f * i;
+        c.line(0.0f, y + 35.0f, static_cast<float>(kW), y - 75.0f,
+               1.0f, rgba(110, 196, 213, static_cast<uint8_t>(8 + (i % 3) * 3)));
+    }
+    c.fillRect({207, 178, 1068, 755}, rgba(9, 23, 35, 145), 24);
+    c.strokeRect({207, 178, 1068, 755}, rgba(125, 205, 222, 36), 1, 24);
+    c.fillRect({1298, 178, 563, 749}, rgba(9, 23, 35, 120), 24);
+    c.strokeRect({1298, 178, 563, 749}, rgba(125, 205, 222, 32), 1, 24);
     drawTopBar(c);
 
     // Back button next to Settings title for touch navigation
     Rect backBtn{kMargin, 94, 52, 52};
-    c.fillRect(backBtn, rgba(255, 255, 255, 22), 16);
-    c.strokeRect(backBtn, rgba(255, 255, 255, 50), 1, 16);
+    c.fillRect(backBtn, rgba(38, 90, 106, 172), 16);
+    c.strokeRect(backBtn, rgba(130, 220, 232, 92), 1, 16);
     float bx = backBtn.x + backBtn.w / 2.0f, by = backBtn.y + backBtn.h / 2.0f;
     c.line(bx + 4.0f, by - 9.0f, bx - 4.0f, by, 3.0f, kWhite);
     c.line(bx - 4.0f, by, bx + 4.0f, by + 9.0f, 3.0f, kWhite);
 
     fonts_.bold.draw(c, tr(Str::Settings), kMargin + 72, 116, 46, kWhite);
+    fonts_.semibold.draw(c, "NIMBOX  /  SISTEMA", 1310, 116, 19, rgba(137, 211, 225));
     if (loading_) {
         drawLoadingBar(c, kW - kMargin - 480, 100, 480, lastRender_);
     }
@@ -1267,8 +1282,9 @@ void AppUi::drawSettings(Canvas& c) {
             int textX = r.x + (r.w - textW) / 2;
             fonts_.bold.draw(c, labels[i], textX, ty, kRowPx, kWhite);
         } else {
-            c.fillRect(r, focused ? rgba(255, 255, 255, 36) : rgba(255, 255, 255, 14), 12);
-            if (focused && !dropdownOpen_) c.strokeRect({r.x - 4, r.y - 4, r.w + 8, r.h + 8}, kWhite, 3, 16);
+            c.fillRect(r, focused ? rgba(31, 86, 103, 221) : rgba(24, 46, 58, 157), 14);
+            c.strokeRect(r, focused ? rgba(132, 220, 230, 227) : rgba(139, 186, 202, 40),
+                         focused && !dropdownOpen_ ? 2 : 1, 14);
             fonts_.semibold.draw(c, labels[i], r.x + 32, ty, kRowPx, kWhite);
             float cx = static_cast<float>(r.x + r.w - 40), cy = static_cast<float>(r.y + r.h / 2);
             const bool isSubmenuRow = (i == 3 || i == 4 || i == 12 || i == 14 || i == 15);
@@ -1387,8 +1403,10 @@ void AppUi::drawSettings(Canvas& c) {
     if (tester_ == Tester::None && !pickerOpen_) {
         std::string qrUrl = !webUrl_.empty() ? webUrl_ : "http://" + platform::localIPv4() + ":8080";
         Rect panel{1310, 184, 540, 724};
-        c.fillRect(panel, rgba(255, 255, 255, 14), 16);
-        c.strokeRect(panel, rgba(255, 255, 255, 30), 1, 16);
+        c.fillRect(panel, rgba(21, 47, 61, 224), 22);
+        c.strokeRect(panel, rgba(135, 210, 224, 107), 1, 22);
+        c.fillRect({panel.x + 24, panel.y + 10, panel.w - 48, 3},
+                   rgba(116, 219, 232, 120), 2);
 
         int py = panel.y + 30;
         int titleW = fonts_.bold.measure(tr(Str::WebControlTitle), 28);
@@ -1419,8 +1437,8 @@ void AppUi::drawSettings(Canvas& c) {
         int qrTop = py + (availH - qrCardW) / 2;
         drawQr(c, qrUrl, qrRight, qrTop, qrTarget, qrcodegen_Ecc_LOW);
 
-        c.fillRect(pill, rgba(0, 0, 0, 70), 12);
-        c.strokeRect(pill, rgba(255, 255, 255, 30), 1, 12);
+        c.fillRect(pill, rgba(5, 21, 30, 204), 12);
+        c.strokeRect(pill, rgba(116, 219, 232, 72), 1, 12);
 
         int urlW = fonts_.semibold.measure(qrUrl, 20);
         fonts_.semibold.draw(c, qrUrl, pill.x + (pill.w - urlW) / 2, fonts_.semibold.centeredY(pill.y, pill.h, 20), 20, rgba(140, 230, 160));

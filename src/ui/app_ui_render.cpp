@@ -385,6 +385,9 @@ void AppUi::drawSplash(Canvas& c, uint64_t nowMs) {
 
 void AppUi::drawSignIn(Canvas& c, uint64_t nowMs) {
     drawBackground(c);
+    c.gradientH({0, 80, kW, 920}, rgba(8, 27, 42, 115), rgba(13, 71, 85, 105));
+    c.fillRect({139, 110, 890, 850}, rgba(8, 23, 33, 94), 22);
+    c.strokeRect({139, 110, 890, 850}, rgba(119, 211, 222, 55), 1, 22);
     const int left = 180;
     drawLogo(c, left + 26, 160, 26);
     fonts_.semibold.draw(c, tr(Str::AppName), left + 70, 144, 30, kWhite);
@@ -427,8 +430,8 @@ void AppUi::drawSignIn(Canvas& c, uint64_t nowMs) {
 #if defined(__ANDROID__)
     // Harmonized Xbox-styled primary action button for mobile browser sign-in
     Rect btnBox{1180, 480, 560, 124};
-    c.fillRect(btnBox, kGreen, 24);
-    c.strokeRect(btnBox, rgba(30, 215, 96, 140), 2, 24);
+    c.fillRect(btnBox, rgba(27, 126, 141), 24);
+    c.strokeRect(btnBox, rgba(128, 228, 238, 185), 2, 24);
 
     const char* btnTxt = tr(Str::SignInOpenBrowser);
     int bw = fonts_.bold.measure(btnTxt, 28);
