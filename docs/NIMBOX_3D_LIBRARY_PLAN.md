@@ -158,3 +158,30 @@ Objetivo: incorporar melhorias solicitadas após as imagens de referência sem a
 6. R1 mostra contracapa; voltar com R1; voltar à biblioteca e verificar a animação de retorno.
 7. Iniciar jogo, verificar o fluxo existente sem mudanças em streaming.
 
+
+
+## Revisão da direção visual — Nimbox (novembro de 2026)
+
+Esta seção SUBSTITUI as propostas antigas de contracapa e caixa articulada contidas anteriormente no plano. As quatro capturas enviadas pelo usuário motivaram a mudança.
+
+### Implementado no código da branch
+- [x] Rebranding visual: AppName e todos os textos PSBox nas traduções da UI dos seis idiomas foram trocados por Nimbox. Ícone, banner e rótulos Android são próprios da branch Nimbox. Créditos e licenças upstream permanecem.
+- [x] Login: marca Nimbox, paleta ciano e painel escuro com transparência, sem alterar o login Microsoft por código.
+- [x] Carrossel com pose física de estante: capas não selecionadas fortemente inclinadas, lombada visível e capa parcialmente exposta; ao navegar, a capa selecionada passa suavemente à vista frontal.
+- [x] Remoção da linha escura horizontal na base; reflexos sutis do jogo central e vizinhos próximos.
+- [x] Imagens: bilinear na projeção e maior solicitação de textura para capa central (512 px quando disponível); resolução de origem depende do xCloud e não é ampliada magicamente.
+- [x] Tela de detalhes: contracapa, caixa aberta e controles extras removidos. O único objeto decorativo é um CD virtual giratório com arte do jogo. Play, informações e configurações do jogo permanecem intactos.
+- [x] Modo de movimento reduzido na biblioteca (R2 ou toque) também interrompe a rotação contínua do CD.
+- [x] Configurações: interface redesenhada em cartões de vidro fosco SIMULADO por gradientes e transparência, foco azul/ciano. A lógica e opções originais permanecem iguais; o Canvas não possui blur real.
+- [x] Link de releases visível no desktop usa o repositório Nimbox, preservando créditos upstream.
+
+### Testes pendentes — não publicar antes
+- [ ] Confirmar CI Android do SHA HEAD e APK gerado por esta versão (não usar artefato de commits intermediários).
+- [ ] Testar login, QR Microsoft, todas as configurações, QR Web Control, toque/gamepad e botão Play no Samsung S23.
+- [ ] Avaliar FPS e uso de memória da rasterização bilinear/reflexos + rotação do CD.
+- [ ] Comparar capturas reais com a referência e revisar pose, transição e leitura das lombadas.
+- [ ] Revisar atualização automática/release público Nimbox separadamente; apontar o link de releases ao fork não publica novas versões automaticamente.
+- [ ] Considerar backend GPU 3D apenas após medir limitações do atual renderizador 2,5D.
+
+### Integridade do projeto
+Nenhuma modificação de autenticação, protocolos Xbox ou núcleo de streaming foi realizada nesta revisão. Identificadores técnicos de compatibilidade e créditos/licenças do autor original permanecem, mas não devem aparecer como marca em menus ou login. O PR continua experimental e a main não recebe merge automático.
