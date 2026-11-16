@@ -34,33 +34,40 @@ inline CaseGeometry layout(int offset) {
     CaseGeometry g;
     g.distance = d;
     if (d == 0) {
+        // The selected object is frontal and full-size. Other cases
+        // will rotate naturally into this geometry when they are selected.
         g.x = 805.0f; g.y = 230.0f; g.w = 310.0f; g.h = 460.0f;
-        g.front = {{g.x, g.y}, {g.x + g.w, g.y}, {g.x + g.w, g.y + g.h}, {g.x, g.y + g.h}};
-        g.spine = {{g.x - 22, g.y + 6}, g.front.tl, g.front.bl, {g.x - 22, g.y + g.h - 6}};
+        g.front = {{g.x, g.y}, {g.x + g.w, g.y},
+                   {g.x + g.w, g.y + g.h}, {g.x, g.y + g.h}};
+        g.spine = {{g.x - 21, g.y + 7}, g.front.tl,
+                   g.front.bl, {g.x - 21, g.y + g.h - 7}};
     } else {
-        // Close-packed cases create the staggered physical shelf seen in the
-        // reference. A shallow trapezoid turns each neighbor toward the viewer.
-        const int dir = offset < 0 ? -1 : 1;
-        g.w = static_cast<float>(std::max(126, 236 - (d - 1) * 18));
-        g.h = static_cast<float>(std::max(285, 416 - (d - 1) * 25));
-        g.x = 960.0f + dir * (300.0f + (d - 1) * 122.0f) - g.w * 0.5f;
-        g.y = 294.0f + (d - 1) * 13.0f;
-        const float inset = std::min(47.0f, 25.0f + d * 4.0f);
-        if (dir < 0) {
-            g.front = {{g.x, g.y + inset}, {g.x + g.w, g.y}, {g.x + g.w, g.y + g.h},
-                       {g.x, g.y + g.h - inset}};
-            const float sw = 13.0f + d * 1.2f;
-            g.spine = {{g.x - sw, g.y + inset - 3}, g.front.tl, g.front.bl,
-                       {g.x - sw, g.y + g.h - inset - 3}};
+        // Physical-library layout: the spine faces the camera, only a slim
+        // slice of the printed cover is visible (approximately 67-80 deg).
+        // Near boxes overlap far boxes; not a row of frontal posters.
+        const int side = offset < 0 ? -1 : 1;
+        g.w = static_cast<float>(std::max(52, 118 - (d - 1) * 13));
+        g.h = static_cast<float>(430 - (d - 1) * 11);
+        g.y = static_cast<float>(268 + (d - 1) * 7);
+        const float shelf = 175.0f + (d - 1) * 112.0f;
+        g.x = side < 0 ? 960.0f - shelf - g.w : 960.0f + shelf;
+        const float tilt = static_cast<float>(31 + std::min(d, 5) * 3);
+        const float sw = static_cast<float>(29 + std::min(d, 5));
+        if (side < 0) {
+            g.front = {{g.x, g.y + tilt}, {g.x + g.w, g.y},
+                       {g.x + g.w, g.y + g.h},
+                       {g.x, g.y + g.h - tilt}};
+            g.spine = {{g.x - sw, g.y + tilt - 4}, g.front.tl,
+                       g.front.bl, {g.x - sw, g.y + g.h - tilt - 4}};
         } else {
-            g.front = {{g.x, g.y}, {g.x + g.w, g.y + inset},
-                       {g.x + g.w, g.y + g.h - inset}, {g.x, g.y + g.h}};
-            const float sw = 13.0f + d * 1.2f;
-            g.spine = {g.front.tr, {g.x + g.w + sw, g.y + inset - 3},
-                       {g.x + g.w + sw, g.y + g.h - inset - 3}, g.front.br};
+            g.front = {{g.x, g.y}, {g.x + g.w, g.y + tilt},
+                       {g.x + g.w, g.y + g.h - tilt},
+                       {g.x, g.y + g.h}};
+            g.spine = {g.front.tr, {g.x + g.w + sw, g.y + tilt - 4},
+                       {g.x + g.w + sw, g.y + g.h - tilt - 4},
+                       g.front.br};
         }
     }
-    // Broad-phase hit testing only; exact projected polygon follows.
     const float minX = std::min({g.front.tl.x, g.front.bl.x, g.spine.tl.x, g.spine.bl.x});
     const float maxX = std::max({g.front.tr.x, g.front.br.x, g.spine.tr.x, g.spine.br.x});
     const float minY = std::min({g.front.tl.y, g.front.tr.y, g.spine.tl.y, g.spine.tr.y});

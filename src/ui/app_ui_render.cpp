@@ -1030,8 +1030,8 @@ void AppUi::drawNimboxCarousel(Canvas& c, uint64_t nowMs) {
     c.clear(deep);
     c.gradientV({0, 136, kW, 700}, topShade, deep);
     c.gradientH({0, 220, kW, 490}, rgba(11, 30, 43, 110), rgba(15, 70, 75, 60));
-    c.fillRect({0, 745, kW, 2}, rgba(143, 216, 229, 72));
-    c.gradientV({0, 746, kW, 170}, rgba(41, 72, 80, 100), rgba(7, 13, 22, 5));
+    // No hard horizontal shelf line. Subtle ambient falloff behind reflected art.
+    c.gradientV({0, 695, kW, 240}, rgba(43, 84, 91, 21), rgba(5, 12, 20, 85));
     drawTopBar(c);
     drawTabs(c);
 
@@ -1066,12 +1066,13 @@ void AppUi::drawNimboxCarousel(Canvas& c, uint64_t nowMs) {
         const GameTile& tile = row.tiles[static_cast<size_t>(index)];
         const nimbox::CaseGeometry g = nimbox::layoutAnimated(
             static_cast<float>(offset) + nimboxSlide_.value / 1000.0f);
-        const int d = g.distance;
-        const bool focused = d == 0;
-        const Color shadow = rgba(0, 0, 0, focused ? 155 : 90);
-        const int shadowW = static_cast<int>(g.w + (focused ? 12 : 0));
-        c.fillRect({static_cast<int>(g.x) - 8, static_cast<int>(g.y + g.h + 12),
-                    shadowW + 16, focused ? 12 : 8}, shadow, 6);
+        const int d = std::abs(offset);
+        const bool focused = offset == 0;
+        // Only soft contact shadows. The dark bars in the earlier prototype
+        // looked like dividers, unlike a continuous reflective collection floor.
+        const int shadowW = static_cast<int>(g.w + 8);
+        c.fillRect({static_cast<int>(g.x) - 2, 712, shadowW, focused ? 8 : 5},
+                   rgba(0, 0, 0, focused ? 60 : 32), 8);
         // The case has a translucent jewel-box spine, a rim and inset printed insert.
         c.fillQuad(g.spine, rgba(47, 95, 108));
         c.line(g.spine.tl.x, g.spine.tl.y, g.spine.bl.x, g.spine.bl.y, 2.0f, rgba(204, 245, 249, 125));
@@ -1101,6 +1102,21 @@ void AppUi::drawNimboxCarousel(Canvas& c, uint64_t nowMs) {
         c.line(g.front.bl.x, g.front.bl.y, g.front.br.x, g.front.br.y, 2.0f,
                rgba(4, 11, 16, 220));
 
+        // Even a mostly side-facing case retains a readable book-style spine.
+        if (offset != 0 && std::fabs(nimboxSlide_.value) < 800.0f) {
+            const float spineX = offset < 0 ? g.spine.tl.x : g.front.tr.x;
+            const int labelX = static_cast<int>(spineX) + 8;
+            int labelY = static_cast<int>(g.y) + 67;
+            for (char ch : tile.name) {
+                if (labelY > g.y + g.h - 45) break;
+                if (static_cast<unsigned char>(ch) < 32 ||
+                    static_cast<unsigned char>(ch) > 126) continue;
+                if (ch == ' ') { labelY += 9; continue; }
+                fonts_.semibold.draw(c, std::string(1, ch), labelX, labelY, 13,
+                                     rgba(225, 245, 242, 210));
+                labelY += 16;
+            }
+        }
         if (d <= 1) {
             const int textX = static_cast<int>(g.x) + (focused ? 17 : 12);
             const int bandY = static_cast<int>(g.y + (offset < 0 ? (focused ? 0 : 18) : 2));
@@ -1120,6 +1136,22 @@ void AppUi::drawNimboxCarousel(Canvas& c, uint64_t nowMs) {
                 fonts_.bold.draw(c, lines[line], textX, static_cast<int>(g.y + g.h * 0.80f) +
                                  9 + static_cast<int>(line) * (focused ? 31 : 21),
                                  focused ? 24 : 16, kWhite);
+            }
+        }
+        // Subtle inverted game-art reflection below the cases. Images are
+        // reused from cache; far cases are omitted to limit Android CPU cost.
+        if (d <= 3 && !tile.tileUrl.empty()) {
+            const int reflectH = focused ? 81 : (d == 1 ? 61 : 43);
+            const float floorY = 724.0f;
+            const Quad mirror{{g.front.bl.x, floorY + reflectH},
+                              {g.front.br.x, floorY + reflectH},
+                              {g.front.br.x, floorY},
+                              {g.front.bl.x, floorY}};
+            if (auto mirrorImage = images_.get(tile.tileUrl,
+                                              std::max(64, static_cast<int>(g.w)),
+                                              std::max(64, static_cast<int>(g.w)))) {
+                c.drawImageQuad(*mirrorImage, mirror,
+                                focused ? 42 : static_cast<uint8_t>(d == 1 ? 22 : 10));
             }
         }
         // The further-away boxes are visibly dimmer; their artwork still
@@ -1146,6 +1178,8 @@ void AppUi::drawNimboxCarousel(Canvas& c, uint64_t nowMs) {
                std::fabs(static_cast<float>(b) + shift);
     });
     for (int offset : order) drawCase(offset);
+    // Fade the virtual reflections instead of drawing a shelf-divider line.
+    c.gradientV({0, 738, kW, 150}, rgba(5, 13, 21, 0), rgba(5, 13, 21, 188));
 
     if (count) {
         const GameTile& current = row.tiles[static_cast<size_t>(selected)];
