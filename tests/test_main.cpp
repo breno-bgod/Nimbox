@@ -1055,6 +1055,35 @@ static void testFreeAccountPlayability() {
     CHECK(evF2p.game.titleId == "Fortnite");
 }
 
+static void testNimboxDefaultCarouselNavigation() {
+    ui::Fonts fonts;
+    ui::ImageCache images([] {});
+    ui::AppUi app(fonts, images);
+    ui::GameRow row;
+    row.title = "Cloud collection";
+    for (int i = 0; i < 3; ++i) {
+        ui::GameTile tile;
+        tile.name = "Game " + std::to_string(i + 1);
+        tile.titleId = "TITLE_" + std::to_string(i + 1);
+        tile.productId = "PRODUCT_" + std::to_string(i + 1);
+        tile.playable = true;
+        row.tiles.push_back(tile);
+    }
+    app.setRows({row});
+    app.showHome();
+
+    // Nimbox is the default cloud home: left from the first game wraps to
+    // the last physical case. Classic mode would clamp at the first tile.
+    ui::NavInput left;
+    left.left = true;
+    app.handle(left);
+    ui::NavInput accept;
+    accept.accept = true;
+    app.handle(accept);
+    CHECK(app.screen() == ui::Screen::Details);
+    CHECK(app.detailWanted(100) == "PRODUCT_3");
+}
+
 static void testDetailsHydrationAndPlaytimeBadge() {
     ui::Fonts fonts;
     ui::ImageCache images([] {});
@@ -11596,6 +11625,7 @@ int main() {
     testTitleListRetriesAndIncompleteLibrary();
     testFontsFallBackToBuiltin();
     testFreeAccountPlayability();
+    testNimboxDefaultCarouselNavigation();
     testDetailsHydrationAndPlaytimeBadge();
     testMilestone5TransmissionQualityAndStreamReload();
     testMilestone6UsbKeyboardMouseIsolation();
