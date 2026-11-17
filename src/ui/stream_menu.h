@@ -424,6 +424,15 @@ private:
         ReloadStreamItem,
         Leave
     };
+    static_assert([] {
+        int decoderChoices = 0;
+        int upscalerChoices = 0;
+        for (int item : kAndroidOrder) {
+            if (item == VideoDecoderItem) ++decoderChoices;
+            if (item == Upscaler) ++upscalerChoices;
+        }
+        return decoderChoices == 1 && upscalerChoices == 1;
+    }(), "Android controller menu must expose one H.264 decoder and one upscaler row");
     void drawGuitarTab(Canvas& c) const;
     void drawGuitarPicker(Canvas& c, int rowY) const;
     int audioHaptics_ = 0;
