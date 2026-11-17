@@ -35,6 +35,7 @@
 #include "stream/input_packet.h"
 #include "stream/stream_session.h"
 #include "ui/app_ui.h"
+#include "ui/nimbox_pose_core.h"
 #include "app/shell.h"
 #include "ui/touch_pad_overlay.h"
 #include "ui/accent_color.h"
@@ -1053,6 +1054,24 @@ static void testFreeAccountPlayability() {
     ui::UiEvent evF2p = app.handle(in);
     CHECK(evF2p.action == ui::Action::Play);
     CHECK(evF2p.game.titleId == "Fortnite");
+}
+
+static void testNimboxSharedCppPose() {
+    using xc::ui::nimbox::previewPose;
+    using xc::ui::nimbox::previewRelativeOffset;
+    const auto center = previewPose(0);
+    const auto left = previewPose(-1);
+    const auto right = previewPose(2);
+    CHECK(center.x == 0.0f && center.z == 160.0f && center.scale == 1.0f);
+    CHECK(center.zIndex == 20 && center.opacity == 1.0f);
+    CHECK(left.x == -280.0f && left.y == 35.0f && left.z == -58.0f);
+    CHECK(left.rotationY == 48.0f && left.scale > 0.89f);
+    CHECK(right.x == 450.0f && right.rotationY == -57.0f && right.scale > 0.79f);
+    CHECK(previewPose(5).opacity == 0.0f);
+    CHECK(previewRelativeOffset(9, 0, 10) == -1);
+    CHECK(previewRelativeOffset(1, 9, 10) == 2);
+    CHECK(nimbox_pose_value(0, 2) == 160.0f);
+    CHECK(nimbox_relative_offset(9, 0, 10) == -1);
 }
 
 static void testNimboxDefaultCarouselNavigation() {
@@ -11625,6 +11644,7 @@ int main() {
     testTitleListRetriesAndIncompleteLibrary();
     testFontsFallBackToBuiltin();
     testFreeAccountPlayability();
+    testNimboxSharedCppPose();
     testNimboxDefaultCarouselNavigation();
     testDetailsHydrationAndPlaytimeBadge();
     testMilestone5TransmissionQualityAndStreamReload();
