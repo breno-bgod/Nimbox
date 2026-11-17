@@ -37,6 +37,7 @@
 #include "ui/app_ui.h"
 #include "ui/nimbox_pose_core.h"
 #include "ui/box_carousel.h"
+#include "ui/preview_visual_layout.h"
 #include "ui/collection_case_finish.h"
 #include "app/shell.h"
 #include "ui/touch_pad_overlay.h"
@@ -1164,6 +1165,29 @@ static void testNimboxCascadeArc() {
         CHECK(std::isfinite(tween.spine.bl.y));
         CHECK(tween.bounds.w > 0);
     }
+}
+
+static void testNimboxPreview3PageStructure() {
+    using namespace xc::ui::preview31;
+    // Layout invariants: the studio ends before the rails, and the existing
+    // 'VER DETALHES' CTA keeps a visible/clickable shared rectangle.
+    CHECK(kDetailsCta.x > 0 && kDetailsCta.w > 250);
+    CHECK(kDetailsCta.y > kFocusMetaY + 22);
+    CHECK(kDetailsCta.y + kDetailsCta.h < kHeroShelfBoundary);
+    CHECK(kShelfHeaderY > kHeroShelfBoundary);
+    CHECK(kShelfTileY >= kShelfHeaderY + 28);
+    CHECK(kShelfBottom > kShelfTileY + 80);
+    CHECK(kFooterTop >= kShelfBottom);
+    CHECK(kFooterTop < 1080);
+
+    xc::ui::Canvas c(1920, 1080, xc::ui::rgba(0, 0, 0));
+    shelfBackdrop(c);
+    glassPanel(c, {kShelfLeft, kShelfTileY, kShelfTileW, kShelfTileH}, 12);
+    footerBackdrop(c);
+    const auto* pixels = c.data();
+    // The shelf and footer remain dark, unlike the brighter hero.
+    CHECK(pixels[static_cast<size_t>(kShelfHeaderY) * 1920u + 5u] !=
+          pixels[static_cast<size_t>(kFooterTop + 8) * 1920u + 5u]);
 }
 
 static void testNimboxXboxCaseFinish() {
@@ -11769,6 +11793,7 @@ int main() {
     testNimboxSharedCppPose();
     testNimboxProjected3DCase();
     testNimboxCascadeArc();
+    testNimboxPreview3PageStructure();
     testNimboxXboxCaseFinish();
     testNimboxDefaultCarouselNavigation();
     testDetailsHydrationAndPlaytimeBadge();

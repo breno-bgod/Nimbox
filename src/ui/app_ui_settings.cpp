@@ -1236,8 +1236,10 @@ void AppUi::drawSettings(Canvas& c) {
     c.line(bx + 4.0f, by - 9.0f, bx - 4.0f, by, 3.0f, kWhite);
     c.line(bx - 4.0f, by, bx + 4.0f, by + 9.0f, 3.0f, kWhite);
 
-    fonts_.bold.draw(c, tr(Str::Settings), kMargin + 72, 116, 46, kWhite);
-    fonts_.semibold.draw(c, "NIMBOX  /  SISTEMA", 1310, 116, 19, rgba(137, 211, 225));
+    // Settings page title sits BELOW the fixed Premium Preview navigation
+    // bar. The existing back button and every settings row stay in place.
+    fonts_.bold.draw(c, tr(Str::Settings), kMargin + 72, 137, 42, kWhite);
+    fonts_.semibold.draw(c, "NIMBOX  /  SISTEMA", 1310, 140, 19, rgba(137, 211, 225));
     if (loading_) {
         drawLoadingBar(c, kW - kMargin - 480, 100, 480, lastRender_);
     }

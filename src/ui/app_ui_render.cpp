@@ -152,7 +152,9 @@ void AppUi::drawTopBar(Canvas& c) {
         fonts_.semibold.draw(c, "NIMBOX", brandX, 42, kBrandPx, kWhite);
         drawCloudTime(c, brandX, 72);
     } else {
-        fonts_.semibold.draw(c, "NIMBOX", brandX, 58, kBrandPx, kWhite);
+        fonts_.semibold.draw(c, "NIMBOX", brandX, 46, kBrandPx, kWhite);
+        fonts_.regular.draw(c, "CLOUD GAMING", brandX, 77, 13,
+                            rgba(173, 221, 229));
     }
 
     // Avatar and centered Settings touch button
@@ -397,11 +399,15 @@ void AppUi::drawSplash(Canvas& c, uint64_t nowMs) {
 void AppUi::drawSignIn(Canvas& c, uint64_t nowMs) {
     drawBackground(c);
     c.gradientH({0, 80, kW, 920}, rgba(8, 27, 42, 115), rgba(13, 71, 85, 105));
-    c.fillRect({139, 110, 890, 850}, rgba(8, 23, 33, 94), 22);
-    c.strokeRect({139, 110, 890, 850}, rgba(119, 211, 222, 55), 1, 22);
+    preview31::glassPanel(c, {139, 110, 890, 850}, 22);
+    preview31::glassPanel(c, {1160, 190, 660, 690}, 22);
+    c.gradientV({1160, 190, 660, 690}, rgba(19, 76, 91, 34),
+                rgba(5, 21, 38, 24));
     const int left = 180;
     drawLogo(c, left + 26, 160, 26);
     fonts_.semibold.draw(c, tr(Str::AppName), left + 70, 144, 30, kWhite);
+    fonts_.semibold.draw(c, "NIMBOX  /  ACESSO", left, 214, 19,
+                         preview31::kAccent);
     fonts_.bold.draw(c, tr(Str::SignInTitle), left, 260, 72, kWhite);
     fonts_.regular.draw(c, tr(Str::SignInStep1), left, 400, 32, kGray);
     std::string shortUrl = codeUrl_;
@@ -512,12 +518,15 @@ void AppUi::drawTabs(Canvas& c) {
         bool on = static_cast<int>(tab_) == i;
         Rect r{x, kY, widths[i], kH};
         if (on) {
-            c.fillRect({r.x - 5, r.y - 5, r.w + 10, r.h + 10}, rgba(38, 186, 218, 50), kH / 2);
-            c.fillRect(r, rgba(22, 100, 131, 230), kH / 2);
-            c.strokeRect(r, rgba(123, 232, 250), 2, kH / 2);
+            // The native tab remains the SAME target as before; only its
+            // appearance follows Preview 3.0's bright active navigation pill.
+            c.fillRect({r.x - 5, r.y - 5, r.w + 10, r.h + 10},
+                       rgba(82, 197, 222, 28), kH / 2);
+            c.fillRect(r, rgba(237, 250, 254), kH / 2);
+            c.strokeRect(r, rgba(194, 240, 246), 2, kH / 2);
         }
         fonts_.semibold.draw(c, labels[i], x + kPad, fonts_.semibold.centeredY(kY, kH, kPx),
-                             kPx, on ? kWhite : kGray);
+                             kPx, on ? rgba(12, 49, 66) : kGray);
         x += widths[i] + kGap;
     }
     shoulder(g_keyboardHints ? "E" : buttonName(g_glyphStyle, PadButton::R1), x - kGap + 40);
@@ -768,13 +777,17 @@ void AppUi::drawLibrary(Canvas& c, uint64_t nowMs) {
     }
     c.clearClip();
     c.fillRect({0, 0, kW, clipTop}, kBg);
+    c.gradientH({0, 122, kW, clipTop - 122}, rgba(23, 68, 91), rgba(5, 19, 34));
     c.gradientV({0, clipTop, kW, 12}, kBg, withAlpha(kBg, 0));
     drawTopBar(c);
     drawTabs(c);
-    // Visual heading only. Library sections, sorting and selection still use
-    // their original data and exactly the same hit targets.
-    fonts_.semibold.draw(c, "NIMBOX  /  COLECAO VIVA", 100, 130, 19,
-                         rgba(116, 222, 240));
+    // Preview 3.x library hierarchy. Keep the existing owned/purchasable/
+    // hidden sections, sort selector, hitboxes and catalog data.
+    fonts_.semibold.draw(c, "NIMBOX  /  BIBLIOTECA", kMargin, 141, 18,
+                         preview31::kAccent);
+    fonts_.bold.draw(c, "Seus jogos", kMargin, 171, 38, preview31::kText);
+    fonts_.regular.draw(c, "Colecao, organizacao e jogos disponiveis",
+                        kMargin, 216, 18, preview31::kMuted);
     if (owned_.empty() && purchasable_.empty() && hiddenTiles_.empty()) {
         if (!ownedKnown_) {
             drawSpinner(c, kW / 2.0f, 470, 26, nowMs);
@@ -1062,6 +1075,12 @@ void AppUi::drawNimboxCarousel(Canvas& c, uint64_t nowMs) {
         }
     }
     c.clear(deep);
+    // Preview Aurora studio fallback: a continuous blue sky/floor even
+    // before hero art is downloaded. Real art, when present, paints over it.
+    c.gradientV({0, 122, kW, preview31::kHeroShelfBoundary - 122},
+                rgba(82, 153, 187), rgba(16, 60, 87));
+    c.gradientH({0, 122, kW, 650}, rgba(12, 43, 72, 82),
+                rgba(113, 195, 218, 17));
     // Keep receiving the game's actual hero art from the PSBox/xCloud data.
     // The visual layer never invents a new title or modifies the session.
     const GameTile* artworkTile = focusedTile();
@@ -1071,15 +1090,17 @@ void AppUi::drawNimboxCarousel(Canvas& c, uint64_t nowMs) {
         if (it != detailInfo_.end()) hero = it->second.heroUrl;
     }
     if (!hero.empty()) drawHero(c, nowMs, hero, true);
-    c.fillRect({0, 140, kW, 830}, rgba(3, 13, 27, 92));
-    c.gradientV({0, 135, kW, 740}, withAlpha(topShade, 48),
-                rgba(8, 17, 31, 175));
-    c.gradientH({0, 140, 560, 655}, rgba(6, 21, 39, 195),
+    // The Preview 3.0 hero is a luminous continuous studio above catalog rails.
+    // Real xCloud hero art remains visible underneath.
+    c.fillRect({0, 140, kW, preview31::kHeroShelfBoundary - 140}, rgba(3, 13, 27, 49));
+    c.gradientV({0, 135, kW, preview31::kHeroShelfBoundary - 135},
+                withAlpha(topShade, 105), rgba(10, 37, 57, 165));
+    c.gradientH({0, 140, 560, 660}, rgba(6, 21, 39, 173),
                 rgba(6, 21, 39, 0));
     // Ambient floor is drawn beneath the physical collection and its disc.
-    c.gradientV({0, 660, kW, 335}, rgba(28, 85, 116, 54), deep);
-    c.line(220.0f, 719.0f, 1680.0f, 719.0f, 2.0f,
-           rgba(73, 188, 226, 44));
+    c.gradientV({0, 645, kW, 224}, rgba(50, 128, 160, 63), deep);
+    c.line(220.0f, 715.0f, 1680.0f, 715.0f, 1.0f,
+           rgba(147, 214, 235, 29));
     drawTopBar(c);
     drawTabs(c);
 
@@ -1255,14 +1276,75 @@ void AppUi::drawNimboxCarousel(Canvas& c, uint64_t nowMs) {
         c.fillCircle(dcx, dcy, 13.0f, deep);
         c.strokeCircle(dcx, dcy, 13.0f, 2.0f, rgba(188, 228, 240));
     }
-    // Fade the virtual reflections instead of drawing a shelf-divider line.
-    c.gradientV({0, 738, kW, 150}, rgba(17, 39, 60, 0), rgba(17, 39, 60, 174));
+    // Studio fades into real catalog rails exactly like Preview 3.0/3.1.
+    c.gradientV({0, 738, kW, 130}, rgba(17, 39, 60, 0), rgba(17, 39, 60, 148));
+    preview31::shelfBackdrop(c);
+
+    // Native counterpart of #home-shelves in Premium Preview 3.0.
+    // Display-only rail sourced from current GameRows and saved playtime.
+    // Up/down already browses rows; no input system is changed here.
+    std::vector<const GameTile*> rail;
+    std::unordered_set<std::string> unique;
+    for (const GameRow& group : rows_) {
+        for (const GameTile& t : group.tiles) {
+            const auto product = settings_.titlePlaytime.find(t.productId);
+            const auto titleId = settings_.titlePlaytime.find(t.titleId);
+            const bool played = (product != settings_.titlePlaytime.end() &&
+                                 product->second > 0) ||
+                                (titleId != settings_.titlePlaytime.end() &&
+                                 titleId->second > 0);
+            if (!played || !t.playable) continue;
+            const std::string key = !t.productId.empty() ? t.productId : t.titleId;
+            if (key.empty() || !unique.insert(key).second) continue;
+            rail.push_back(&t);
+            if (rail.size() >= 6) break;
+        }
+        if (rail.size() >= 6) break;
+    }
+    const bool hasContinue = !rail.empty();
+    if (!hasContinue) {
+        for (const GameTile& t : row.tiles) {
+            if (rail.size() >= 6) break;
+            rail.push_back(&t);
+        }
+    }
+    const std::string railTitle = hasContinue ? "CONTINUE JOGANDO" :
+                                 (row.title.empty() ? "EXPLORE JOGOS" : row.title);
+    fonts_.bold.draw(c, fonts_.bold.fit(railTitle, 27, 900),
+                     preview31::kShelfLeft, preview31::kShelfHeaderY, 27,
+                     preview31::kText);
+    const char* shelfHint = "CIMA / BAIXO  -  COLECOES";
+    fonts_.regular.draw(c, shelfHint,
+                        1823 - fonts_.regular.measure(shelfHint, 17),
+                        preview31::kShelfHeaderY + 6, 17, preview31::kMuted);
+    c.setClip({0, preview31::kShelfTileY, kW,
+               preview31::kShelfBottom - preview31::kShelfTileY});
+    for (size_t i = 0; i < rail.size(); ++i) {
+        const GameTile& t = *rail[i];
+        const int x = preview31::kShelfLeft + static_cast<int>(i) *
+            (preview31::kShelfTileW + preview31::kShelfGap);
+        const Rect tile{x, preview31::kShelfTileY,
+                        preview31::kShelfTileW, preview31::kShelfTileH};
+        if (x + tile.w > kW - 65) break;
+        preview31::glassPanel(c, tile, 12);
+        if (!t.tileUrl.empty()) {
+            if (auto art = images_.get(t.tileUrl, tile.w, tile.h))
+                c.drawImage(*art, x, tile.y, 218, 12);
+        }
+        c.gradientV({x, tile.y + 42, tile.w, tile.h - 42},
+                    rgba(5, 23, 40, 0), rgba(4, 16, 29, 233));
+        c.strokeRect(tile, rgba(165, 217, 237, 83), 1, 12);
+        const std::string label = fonts_.semibold.fit(t.name, 17, tile.w - 22);
+        fonts_.semibold.draw(c, label, x + 11, tile.y + tile.h - 31,
+                             17, preview31::kText);
+    }
+    c.clearClip();
 
     if (count) {
         const GameTile& current = row.tiles[static_cast<size_t>(selected)];
         // Current data, never a hardcoded game name, artwork, platform or rating.
         const auto title = fonts_.bold.wrap(current.name, 42, 1120, 1);
-        if (!title.empty()) drawCentered(c, fonts_.bold, title.front(), 783, 42, kWhite);
+        if (!title.empty()) drawCentered(c, fonts_.bold, title.front(), preview31::kFocusNameY, 42, kWhite);
         std::string meta = current.publisher;
         if (!current.categories.empty()) {
             if (!meta.empty()) meta += "  -  ";
@@ -1270,7 +1352,7 @@ void AppUi::drawNimboxCarousel(Canvas& c, uint64_t nowMs) {
         }
         if (!meta.empty()) {
             meta = fonts_.regular.fit(meta, 20, 1040);
-            drawCentered(c, fonts_.regular, meta, 843, 20, rgba(191, 216, 228));
+            drawCentered(c, fonts_.regular, meta, preview31::kFocusMetaY, 20, rgba(191, 216, 228));
         }
         // Selecting a cover opens the existing details/Play flow.
         // This visual affordance deliberately does not pretend to launch
@@ -1286,11 +1368,11 @@ void AppUi::drawNimboxCarousel(Canvas& c, uint64_t nowMs) {
                              detailsButton.x +
                              (detailsButton.w - fonts_.semibold.measure(openText, 24)) / 2,
                              detailsButton.y + 14, 24, kWhite);
-        drawCentered(c, fonts_.regular,
-                     std::to_string(selected + 1) + " / " + std::to_string(count),
-                     964, 18, rgba(165, 202, 215));
+        // Position indicator sits beside, never on top of, the Details CTA.
+        fonts_.regular.draw(c, std::to_string(selected + 1) + " / " + std::to_string(count),
+                            1196, detailsButton.y + 15, 17, rgba(165, 202, 215));
     }
-    c.gradientV({0, 970, kW, 110}, withAlpha(deep, 0), deep);
+    preview31::footerBackdrop(c);
     drawHints(c, {{kIconCross, tr(Str::Select)}, {kIconR3, "Classic UI"},
                   {kIconTriangle, tr(Str::TabSearch)}, {kIconOptions, tr(Str::Settings)}});
     drawPads(c);
@@ -1538,6 +1620,15 @@ void AppUi::drawDetails(Canvas& c, uint64_t nowMs) {
         }
     }
     drawTopBar(c);
+    // Preview 3.0 detail page: cinematic art in the background and a
+    // readable smoked-glass text column opposite the physical Xbox case.
+    // All Play, achievements, queue and gamedata controls remain unchanged.
+    if (nimboxCarousel_ && tab_ == Tab::GamePass && !g->purchasable) {
+        c.fillRect({76, 182, 1080, 766}, rgba(3, 17, 30, 107), 20);
+        c.strokeRect({76, 182, 1080, 766}, rgba(143, 225, 243, 43), 1, 20);
+        c.gradientH({76, 182, 1040, 766}, rgba(5, 18, 29, 87),
+                    rgba(9, 37, 52, 0));
+    }
     // The complete original title, descriptions, availability and Play
     // handling below remain intact. Render physical media only in the
     // unused right-hand visual area.

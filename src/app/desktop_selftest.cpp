@@ -361,6 +361,14 @@ int desktopSelftest(const std::string& dir) {
             tile.playable = true;
             showcase.tiles.push_back(std::move(tile));
         }
+        // Synthetic history renders the "Continue jogando" visual rail.
+        // Preserve every real setting and restore it after the screenshots.
+        const ui::SettingsChoice savedLayoutSettings = ui.settings();
+        ui::SettingsChoice shelfSettings = savedLayoutSettings;
+        for (int i = 0; i < 5; ++i) {
+            shelfSettings.titlePlaytime["cv-test-" + std::to_string(i)] = 1800u + 600u * i;
+        }
+        ui.setSettings(shelfSettings);
         ui.setRows({showcase});
         ui.showHome();
         ui.render(canvas, platform::nowMs());
@@ -371,7 +379,9 @@ int desktopSelftest(const std::string& dir) {
 
         // The visible "VER DETALHES" CTA must work with pointer/touch, not
         // only with the controller's Select command.
-        ui.onMouseDown(960.0f, 915.0f, 1);
+        // The visible CTA now sits above the restored horizontal shelf.
+        // Input implementation was NOT changed; render/hitbox share one rect.
+        ui.onMouseDown(960.0f, 830.0f, 1);
         check(ui.screen() == ui::Screen::Details,
               "Colecao Viva CTA opens selected game's real details");
         ui.render(canvas, platform::nowMs());
@@ -380,6 +390,7 @@ int desktopSelftest(const std::string& dir) {
                   screenshot(dir, "6b-colecao-viva-details.png", shot) && varied(shot),
               "Colecao Viva native physical details (6b-colecao-viva-details.png)");
         ui.setRows({});
+        ui.setSettings(savedLayoutSettings);
         ui.showHome();
     }
 
