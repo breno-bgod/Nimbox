@@ -122,9 +122,9 @@ tasks.named("preBuild") {
 
 
 dependencies {
-    // Alternative Android-native WebRTC transport prototype. This is a
-    // separate PeerConnection implementation, NOT an alternate H.264 codec.
-    // It is not attached to Nimbox gameplay until the full xCloud session,
-    // controller and video renderer bridge is verified.
+    // Android video playback only: libwebrtc's H.264 hardware decoder and
+    // EGL SurfaceViewRenderer. Nimbox's existing C++ GSSV/WebRTC transport,
+    // authentication, audio and input remain the only stream infrastructure.
+    // The opt-in JNI video handoff/display composition is still pending.
     implementation("io.github.webrtc-sdk:android:150.7871.04")
 }
