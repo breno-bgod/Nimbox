@@ -43,7 +43,8 @@ int settingsRowPosition(const UiCaps& caps, int row) {
 std::vector<SettingsRowPos> visibleGameSettingsRows(const UiCaps& caps, bool custom, bool mouseSupported) {
     return filterRows(kGameRowOrder, kGameGroupStart, [&](int row) {
 #if defined(__ANDROID__)
-        if (row == 15) return false; // Video decoder in game settings
+        // Android supports both MediaCodec and FFmpeg H.264. Do not hide the
+        // per-game decoder choice: users need it without a second device.
         if (row == 7) return false;  // Confirm button in game settings
         if (row == 6) return false;  // Trigger rumble in game settings
         if (row == 16) return false; // Audio haptics in game settings
