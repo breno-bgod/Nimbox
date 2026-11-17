@@ -1547,32 +1547,43 @@ void AppUi::drawDetails(Canvas& c, uint64_t nowMs) {
     if (nimboxCarousel_ && tab_ == Tab::GamePass && !g->purchasable) {
         fonts_.semibold.draw(c, "NIMBOX  /  COLECAO VIVA", kMargin, 201, 20,
                              rgba(92, 226, 246));
+        // Details screen inherits the SAME matte-green material library as
+        // the carousel. Existing details geometry, Play and hit targets remain.
         const Quad spine{{1212.0f, 244.0f}, {1245.0f, 227.0f},
                          {1245.0f, 631.0f}, {1212.0f, 615.0f}};
         const Quad front{{1245.0f, 227.0f}, {1502.0f, 235.0f},
                          {1502.0f, 622.0f}, {1245.0f, 631.0f}};
+        const Point backRight{front.tr.x + (spine.tl.x - front.tl.x),
+                              front.tr.y + (spine.tl.y - front.tl.y)};
+        nimbox::CaseGeometry caseFace;
+        caseFace.front = front;
+        caseFace.spine = spine;
+        caseFace.top = {spine.tl, backRight, front.tr, front.tl};
         c.fillRect({1223, 635, 292, 15}, rgba(2, 8, 18, 112), 8);
-        c.fillQuad(spine, rgba(37, 91, 114));
-        c.fillQuad(front, rgba(10, 32, 52));
-        const Quad label = nimbox::verticalSlice(front, 0.014f, 0.11f);
-        c.fillQuad(label, rgba(14, 68, 93));
-        fonts_.bold.draw(c, "NIMBOX", 1281, 248, 23, rgba(240, 254, 255));
-        const Quad picture = nimbox::verticalSlice(front, 0.116f, 0.79f);
+        nimbox::finish::drawShell(c, caseFace, true);
         if (auto art = images_.get(g->tileUrl, 384, 384)) {
-            c.drawImageQuad(*art, picture);
+            c.drawImageQuad(*art, nimbox::finish::imageSlot(caseFace));
         } else {
-            c.fillQuad(picture, rgba(31, 75, 104));
+            c.fillQuad(nimbox::finish::imageSlot(caseFace), rgba(26, 55, 43));
         }
-        const Quad footer = nimbox::verticalSlice(front, 0.79f, 0.986f);
-        c.fillQuad(footer, rgba(9, 26, 44));
-        const std::string caseName = fonts_.semibold.fit(g->name, 19, 229);
-        fonts_.semibold.draw(c, caseName, 1260, 561, 19, kWhite);
-        c.line(1245.0f, 227.0f, 1245.0f, 631.0f, 3.0f,
-               rgba(137, 229, 246, 205));
-        c.line(1245.0f, 227.0f, 1502.0f, 235.0f, 3.0f,
-               rgba(154, 236, 250, 210));
-        c.line(1502.0f, 235.0f, 1502.0f, 622.0f, 2.0f,
-               rgba(101, 214, 236, 132));
+        nimbox::finish::drawGlaze(c, caseFace, true);
+        const char* generation = g->platform == "360" ? "XBOX 360" :
+                                 g->platform == "ONE" ? "XBOX ONE" :
+                                 g->platform == "XS" ? "XBOX SERIES" : "XBOX";
+        const int brandPx = 20;
+        constexpr float orbR = 13.0f;
+        const int totalW = static_cast<int>(orbR * 2.0f + 8.0f) +
+                           fonts_.bold.measure(generation, brandPx);
+        const float brandCx = (front.tl.x + front.tr.x) * 0.5f;
+        const int badgeX = static_cast<int>(brandCx - totalW * 0.5f);
+        const float badgeY = 252.0f;
+        nimbox::finish::drawXboxOrb(c, badgeX + orbR, badgeY, orbR);
+        fonts_.bold.draw(c, generation, badgeX + static_cast<int>(orbR * 2.0f + 8.0f),
+                         static_cast<int>(badgeY - 12.0f), brandPx,
+                         nimbox::finish::kPrintWhite);
+        const std::string caseName = fonts_.semibold.fit(g->name, 19, 226);
+        fonts_.semibold.draw(c, caseName, 1262, 579, 19,
+                             nimbox::finish::kPrintWhite);
         drawNimboxDisc(c, *g, nowMs);
     }
     int y = 260;
