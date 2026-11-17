@@ -685,6 +685,14 @@ std::vector<std::string> AppUi::settingOptions(int row) const {
         out = {tr(Str::SupportKoFi)};
     } else if (row == 20) {
         out = {tr(Str::VideoDecoderHw), tr(Str::VideoDecoderSw)};
+    } else if (row == 31) {
+        out = {"FSR 1.0", "Anime4K", "FSR + Clean-up", "Anime4K + Clean-up"};
+    } else if (row == 32) {
+        out = {"Desativado", "Baixa", "Alta", "Automatico"};
+    } else if (row == 33) {
+        out = {"Desativado", "Baixa", "Media", "Alta"};
+    } else if (row == 34) {
+        out = {"Automatico (DualSense)", "TV / Headset"};
     } else if (row == 21) {
         out = {tr(Str::Off), tr(Str::SharpLow), tr(Str::SharpMedium), tr(Str::SharpHigh)};
     } else if (row == 23) {
@@ -725,6 +733,10 @@ int AppUi::settingSelected(int row) const {
     if (row == 15) return std::clamp(settings_.gyroMode, 0, 4);
     if (row == 16) return settings_.queueReadyAlert ? 1 : 0;
     if (row == 20) return std::clamp(settings_.videoDecoder, 0, 1);
+    if (row == 31) return std::clamp(settings_.upscaler, 0, 3);
+    if (row == 32) return std::clamp(settings_.deband, 0, 3);
+    if (row == 33) return std::clamp(settings_.sharpness, 0, 3);
+    if (row == 34) return std::clamp(settings_.voiceRouting, 0, 1);
     if (row == 21) return std::clamp(settings_.audioHaptics, 0, 3);
     if (row == 22) return settings_.previewFeatures ? 1 : 0;
     if (row == 24) return settings_.syncTrophies ? 1 : 0;
@@ -855,7 +867,15 @@ void AppUi::applySetting(int row, int index) {
     } else if (row == 16) {
         settings_.queueReadyAlert = (index == 1);
     } else if (row == 20) {
-        settings_.videoDecoder = index;
+        settings_.videoDecoder = std::clamp(index, 0, 1);
+    } else if (row == 31) {
+        settings_.upscaler = std::clamp(index, 0, 3);
+    } else if (row == 32) {
+        settings_.deband = std::clamp(index, 0, 3);
+    } else if (row == 33) {
+        settings_.sharpness = std::clamp(index, 0, 3);
+    } else if (row == 34) {
+        settings_.voiceRouting = std::clamp(index, 0, 1);
     } else if (row == 21) {
         settings_.audioHaptics = std::clamp(index, 0, 3);
     } else if (row == 22) {
@@ -1283,7 +1303,9 @@ void AppUi::drawSettings(Canvas& c) {
                                         tr(Str::VideoDecoder),  tr(Str::AudioHaptics),  tr(Str::PreviewFeatures),
                                         tr(Str::ResetSettings), tr(Str::SyncTrophies),  tr(Str::RemoveTrophies),
                                         tr(Str::FpsLimit), tr(Str::StoreCountry),
-                                        "Ambiente Nimbox", "Reflexo do piso", "Movimento reduzido"};
+                                        "Ambiente Nimbox", "Reflexo do piso", "Movimento reduzido",
+                                        "Upscaler de imagem", "Suavizacao (Deband)",
+                                        "Nitidez CAS", "Saida do chat de voz"};
     constexpr int kRowW = kSettingsRowW, kRowH = kSettingsRowH, kGap = kSettingsGap, kGroupGap = kSettingsGroupGap, kRowPx = kSettingsRowPx;
     constexpr int kListTop = kSettingsListTop, kClipTop = kSettingsClipTop;
     Rect rows[kSettingRows];  // by row id
@@ -1473,6 +1495,16 @@ void AppUi::drawSettings(Canvas& c) {
             ? "Intensidade dos reflexos no piso da colecao."
             : settingsRow_ == nimbox_theme::kAppearanceMotion
             ? "Reduz animacoes de capas e do disco."
+            : settingsRow_ == 20
+            ? "Codec do streaming: H.264 (AVC). Escolha hardware ou software; nao troca o codec."
+            : settingsRow_ == 31
+            ? "Melhora a escala da imagem; depende do processamento grafico disponivel."
+            : settingsRow_ == 32
+            ? "Suaviza artefatos de compressao na imagem quando o backend suporta."
+            : settingsRow_ == 33
+            ? "Ajusta a nitidez da imagem apos a decodificacao H.264."
+            : settingsRow_ == 34
+            ? "Seleciona a saida do chat de voz: automatico ou TV e headset."
             : tr(kSettingDescs[settingsRow_]);
         c.fillRect({100, 869, 1132, 59}, rgba(5, 17, 30, 204), 13);
         c.strokeRect({100, 869, 1132, 59}, rgba(126, 183, 204, 51), 1, 13);

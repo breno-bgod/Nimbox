@@ -4838,21 +4838,21 @@ static void testVisibleSettingsRows() {
     };
     const ui::UiCaps ps5;
     auto all = ui::visibleSettingsRows(ps5);
-    CHECK((ids(all) == std::vector<int>{0, 2, 8, 27, 17, 18, 24, 25, 1, 20, 9, 26, 10, 14, 12, 3, 15, 4, 21, 5, 6, 16, 22, 19, 7, 23, 28, 29, 30}));
-    CHECK((groups(all) == std::vector<bool>{false, false, false, false, false, false, false, false, true, false, false, false, false, true, false, false, false, false, false, false, false, false, false, true, false, true, true, false, false}));
+    CHECK((ids(all) == std::vector<int>{0, 2, 8, 27, 17, 18, 24, 25, 1, 20, 31, 32, 33, 9, 26, 10, 11, 34, 14, 12, 3, 15, 4, 21, 5, 6, 16, 22, 19, 7, 23, 28, 29, 30}));
+    CHECK((groups(all) == std::vector<bool>{false, false, false, false, false, false, false, false, true, false, false, false, false, false, false, false, false, false, true, false, false, false, false, false, false, false, false, false, true, false, true, true, false, false}));
     ui::UiCaps pc;
     pc.lightBar = pc.triggerRumble = pc.adaptiveTriggers = pc.gyro = pc.touchpad = false;
     pc.upscalers = pc.sharpen = pc.deband = pc.highRefresh = pc.console = pc.selfUpdate = pc.trophies = false;
     pc.openUrl = true;
     auto desk = ui::visibleSettingsRows(pc);
-    CHECK((ids(desk) == std::vector<int>{0, 2, 8, 27, 17, 18, 1, 20, 26, 10, 14, 12, 3, 5, 16, 22, 19, 7, 23, 28, 29, 30}));
-    CHECK((groups(desk) == std::vector<bool>{false, false, false, false, false, false, true, false, false, false, true, false, false, false, false, false, true, false, true, true, false, false}));
+    CHECK((ids(desk) == std::vector<int>{0, 2, 8, 27, 17, 18, 1, 20, 26, 10, 11, 34, 14, 12, 3, 5, 16, 22, 19, 7, 23, 28, 29, 30}));
+    CHECK((groups(desk) == std::vector<bool>{false, false, false, false, false, false, true, false, false, false, false, false, true, false, false, false, false, false, true, false, true, true, false, false}));
     // The desktop app's window: Display mode after the resolution, in the stream's group.
     ui::UiCaps win = pc;
     win.desktopWindow = true;
     auto w = ui::visibleSettingsRows(win);
-    CHECK((ids(w) == std::vector<int>{0, 2, 8, 27, 17, 18, 1, 20, 13, 26, 10, 14, 12, 3, 5, 16, 22, 19, 7, 23, 28, 29, 30}));
-    CHECK((groups(w) == std::vector<bool>{false, false, false, false, false, false, true, false, false, false, false, true, false, false, false, false, false, true, false, true, true, false, false}));
+    CHECK((ids(w) == std::vector<int>{0, 2, 8, 27, 17, 18, 1, 20, 13, 26, 10, 11, 34, 14, 12, 3, 5, 16, 22, 19, 7, 23, 28, 29, 30}));
+    CHECK((groups(w) == std::vector<bool>{false, false, false, false, false, false, true, false, false, false, false, false, false, true, false, false, false, false, false, true, false, true, true, false, false}));
     auto deskIds = ids(desk);
     CHECK(std::find(deskIds.begin(), deskIds.end(), 24) == deskIds.end());
     CHECK(std::find(deskIds.begin(), deskIds.end(), 25) == deskIds.end());
@@ -4861,6 +4861,16 @@ static void testVisibleSettingsRows() {
     CHECK(std::find(allIds.begin(), allIds.end(), 25) != allIds.end());
     CHECK(ui::settingsRowPosition(pc, 24) == -1);
     CHECK(ui::settingsRowPosition(pc, 25) == -1);
+    // Web Control quality preferences are now also available in native Settings
+    // when their actual rendering capabilities are enabled.
+    CHECK(ui::settingsRowPosition(ps5, 20) >= 0);
+    for (int row : {31, 32, 33, 34}) {
+        CHECK(ui::settingsRowPosition(ps5, row) >= 0);
+    }
+    for (int row : {31, 32, 33}) {
+        CHECK(ui::settingsRowPosition(pc, row) == -1);
+    }
+    CHECK(ui::settingsRowPosition(pc, 34) >= 0);
     ui::UiCaps xbox = pc;  // an Xbox pad: impulse triggers, no light bar
     xbox.triggerRumble = true;
     auto x = ids(ui::visibleSettingsRows(xbox));
@@ -4910,14 +4920,14 @@ static void testVisibleSettingsRows() {
     // How far down the autoplay tests walk to each row (autoplay.cpp's downsTo).
     CHECK(ui::settingsRowPosition(ps5, 24) == 6);
     CHECK(ui::settingsRowPosition(ps5, 25) == 7);
-    CHECK(ui::settingsRowPosition(ps5, 27) == 3 && ui::settingsRowPosition(ps5, 1) == 8 && ui::settingsRowPosition(ps5, 3) == 15);
-    CHECK(ui::settingsRowPosition(ps5, 16) == 21);
-    CHECK(ui::settingsRowPosition(ps5, 5) == 19 && ui::settingsRowPosition(ps5, 6) == 20);
-    CHECK(ui::settingsRowPosition(ps5, 12) == 14 && ui::settingsRowPosition(ps5, 14) == 13);
-    CHECK(ui::settingsRowPosition(ps5, 22) == 22);
-    CHECK(ui::settingsRowPosition(ps5, 7) == 24 && ui::settingsRowPosition(ps5, 19) == 23 && ui::settingsRowPosition(ps5, 2) == 1);
-    CHECK(ui::settingsRowPosition(ps5, 21) == 18);
-    CHECK(ui::settingsRowPosition(pc, 5) == 13 && ui::settingsRowPosition(pc, 6) == -1 && ui::settingsRowPosition(pc, 4) == -1);
+    CHECK(ui::settingsRowPosition(ps5, 27) == 3 && ui::settingsRowPosition(ps5, 1) == 8 && ui::settingsRowPosition(ps5, 3) == 20);
+    CHECK(ui::settingsRowPosition(ps5, 16) == 26);
+    CHECK(ui::settingsRowPosition(ps5, 5) == 24 && ui::settingsRowPosition(ps5, 6) == 25);
+    CHECK(ui::settingsRowPosition(ps5, 12) == 19 && ui::settingsRowPosition(ps5, 14) == 18);
+    CHECK(ui::settingsRowPosition(ps5, 22) == 27);
+    CHECK(ui::settingsRowPosition(ps5, 7) == 29 && ui::settingsRowPosition(ps5, 19) == 28 && ui::settingsRowPosition(ps5, 2) == 1);
+    CHECK(ui::settingsRowPosition(ps5, 21) == 23);
+    CHECK(ui::settingsRowPosition(pc, 5) == 15 && ui::settingsRowPosition(pc, 6) == -1 && ui::settingsRowPosition(pc, 4) == -1);
 }
 
 // The controller's glyphs by pad kind (ui/pad_glyphs.h).
@@ -8643,6 +8653,16 @@ static void testBlock1Corrections() {
         CHECK(abxyBlock.find("scale") == std::string::npos);
         CHECK(abxyBlock.find("translate") == std::string::npos);
         CHECK(htmlStr.find("-webkit-tap-highlight-color: transparent;") != std::string::npos);
+        // Native Settings and QR Web Control must present the same shared
+        // stream/image knobs. The page must not offer an unsupported codec
+        // switch while describing its H.264 hardware/software preference.
+        for (const char* id : {"selectVideoDecoder", "selectUpscaler", "selectDeband",
+                               "inputCas", "selectVoiceRouting", "selectFpsLimit"}) {
+            CHECK(htmlStr.find(id) != std::string::npos);
+        }
+        CHECK(htmlStr.find("GPU ou CPU não são codecs") != std::string::npos);
+        CHECK(htmlStr.find("NIMBOX CONTROL CENTER V2") != std::string::npos);
+        CHECK(htmlStr.find("remote-hero") != std::string::npos);
     }
 
     // 2. Search cursor stability across background updates (pools, prices, delta-sync, setOwned, setRows)

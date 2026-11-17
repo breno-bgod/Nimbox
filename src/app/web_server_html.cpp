@@ -736,18 +736,258 @@ input:checked + .slider-sw:before { transform: translateX(20px); }
     display: none !important;
   }
 }
+
+/* NIMBOX CONTROL CENTER V2 — presentation only.
+   Existing JS functions, setting keys, controller canvas hit areas and routes
+   remain unchanged. Dark console-like glass layers; no remote fonts/assets. */
+:root {
+  color-scheme: dark;
+  --bg:#06101d;
+  --surface:rgba(12,29,46,.91);
+  --surface-alt:rgba(24,49,69,.76);
+  --border:rgba(132,197,220,.16);
+  --primary:#58bcd7;
+  --primary-hover:#7ed5eb;
+  --accent:#90eaff;
+  --text:#f1f8fc;
+  --text-dim:#a3bdcc;
+  --danger:#ba5264;
+  --ring:rgba(133,231,250,.9);
+  --shadow:0 22px 58px rgba(0,7,17,.39);
+}
+html { background:#06101d; }
+body {
+  min-height:100vh;
+  color:var(--text);
+  background:
+    radial-gradient(ellipse 78% 44% at 8% -9%,rgba(37,133,183,.27),transparent 84%),
+    radial-gradient(ellipse 55% 33% at 101% 15%,rgba(50,146,164,.17),transparent 85%),
+    linear-gradient(170deg,#0b2234 0%,#071522 40%,#050d19 100%);
+  background-attachment:fixed;
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+  letter-spacing:.005em;
+}
+button,input,select,textarea { font:inherit; }
+button,select,input { -webkit-tap-highlight-color:transparent; }
+:focus-visible { outline:2px solid var(--ring)!important; outline-offset:3px; }
+header {
+  position:relative;
+  padding:18px max(18px,env(safe-area-inset-right,18px)) 16px max(18px,env(safe-area-inset-left,18px));
+  background:linear-gradient(90deg,rgba(8,26,43,.97),rgba(9,27,42,.88));
+  border-bottom:1px solid rgba(126,203,227,.19);
+  box-shadow:0 8px 34px rgba(0,8,18,.23);
+  overflow:visible;
+}
+header::after {
+  content:""; position:absolute; bottom:-1px; left:4%; width:32%; height:1px;
+  background:linear-gradient(90deg,rgba(120,219,242,.75),transparent);
+  pointer-events:none;
+}
+.brand { gap:12px; }
+.logo-icon {
+  width:43px; height:43px; padding:4px;
+  border-radius:50%; background:radial-gradient(circle at 30% 15%,rgba(80,164,195,.3),rgba(7,29,44,.96));
+  box-shadow:0 0 0 1px rgba(132,229,246,.24),0 0 22px rgba(79,184,209,.13);
+}
+.brand-text h1 { font-size:1.02rem; letter-spacing:.17em; font-weight:750; }
+.brand-subtitle { color:#89bacb; font-size:.63rem; letter-spacing:.12em; }
+header .badge {
+  background:rgba(76,160,183,.11); color:#b4e7f1; padding:7px 10px;
+  border:1px solid rgba(142,225,236,.22); border-radius:50px; letter-spacing:.04em;
+}
+.nav-tabs {
+  display:flex!important; flex-wrap:nowrap; justify-content:flex-start; gap:7px;
+  padding:10px max(10px,env(safe-area-inset-left,10px));
+  width:100%; overflow-x:auto; overflow-y:hidden; -webkit-overflow-scrolling:touch;
+  scrollbar-width:none; background:rgba(5,17,29,.72);
+  border-bottom:1px solid rgba(125,189,210,.12);
+}
+.nav-tabs::-webkit-scrollbar { display:none; }
+.nav-tab {
+  position:relative; flex:1 0 auto; width:auto; min-width:max-content;
+  min-height:44px; padding:10px clamp(11px,2vw,20px)!important;
+  border:1px solid transparent; border-radius:13px;
+  font-size:clamp(.78rem,1vw,.93rem)!important; font-weight:620;
+  color:#9bb5c5; background:transparent; transition:background .18s,border-color .18s,color .18s;
+}
+.nav-tab:hover { background:rgba(73,138,166,.11); color:#eaf7fc; }
+.nav-tab.active {
+  background:linear-gradient(120deg,rgba(66,164,196,.24),rgba(24,80,110,.22));
+  color:#eafaff; border:1px solid rgba(119,220,243,.35);
+  box-shadow:inset 0 1px 0 rgba(202,244,250,.12),0 5px 18px rgba(0,7,15,.18);
+}
+.nav-tab.active::after {
+  content:""; position:absolute; left:22%; right:22%; height:2px; bottom:2px;
+  background:#7dddeb; border-radius:5px; box-shadow:0 0 9px rgba(100,215,242,.42);
+}
+.content { max-width:1120px; padding:0 clamp(12px,2.5vw,28px) 36px; margin:20px auto 0; overflow:visible; }
+.remote-hero {
+  position:relative; display:flex; justify-content:space-between; align-items:center;
+  gap:20px; margin-bottom:21px; padding:22px clamp(20px,3vw,32px);
+  border-radius:23px; overflow:hidden;
+  background:linear-gradient(105deg,rgba(24,68,91,.84),rgba(12,35,56,.85) 63%,rgba(8,27,45,.94));
+  border:1px solid rgba(153,219,236,.22); box-shadow:var(--shadow);
+}
+.remote-hero::before {
+  content:""; pointer-events:none; position:absolute; width:370px; height:270px;
+  right:-105px; top:-143px; border-radius:50%;
+  background:radial-gradient(circle,rgba(99,204,221,.32),rgba(66,141,195,.1) 42%,transparent 74%);
+}
+.remote-hero::after {
+  content:""; position:absolute; left:27px; bottom:0; height:2px; width:190px;
+  background:linear-gradient(90deg,#71d9ef,transparent); pointer-events:none;
+}
+.remote-hero-copy { z-index:1; }
+.remote-eyebrow { font-size:.65rem; letter-spacing:.18em; color:#94d6e6; font-weight:750; }
+.remote-hero h2 { color:#f6fbff; font-size:clamp(1.28rem,3.2vw,1.9rem); font-weight:710; letter-spacing:-.035em; line-height:1.15; margin:8px 0; }
+.remote-hero p { font-size:.86rem; color:#a9ccdb; line-height:1.55; max-width:640px; }
+.remote-hero-art {
+  position:relative; flex-shrink:0; width:90px; height:90px; border-radius:25px;
+  display:grid; place-items:center; border:1px solid rgba(159,231,247,.28);
+  background:linear-gradient(135deg,rgba(81,172,201,.33),rgba(12,40,62,.2));
+  transform:rotate(-9deg); box-shadow:inset 0 1px 0 rgba(225,250,255,.13),0 14px 24px rgba(0,8,18,.26);
+}
+.remote-hero-art span { font-size:3.3rem; font-weight:450; color:#e5faff; text-shadow:0 0 22px rgba(135,223,238,.28); }
+.card {
+  position:relative; background:linear-gradient(144deg,rgba(17,40,57,.96),rgba(8,25,41,.96));
+  border:1px solid rgba(131,188,208,.2); border-radius:19px; padding:clamp(15px,2.4vw,24px);
+  margin-bottom:15px; box-shadow:var(--shadow); overflow:hidden;
+}
+.card::before {
+  content:""; position:absolute; top:0; left:23px; width:34%; height:1px;
+  background:linear-gradient(90deg,rgba(154,234,248,.48),transparent); pointer-events:none;
+}
+.card h2 { font-size:1.05rem; color:#f0fbff; letter-spacing:-.015em; font-weight:720; gap:9px; margin-bottom:10px; }
+.card p { color:#a1bac9; font-size:.86rem; line-height:1.57; }
+.map-item {
+  background:linear-gradient(100deg,rgba(30,58,77,.62),rgba(16,40,59,.43));
+  border:1px solid rgba(129,185,206,.14); border-radius:12px; padding:12px 14px;
+  transition:border-color .2s,background .2s,box-shadow .2s;
+}
+.map-item:hover,.map-item:focus-within {
+  border-color:rgba(123,214,234,.45); background:rgba(37,79,102,.4);
+  box-shadow:inset 3px 0 0 rgba(106,206,231,.62);
+}
+.map-item label { color:#d9edf5; font-size:.87rem; font-weight:630; }
+select, input[type="text"] {
+  color:#e6f5fb; background:rgba(6,23,38,.86);
+  border:1px solid rgba(135,187,209,.24); border-radius:10px;
+  padding:10px 12px; font-size:.86rem; min-height:40px;
+}
+select:focus,input[type="text"]:focus { border-color:rgba(139,229,245,.8); box-shadow:0 0 0 3px rgba(88,188,215,.12); }
+.btn {
+  background:linear-gradient(135deg,rgba(50,91,116,.53),rgba(24,51,71,.62));
+  border:1px solid rgba(134,192,212,.26); border-radius:12px;
+  padding:12px 17px; font-weight:700; box-shadow:inset 0 1px 0 rgba(196,237,251,.07);
+}
+.btn:hover { background:rgba(56,117,145,.48); border-color:rgba(143,227,242,.56); }
+.btn-primary {
+  color:#052331; background:linear-gradient(135deg,#a1f0fb,#64c5df);
+  border-color:rgba(200,248,253,.85); box-shadow:0 7px 22px rgba(38,150,189,.2);
+}
+.btn-primary:hover { color:#042130; background:linear-gradient(135deg,#b8f6ff,#83d7e9); }
+.btn-danger { background:rgba(138,48,70,.28); border-color:rgba(225,111,136,.3); color:#ffc6d3; }
+.btn-danger:hover { background:rgba(159,53,73,.44); }
+.search-tab { background:rgba(29,53,73,.7); border:1px solid rgba(134,186,209,.21); border-radius:14px; min-height:48px; }
+.search-tab.active {
+  background:linear-gradient(130deg,#276b81,#1a465f); border-color:rgba(132,225,240,.72);
+  color:#f7fbfd; box-shadow:inset 0 1px 0 rgba(221,249,255,.15),0 8px 18px rgba(0,17,31,.26);
+}
+.chip,.chip-select {
+  color:#c4d9e3; background:rgba(30,55,77,.7);
+  border:1px solid rgba(130,187,208,.21); border-radius:30px; min-height:37px;
+}
+.chip.active,.chip-select.active {
+  background:rgba(61,152,169,.2); border-color:rgba(122,218,231,.66); color:#a8edf6;
+}
+.chip-select select { min-height:29px; color:#e0eff6; }
+.status-pill { background:rgba(20,117,91,.23); border-color:rgba(79,186,155,.31); color:#7ae4bb; }
+.tel-item { background:rgba(17,44,64,.83); border:1px solid var(--border); border-radius:12px; padding:14px 9px; }
+.tel-val { color:#a0ebf6; }
+.section-sub { color:#91d7e9; margin:20px 0 9px; }
+input[type="range"] { accent-color:#7cdaed; }
+.slider-group { border-bottom:1px solid rgba(132,190,214,.12); padding:7px 4px 12px; }
+.slider-val { color:#a7edf5; }
+.toggle-row { background:rgba(21,47,66,.33); border:1px solid rgba(123,177,197,.15); border-radius:11px; padding:13px 14px; margin:8px 0; }
+input:checked + .slider-sw { background:#307d94; border-color:#7ad4e8; }
+.setting-section-heading {
+  display:flex; align-items:center; gap:11px; margin:20px 0 14px;
+  color:#d9f4fa; font-size:.85rem; font-weight:790; text-transform:uppercase; letter-spacing:.085em;
+}
+.setting-section-heading span {
+  font-size:.65rem; letter-spacing:0; color:#8bdeec; width:27px; height:27px;
+  display:grid; place-items:center; border-radius:9px;
+  background:rgba(76,164,192,.17); border:1px solid rgba(121,213,231,.3);
+}
+.decoder-explainer {
+  display:grid; grid-template-columns:minmax(90px,.23fr) 1fr; gap:14px;
+  padding:13px 15px; margin-bottom:14px; border-radius:15px;
+  background:linear-gradient(110deg,rgba(39,113,135,.19),rgba(13,39,60,.42));
+  border:1px solid rgba(119,208,230,.22);
+}
+.decoder-explainer p { margin:0; color:#b8d1dc; font-size:.81rem; }
+.decoder-codec { display:flex; flex-direction:column; justify-content:center; gap:4px; }
+.decoder-codec strong { font-size:1.35rem; letter-spacing:-.045em; color:#e7fbff; }
+.decoder-codec small { color:#8cbecd; font-size:.65rem; }
+.rows-half .map-item { flex-wrap:wrap; gap:8px; }
+.rows-half .map-item label { flex:1 1 190px; }
+.rows-half .map-item > select { flex:1 1 170px; min-width:0; width:auto; }
+.toast { background:#0e6b83; box-shadow:0 16px 36px rgba(0,4,14,.5); }
+pre { background:#061321; border-color:rgba(133,190,214,.18); }
+@media (max-width:600px) {
+  .content { padding:0 11px 26px; margin-top:12px; }
+  .remote-hero { padding:17px; border-radius:17px; margin-bottom:13px; }
+  .remote-hero h2 { font-size:1.28rem; }
+  .remote-hero p { font-size:.77rem; }
+  .remote-hero-art { width:51px; height:54px; border-radius:16px; }
+  .remote-hero-art span { font-size:2.1rem; }
+  .nav-tabs { padding:8px 10px; gap:6px; }
+  .nav-tab { flex:0 0 auto; min-height:41px; font-size:.8rem!important; }
+  .card { padding:15px; border-radius:16px; }
+  .rows-half .map-item { flex-wrap:wrap; }
+  .rows-half .map-item label { flex:1 1 160px; }
+  .rows-half .map-item > select { flex:1 1 150px; }
+  .decoder-explainer { grid-template-columns:1fr; }
+  .decoder-codec { flex-direction:row; align-items:baseline; }
+}
+@media (orientation:landscape) and (min-width:521px) {
+  .nav-tabs { display:flex!important; flex-wrap:nowrap; justify-content:center; padding:5px 10px; gap:5px; }
+  .nav-tab { flex:0 1 auto; min-width:0; min-height:37px; font-size:clamp(.65rem,1.5vw,.79rem)!important; padding:6px 9px!important; }
+  .content { max-width:1120px; padding:0 12px 18px; margin:9px auto 0; }
+  .remote-hero { padding:11px 19px; margin-bottom:10px; border-radius:14px; }
+  .remote-hero h2 { margin:2px 0; font-size:1.2rem; }
+  .remote-hero p { font-size:.7rem; }
+  .remote-hero-art { width:47px; height:47px; border-radius:12px; }
+  .remote-hero-art span { font-size:1.8rem; }
+  .card { padding:16px; margin-bottom:12px!important; border-radius:15px; }
+  .card h2 { font-size:1rem; margin-bottom:9px; }
+  .card p { font-size:.82rem; }
+}
+/* Keep the existing virtual-controller layout and touch geometry intact.
+   Its calibrated modules depend on the original compact padding. */
+#tab-gamepad #gamepadCard { padding:4px 6px!important; }
+#tab-gamepad #gamepadCard .gamepad-container { touch-action:none!important; }
+body:has(#tab-gamepad.active) .remote-hero { display:none; }
+@media (orientation:landscape) and (min-width:521px) {
+  #tab-gamepad #gamepadCard { padding:4px 4px!important; }
+}
+@media (prefers-reduced-motion:reduce) {
+  *,*::before,*::after { animation-duration:.01ms!important; transition-duration:.01ms!important; scroll-behavior:auto!important; }
+}
+
 </style>
 </head>
 <body>
 <header>
   <div class="brand">
-    <svg class="logo-icon" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <circle cx="50" cy="50" r="50" fill="#ffffff"/>
-      <path fill="#107C41" d="M 50.00 40.10 s 0.12 0.00 0.00 0.00 c 15.07 11.46 40.60 39.60 32.88 47.57 -8.84 7.72 -20.30 12.33 -32.88 12.33 s -24.16 -4.61 -32.88 -12.33 c -7.85 -7.97 17.81 -36.11 32.75 -47.45 0.00 -0.12 0.12 -0.12 0.12 -0.12 z m 26.03 -32.75 C 68.43 2.74 60.09 0.00 50.00 0.00 s -18.43 2.74 -26.03 7.35 c -0.12 0.00 -0.12 0.12 -0.12 0.25 s 0.12 0.12 0.25 0.12 c 9.71 -2.12 24.41 6.23 25.78 7.10 h 0.25 c 1.37 -0.87 16.06 -9.22 25.78 -7.10 0.12 0.00 0.25 0.00 0.25 -0.12 s 0.00 -0.25 -0.12 -0.25 z M 15.01 14.32 c -0.12 0.00 -0.12 0.12 -0.25 0.12 -9.09 9.09 -14.69 21.67 -14.69 35.49 0.00 11.33 3.86 21.92 10.21 30.26 0.00 0.12 0.12 0.12 0.25 0.12 s 0.12 -0.12 0.00 -0.25 c -3.86 -11.83 15.69 -40.35 25.78 -52.30 l 0.12 -0.12 c 0.00 -0.12 0.00 -0.12 -0.12 -0.12 -15.32 -15.19 -20.42 -13.57 -21.30 -13.20 z m 48.69 13.08 l -0.12 0.12 s 0.00 0.12 0.12 0.12 c 10.09 11.96 29.51 40.47 25.78 52.30 v 0.25 c 0.12 0.00 0.25 0.00 0.25 -0.12 6.35 -8.34 10.21 -18.93 10.21 -30.26 0.00 -13.82 -5.60 -26.40 -14.82 -35.49 -0.12 -0.12 -0.12 -0.12 -0.25 -0.12 -0.75 -0.25 -5.85 -1.87 -21.17 13.20 z"/>
+    <svg class="logo-icon" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <circle cx="50" cy="50" r="44" stroke="#9beaff" stroke-width="3"/>
+      <circle cx="50" cy="50" r="36" stroke="#9beaff" stroke-width="1" opacity=".2"/>
+      <path d="M32 72V28L68 72V28" stroke="#e6faff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
     </svg>
     <div class="brand-text">
       <h1>NIMBOX</h1>
-      <span class="brand-subtitle" id="brandSubtitle">Smartglass WebUI</span>
+      <span class="brand-subtitle" id="brandSubtitle">CONTROLE REMOTO / SMARTGLASS</span>
     </div>
   </div>
   <span class="badge">v)html" XC_APP_VERSION R"html(</span>
@@ -763,14 +1003,27 @@ input:checked + .slider-sw:before { transform: translateX(20px); }
 </div>
 
 <div class="content">
+  <section class="remote-hero" aria-label="Nimbox Control Center">
+    <div class="remote-hero-copy">
+      <span class="remote-eyebrow">NIMBOX / CONTROL CENTER</span>
+      <h2>Seu console, do seu jeito.</h2>
+      <p>Uma central para explorar jogos, personalizar a imagem e controlar sua sessão.</p>
+    </div>
+    <div class="remote-hero-art" aria-hidden="true"><span>N</span></div>
+  </section>
   <!-- TAB: SETTINGS -->
   <div id="tab-settings" class="tab-pane" style="display:none;">
     <div class="card rows-half">
       <h2>⚙️ Configurações Gerais</h2>
       <p>Ajuste a imagem, a transmissão e o comportamento do aplicativo. Os ajustes do controle ficam em Mapeamento.</p>
 
+      <div class="setting-section-heading"><span>01</span> Imagem e decodificação</div>
+      <div class="decoder-explainer" role="note">
+        <div class="decoder-codec"><strong>H.264</strong><small>AVC / formato do vídeo</small></div>
+        <p><strong>GPU ou CPU não são codecs.</strong> São modos de decodificar H.264. O aplicativo pode usar software se a aceleração de hardware não estiver disponível. O codec recebido não muda neste seletor.</p>
+      </div>
       <div class="map-item" style="margin-bottom: 10px;">
-        <label>Decodificador de Vídeo</label>
+        <label>Decodificação H.264</label>
         <select id="selectVideoDecoder" onchange="markSettingsChanged()">
           <option value="0" id="optVideoHw">GPU (Hardware)</option>
           <option value="1">CPU (Software)</option>
@@ -834,6 +1087,7 @@ input:checked + .slider-sw:before { transform: translateX(20px); }
         <p style="font-size:0.76rem; color:var(--text-dim); margin:4px 0 0 0;"><strong>Automático:</strong> usa o teto nativo do perfil Xbox (720p ~12 Mbps, 1080p ~25–30 Mbps, 1440p ~40 Mbps). <strong>Sem Limite:</strong> remove a trava do app até o limite real do servidor Xbox. *Valores acima de 15 Mbps são experimentais.</p>
       </div>
 
+      <div class="setting-section-heading"><span>02</span> Reprodução e conexão</div>
       <div class="toggle-row">
         <span class="toggle-label">Modo 120 Hz (VRR)</span>
         <label class="switch">

@@ -72,19 +72,21 @@ constexpr int kResolutionOrder[3] = {1, 0, 2};
 // stream (resolution, a desktop's display mode, 120 Hz, bitrate, region, network test);
 // the controller, keyboard and queue-ready alert; support and updates last. A group starts at each
 // kSettingsGroupStart.
-constexpr int kSettingsCount = 30;
-// Keep every original row and controller position unchanged. The new visual
-// preferences are a final group so existing system tests/navigation stay stable.
+// All native Settings expose the same shared quality controls as Web Control.
+// Row IDs 0..30 are stable; 31..34 add globally persisted visual/audio options.
+// IDs and row ordering are intentionally separate so existing gameplay/profile
+// mappings and network settings are not changed.
+constexpr int kSettingsCount = 35;
 constexpr int kSettingsOrder[kSettingsCount] = {
     0, 2, 8, 27, 17, 18, 24, 25,
-    1, 20, 13, 9, 26, 10,
+    1, 20, 31, 32, 33, 13, 9, 26, 10, 11, 34,
     14, 12, 3, 15, 4, 21, 5, 6, 16, 22,
     19, 7, 23,
     nimbox_theme::kAppearanceFirst, nimbox_theme::kAppearanceReflection, nimbox_theme::kAppearanceMotion
 };
 constexpr bool kSettingsGroupStart[kSettingsCount] = {
     false, false, false, false, false, false, false, false,
-    true, false, false, false, false, false,
+    true, false, false, false, false, false, false, false, false, false, false,
     true, false, false, false, false, false, false, false, false, false,
     true, false, true,
     true, false, false
