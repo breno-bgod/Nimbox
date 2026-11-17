@@ -1075,6 +1075,12 @@ void AppUi::drawNimboxCarousel(Canvas& c, uint64_t nowMs) {
         }
     }
     c.clear(deep);
+    // Preview Aurora studio fallback: a continuous blue sky/floor even
+    // before hero art is downloaded. Real art, when present, paints over it.
+    c.gradientV({0, 122, kW, preview31::kHeroShelfBoundary - 122},
+                rgba(82, 153, 187), rgba(16, 60, 87));
+    c.gradientH({0, 122, kW, 650}, rgba(12, 43, 72, 82),
+                rgba(113, 195, 218, 17));
     // Keep receiving the game's actual hero art from the PSBox/xCloud data.
     // The visual layer never invents a new title or modifies the session.
     const GameTile* artworkTile = focusedTile();
