@@ -137,7 +137,18 @@ std::string stream(xcloud::GssvClient& gssv, const auth::CloudTimeQuery& cloudQu
             preferHw = false;
         }
         player.setPreferHwDecode(preferHw);
+#if defined(__ANDROID__)
+        // Per-game choice overrides global. The existing WebRTC connection,
+        // audio, input and GSSV session are reused unchanged.
+        const int requestedBackend = g_autoplay.swDecode ? 1 :
+            (hasCustom ? prof.videoDecoder : g_settings.videoDecoder);
+        player.setVideoBackend(requestedBackend);
+        XC_LOGI("stream: Android video player %s",
+            requestedBackend == 2 ? "WebRTC H264" :
+            requestedBackend == 1 ? "FFmpeg CPU" : "MediaCodec hardware");
+#else
         XC_LOGI("stream: video decoder %s", preferHw ? "hardware preferred" : "software (CPU)");
+#endif
         player.setMicGain(g_settings.micGainFactor());
         player.setMicEnabled(g_settings.micEnabled);
         int fpsLim = hasCustom ? prof.fpsLimit : g_settings.fpsLimit;
