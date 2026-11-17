@@ -122,6 +122,9 @@ struct SettingsChoice {
     int language = 0;      // ui::Language
     int resolution = 0;    // 0 = 1080p, 1 = 720p, 2 = 1440p (experimental)
     std::string region;    // gssv region name; empty = automatic
+    int nimboxTheme = 0;          // visual-only studio theme
+    int nimboxReflection = 44;    // local virtual floor reflection (0..100)
+    bool nimboxReducedMotion = false; // visual animation preference
     std::string storeCountry;  // store offers; empty = the cloud session’s market
     std::string loginCountry;  // "Sign in as another country" (kLoginCountries); empty = off
     int deadzone[2] = {15, 15};  // left, right stick: percent of the travel, 0..kMaxDeadzone
