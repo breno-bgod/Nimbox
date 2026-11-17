@@ -1378,6 +1378,8 @@ void AppUi::drawSettings(Canvas& c) {
                 auto options = settingOptions(i);
                 int sel = settingSelected(i);
                 std::string value = sel < static_cast<int>(options.size()) ? options[static_cast<size_t>(sel)] : "";
+                if (i == nimbox_theme::kAppearanceReflection)
+                    value = std::to_string(settings_.nimboxReflection) + " %";
                 int w = fonts_.regular.measure(value, kRowPx);
                 fonts_.regular.draw(c, value, vx - w, fonts_.regular.centeredY(r.y, r.h, kRowPx), kRowPx, focused ? kWhite : kGray);
                 if (i == 6 && settings_.lightBarMode == 1) {  // the colour chosen
