@@ -283,6 +283,11 @@ void AppUi::handleHome(const NavInput& in, UiEvent& ev) {
             break;
         }
         case Tab::Friends: {
+            if (in.square) {
+                screen_ = Screen::Profile;
+                dirty_ = true;
+                break;
+            }
             const auto games = friendGames();
             const int count = static_cast<int>(games.size());
             if (count == 0) break;
@@ -698,12 +703,26 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
         return ev;
     }
 
-    // Check avatar / settings button click to open settings
+    // Profile avatar and Settings gear are separate native actions.
     if (screen_ == Screen::Home && !searching_) {
         constexpr int kAvatarRight = kW - 120;
+#if defined(__ANDROID__)
+        constexpr int kAvatarSize = 64;
+#else
+        constexpr int kAvatarSize = 52;
+#endif
+        Rect avatarBtn{kAvatarRight - kAvatarSize, 72 - kAvatarSize / 2,
+                       kAvatarSize, kAvatarSize};
         Rect settingsBtn{kAvatarRight + (120 - 52) / 2, 46, 52, 52};
-        if ((x >= settingsBtn.x - 12 && x <= settingsBtn.x + settingsBtn.w + 12 && y >= settingsBtn.y - 12 && y <= settingsBtn.y + settingsBtn.h + 12) ||
-            (x >= kAvatarRight - 70 && x <= kW && y >= 30 && y <= 120)) {
+        auto inRect = [&](const Rect& r) {
+            return x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h;
+        };
+        if (inRect(avatarBtn)) {
+            screen_ = Screen::Profile;
+            dirty_ = true;
+            return ev;
+        }
+        if (inRect(settingsBtn)) {
             screen_ = Screen::Settings;
             settingsRow_ = 0;
             settingsFromError_ = false;
@@ -714,6 +733,31 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
             dirty_ = true;
             return ev;
         }
+    }
+
+    if (screen_ == Screen::Profile) {
+        Rect backBtn{kMargin, 165, 180, 52};
+        Rect settingsBtn{kW - 86, 46, 52, 52};
+        auto inRect = [&](const Rect& r) {
+            return x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h;
+        };
+        if (inRect(backBtn)) {
+            screen_ = Screen::Home;
+            dirty_ = true;
+            return ev;
+        }
+        if (inRect(settingsBtn)) {
+            screen_ = Screen::Settings;
+            settingsRow_ = 0;
+            settingsFromError_ = false;
+            settingsCountry_ = settings_.loginCountry;
+            dropdownOpen_ = false;
+            filterList_ = -1;
+            settingsScrollY_ = 0.0f;
+            dirty_ = true;
+            return ev;
+        }
+        return ev;
     }
 
     // Touch exit from Settings back to Home
@@ -1747,6 +1791,21 @@ UiEvent AppUi::handleLocked(const NavInput& in) {
                 break;
             }
             handleHome(in, ev);
+            break;
+        case Screen::Profile:
+            if (in.back) {
+                screen_ = Screen::Home;
+                dirty_ = true;
+            } else if (in.options) {
+                screen_ = Screen::Settings;
+                settingsRow_ = 0;
+                settingsFromError_ = false;
+                settingsCountry_ = settings_.loginCountry;
+                dropdownOpen_ = false;
+                filterList_ = -1;
+                settingsScrollY_ = 0.0f;
+                dirty_ = true;
+            }
             break;
         case Screen::SignIn:
             // Desktop or Android: Cross/A opens the sign-in page in the browser.
