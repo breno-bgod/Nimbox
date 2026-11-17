@@ -589,4 +589,8 @@ constexpr Column kGerman = {
     "Speichern",                                                                      // Save
     "Browser zum Anmelden öffnen",                                                    // SignInOpenBrowser
     "Hier tippen oder A drücken, um im Browser zu öffnen",                            // SignInOpenBrowserHint
+    "Genres", // TabGenres
+    "Freunde", // TabFriends
+    "Keine Genres im geladenen Katalog.", // GenresEmpty
+    "Keine Freunde spielen Titel aus dem geladenen Katalog.", // FriendsEmpty
 };
