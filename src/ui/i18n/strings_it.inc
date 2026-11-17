@@ -593,5 +593,4 @@ constexpr Column kItalian = {
     "Amici", // TabFriends
     "Nessun genere nel catalogo caricato.", // GenresEmpty
     "Nessun amico gioca ai titoli del catalogo caricato.", // FriendsEmpty
-    "Profilo", // Profile
 };

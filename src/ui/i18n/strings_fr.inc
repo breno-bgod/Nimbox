@@ -593,5 +593,4 @@ constexpr Column kFrench = {
     "Amis", // TabFriends
     "Aucun genre dans le catalogue chargé.", // GenresEmpty
     "Aucun ami ne joue aux titres du catalogue chargé.", // FriendsEmpty
-    "Profil", // Profile
 };

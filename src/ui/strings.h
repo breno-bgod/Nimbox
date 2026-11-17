@@ -602,7 +602,6 @@ enum class Str {
     TabFriends,
     GenresEmpty,
     FriendsEmpty,
-    Profile,
     Count
 };
 
