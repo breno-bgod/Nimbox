@@ -1180,10 +1180,14 @@ void AppUi::drawNimboxCarousel(Canvas& c, uint64_t nowMs) {
 
         // White vertical title printing on the visible green spine.
         // Derive its horizontal centre from the projected side face.
-        if (offset != 0 && d <= 3 && std::fabs(nimboxSlide_.value) < 800.0f) {
+        if (offset != 0 && d <= nimbox::kSideCases &&
+            std::fabs(nimboxSlide_.value) < 800.0f) {
             const float sx = (g.spine.tl.x + g.spine.tr.x +
                               g.spine.br.x + g.spine.bl.x) * 0.25f;
-            int sy = static_cast<int>(std::min(g.spine.tl.y, g.spine.tr.y) + 42.0f);
+            const float spineTop = std::min(g.spine.tl.y, g.spine.tr.y);
+            // A small printed Xbox orb also identifies the deep-profile cases.
+            nimbox::finish::drawXboxOrb(c, sx, spineTop + 19.0f, 7.0f);
+            int sy = static_cast<int>(spineTop + 42.0f);
             const int bottomY = static_cast<int>(std::max(g.spine.bl.y, g.spine.br.y) - 22.0f);
             for (const unsigned char ch : tile.name) {
                 if (sy + 15 > bottomY) break;
@@ -1222,17 +1226,10 @@ void AppUi::drawNimboxCarousel(Canvas& c, uint64_t nowMs) {
         }
     };
 
-    // Sort by the *animated* position so cases overlap in the correct
-    // order even halfway through a left/right navigation transition.
-    std::vector<int> order;
-    for (int d = -nimbox::kSideCases; d <= nimbox::kSideCases; ++d) {
-        if (nimbox::indexForOffset(selected, count, d) >= 0) order.push_back(d);
-    }
-    const float shift = nimboxSlide_.value / 1000.0f;
-    std::stable_sort(order.begin(), order.end(), [shift](int a, int b) {
-        return std::fabs(static_cast<float>(a) + shift) >
-               std::fabs(static_cast<float>(b) + shift);
-    });
+    // Render from furthest to nearest in the curved, overlapping shelf.
+    // The pointer handler uses the same order, reversed, for correct touch.
+    const auto order = nimbox::caseDrawOrder(selected, count,
+                                             nimboxSlide_.value / 1000.0f);
     for (int offset : order) drawCase(offset);
     // The signature optical disc is deliberately part of the collection,
     // not just the details page. Its art is the selected game's cached image.
