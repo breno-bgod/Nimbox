@@ -16,7 +16,7 @@ Identidade: *Coleção Viva* — caixas de jogos em perspectiva, mídia óptica 
 
 - `GameTile.name`, `tileUrl`, `heroUrl`, `publisher`, `categories` e `playable`: provenientes da integração já existente com o PSBox/xCloud.
 - Não inventar valores de 4K, HDR, progresso, duração, plataforma, instalação ou assinatura. As imagens conceituais usam dados fictícios; estes não são inseridos no catálogo real.
-- `Select` no carrossel continua abrindo os detalhes do título. `Jogar` nos detalhes executa o **mesmo** fluxo original. O CTA visual do carrossel diz “Ver detalhes / Jogar” para representar corretamente a etapa intermediária.
+- `Select` no carrossel continua abrindo os detalhes do título. `Jogar` nos detalhes executa o **mesmo** fluxo original. O CTA visual do carrossel diz “Ver detalhes”, pois é a ação atual; o botão Jogar permanece nos detalhes quando o título está disponível.
 - Não adicionar eventos, filtros ou botões que aparentem ser clicáveis sem terem ação real.
 
 ## Tokens base desta primeira etapa
