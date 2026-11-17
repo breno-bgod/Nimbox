@@ -16,6 +16,7 @@
 #include "platform/platform.h"
 #include "platform/toasts.h"
 #include "ui/brand.h"
+#include "ui/preview_visual_layout.h"
 #include "ui/strings.h"
 #include "ui/toast_view.h"
 #include "app/update_check.h"
@@ -49,7 +50,7 @@ constexpr int kRowPitch = 340;
 constexpr int kRowTop = 470;  // y of the focused row's title
 constexpr uint64_t kHeroFadeMs = 300;
 // Shared draw + pointer hit box: the Colecao Viva CTA is a real action.
-constexpr Rect kCollectionDetailsCta{756, 886, 408, 58};
+constexpr Rect kCollectionDetailsCta = preview31::kDetailsCta;
 
 constexpr Color kBg = rgba(8, 17, 31);
 constexpr Color kWhite = rgba(255, 255, 255);
