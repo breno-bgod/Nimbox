@@ -363,7 +363,7 @@ UiEvent AppUi::onMouseMove(float x, float y) {
         for (const auto& [i, groupStart] : visibleSettingsRows(caps_)) {
             if (groupStart) curY += kSettingsGroupGap;
             if (x >= kMargin && x < kMargin + kSettingsRowW && y >= curY && y < curY + kSettingsRowH &&
-                y >= kSettingsClipTop && y < kH - 80) {
+                y >= kSettingsClipTop && y < kSettingsListBottom) {
                 if (settingsRow_ != i) {
                     settingsRow_ = i;
                     dirty_ = true;
@@ -1191,7 +1191,7 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
         for (const auto& [i, groupStart] : visibleSettingsRows(caps_)) {
             if (groupStart) curY += kSettingsGroupGap;
             if (x >= kMargin && x < kMargin + kSettingsRowW && y >= curY && y < curY + kSettingsRowH &&
-                y >= kSettingsClipTop && y < kH - 80) {
+                y >= kSettingsClipTop && y < kSettingsListBottom) {
                 settingsRow_ = i;
                 if (i == 14) {
                     openPadTester();
@@ -1558,7 +1558,7 @@ UiEvent AppUi::onTouch(const app::shell::TouchEvent& ev) {
                 for (const auto& [i, groupStart] : rows) {
                     if (groupStart) curY += kSettingsGroupGap;
                     if (i == settingsRow_) focusedY = curY;
-                    if (curY >= kSettingsClipTop && curY + kSettingsRowH <= kH - 80) {
+                    if (curY >= kSettingsClipTop && curY + kSettingsRowH <= kSettingsListBottom) {
                         if (firstVisibleRow < 0) firstVisibleRow = i;
                         lastVisibleRow = i;
                     }
@@ -1567,7 +1567,7 @@ UiEvent AppUi::onTouch(const app::shell::TouchEvent& ev) {
                 if (focusedY < kSettingsClipTop && firstVisibleRow >= 0) {
                     settingsRow_ = firstVisibleRow;
                     dirty_ = true;
-                } else if (focusedY + kSettingsRowH > kH - 80 && lastVisibleRow >= 0) {
+                } else if (focusedY + kSettingsRowH > kSettingsListBottom && lastVisibleRow >= 0) {
                     settingsRow_ = lastVisibleRow;
                     dirty_ = true;
                 }
@@ -1876,8 +1876,8 @@ UiEvent AppUi::handleLocked(const NavInput& in) {
                     if (rowScreenY < static_cast<float>(kSettingsClipTop + 10)) {
                         settingsScrollY_ = std::clamp(static_cast<float>(focusedY - (kSettingsClipTop + 10)), 0.0f, maxScroll);
                         dirty_ = true;
-                    } else if (rowScreenY + kSettingsRowH > static_cast<float>(kH - 80 - 10)) {
-                        settingsScrollY_ = std::clamp(static_cast<float>(focusedY + kSettingsRowH - (kH - 80 - 10)), 0.0f, maxScroll);
+                    } else if (rowScreenY + kSettingsRowH > static_cast<float>(kSettingsListBottom - 10)) {
+                        settingsScrollY_ = std::clamp(static_cast<float>(focusedY + kSettingsRowH - (kSettingsListBottom - 10)), 0.0f, maxScroll);
                         dirty_ = true;
                     }
                 }
