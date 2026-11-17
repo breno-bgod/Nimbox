@@ -211,6 +211,26 @@ int desktopSelftest(const std::string& dir) {
     ui.render(canvas, platform::nowMs());
     drawCanvas(canvas);
     check(screenshot(dir, "2-settings.png", shot) && varied(shot), "Settings screen (2-settings.png)");
+    // Appearance controls are real: clicking a swatch persists a visual theme
+    // without changing stream bitrate, region, controller or Play.
+    {
+        auto before = ui.settings();
+        const auto original = shot.rgb;
+        ui.onMouseDown(1682.0f, 385.0f, 1); // Emerald, row 2 / col 2
+        auto next = ui.settings();
+        check(next.nimboxTheme == 3 && next.region == before.region &&
+              next.maxBitrateMbps == before.maxBitrateMbps &&
+              next.padMap == before.padMap, "Emerald theme changes appearance only");
+        ui.onMouseDown(1690.0f, 550.0f, 1); // floor reflection
+        check(ui.settings().nimboxReflection > 50, "Reflection slider responds to touch");
+        ui.onMouseDown(1660.0f, 604.0f, 1); // reduced motion
+        check(ui.settings().nimboxReducedMotion, "Reduced motion toggle responds to touch");
+        ui.render(canvas, platform::nowMs());
+        drawCanvas(canvas);
+        check(screenshot(dir, "2f-settings-emerald.png", shot) && varied(shot) &&
+              shot.rgb != original, "Settings environment swatches change native pixels");
+        ui.setSettings(before);
+    }
     // The PS5's Settings, every row shown (the console's own capabilities).
     ui.setCaps(ui::UiCaps{});
     ui.render(canvas, platform::nowMs());
@@ -376,6 +396,18 @@ int desktopSelftest(const std::string& dir) {
         check(ui.screen() == ui::Screen::Home &&
                   screenshot(dir, "6-colecao-viva-home.png", shot) && varied(shot),
               "Colecao Viva native carousel (6-colecao-viva-home.png)");
+        // The chosen theme must actually paint a different studio behind
+        // the same cases, not merely highlight a settings swatch.
+        const auto auroraShot = shot.rgb;
+        ui::SettingsChoice cinemaSettings = shelfSettings;
+        cinemaSettings.nimboxTheme = 4;
+        cinemaSettings.nimboxReflection = 0;
+        ui.setSettings(cinemaSettings);
+        ui.render(canvas, platform::nowMs());
+        drawCanvas(canvas);
+        check(screenshot(dir, "6c-colecao-viva-cinema-home.png", shot) && varied(shot) &&
+              shot.rgb != auroraShot, "Cinema Dark changes native Home background");
+        ui.setSettings(shelfSettings);
 
         // The old CTA zone is visually blank AND must no longer react to touch.
         ui.onMouseDown(960.0f, 830.0f, 1);
