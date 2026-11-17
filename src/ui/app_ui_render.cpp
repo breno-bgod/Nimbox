@@ -1362,9 +1362,9 @@ void AppUi::drawNimboxCarousel(Canvas& c, uint64_t nowMs) {
                              detailsButton.x +
                              (detailsButton.w - fonts_.semibold.measure(openText, 24)) / 2,
                              detailsButton.y + 14, 24, kWhite);
-        drawCentered(c, fonts_.regular,
-                     std::to_string(selected + 1) + " / " + std::to_string(count),
-                     855, 16, rgba(165, 202, 215));
+        // Position indicator sits beside, never on top of, the Details CTA.
+        fonts_.regular.draw(c, std::to_string(selected + 1) + " / " + std::to_string(count),
+                            1196, detailsButton.y + 15, 17, rgba(165, 202, 215));
     }
     preview31::footerBackdrop(c);
     drawHints(c, {{kIconCross, tr(Str::Select)}, {kIconR3, "Classic UI"},
