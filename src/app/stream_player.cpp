@@ -1012,7 +1012,10 @@ struct StreamPlayer::Impl {
                     latestPic.pic = pic;
                     latestPic.meta = meta;
                     latestPic.known = known;
-                    latestPic.isHw = decoder->isHardware();
+                    // WebRTC outputs an owned I420 vector whose lifetime is
+                    // only until the next decode. Unlike PS5 zero-copy slots,
+                    // async present must keep a private copy of these planes.
+                    latestPic.isHw = decoder->isHardware() && !decoder->isAndroidWebRtc();
                     latestPic.arrivalUs = frame.arrivalUs;
                     ++latestPic.seq;
                     if (!latestPic.isHw) {
