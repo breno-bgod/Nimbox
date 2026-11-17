@@ -414,8 +414,11 @@ private:
         TouchInvertSticksItem,
         MicMuteItem,
         Resolution,
+        VideoDecoderItem,  // H.264 MediaCodec/FFmpeg: selectable by gamepad while playing
         FpsLimiterItem,
         BitrateLimiterItem,
+        VrrItem,            // visible only when the active display supports it
+        Upscaler,           // same image controls as the native and Web settings
         Sharpness,
         Deband,
         ReloadStreamItem,
