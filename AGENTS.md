@@ -227,3 +227,18 @@ Para o sistema de atualização automática in-app e manipulação de binários 
    - Se um arquivo já publicado tiver sido trocado mesmo assim: abrir PR a partir da conta RafaelNGP no catálogo alterando somente o `sha256` de `apps/PPSA99810.json` (exemplo: PR #1268) e executar `tools/release-verify.sh vX.Y.Z --verify-sigs`.
 
 
+
+
+---
+
+## 10. Skills de UI/UX para o Nimbox (escopo exclusivamente visual)
+
+Para tarefas explicitamente solicitadas de design, prototipagem ou revisão visual da interface, consultar as skills **locais** em `.agents/skills/`:
+
+1. `ui-ux-pro-max/SKILL.md`: hierarquia visual, sistema de design, componentes, tipografia, contraste e acessibilidade. Busca opcional: `python3 .agents/skills/ui-ux-pro-max/scripts/search.py "cloud gaming console UI" --design-system -p Nimbox`.
+2. `frontend-design/SKILL.md`: direção artística, originalidade, composição e acabamento visual.
+3. `better-design/SKILL.md`: interações com controle/mouse/touch, movimento, documentação do design e validação visual. Priorizar suas referências pertinentes a interface de jogos nativa, não padrões exclusivamente web.
+
+**Regra mandatória:** essas skills são consultivas, não autorizam modificar autenticação, catálogo, lógica da biblioteca, mapeamento de controles, ações Play, streaming, plataformas, configurações persistidas ou releases. Aplicar propostas apenas em componentes visuais mediante aprovação. PSBox é referência de funcionamento; identidade Nimbox é própria, com conceito **Coleção Viva** (carrossel 3D, caixa, CD giratório, fundo de arte dos títulos). A interface é C++ nativa; HTML e JS só servem como protótipos quando solicitado, não são pré-requisito de execução no PS5. Não introduzir dependências externas no runtime sem autorização.
+
+As skills foram copiadas de repositórios públicos para uso local do Codex. Suas cópias não são agentes independentes nem executam código sem invocação explícita. O conteúdo de `ui-ux-pro-max/SKILL.md` teve somente os caminhos de execução adaptados para `.agents/skills/`.
