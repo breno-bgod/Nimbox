@@ -684,7 +684,13 @@ std::vector<std::string> AppUi::settingOptions(int row) const {
     } else if (row == 19) {
         out = {tr(Str::SupportKoFi)};
     } else if (row == 20) {
+#if defined(__ANDROID__)
+        // Both are real selectable backends; choosing hardware does not
+        // guarantee the driver accepts acceleration on every device.
+        out = {"GPU - MediaCodec (H.264)", "CPU - FFmpeg (H.264)"};
+#else
         out = {tr(Str::VideoDecoderHw), tr(Str::VideoDecoderSw)};
+#endif
     } else if (row == 31) {
         out = {"FSR 1.0", "Anime4K", "FSR + Clean-up", "Anime4K + Clean-up"};
     } else if (row == 32) {
@@ -1300,7 +1306,11 @@ void AppUi::drawSettings(Canvas& c) {
                                         tr(Str::KeyboardKeys),  tr(Str::DisplayMode),   tr(Str::ControllerButtons),
                                         tr(Str::Gyro),          tr(Str::QueueReadyNotification),
                                         tr(Str::CheckSignIn),   tr(Str::NetworkTest),   tr(Str::SupportProject),
+#if defined(__ANDROID__)
+                                        "Decodificador H.264", tr(Str::AudioHaptics), tr(Str::PreviewFeatures),
+#else
                                         tr(Str::VideoDecoder),  tr(Str::AudioHaptics),  tr(Str::PreviewFeatures),
+#endif
                                         tr(Str::ResetSettings), tr(Str::SyncTrophies),  tr(Str::RemoveTrophies),
                                         tr(Str::FpsLimit), tr(Str::StoreCountry),
                                         "Ambiente Nimbox", "Reflexo do piso", "Movimento reduzido",
@@ -1496,7 +1506,7 @@ void AppUi::drawSettings(Canvas& c) {
             : settingsRow_ == nimbox_theme::kAppearanceMotion
             ? "Reduz animacoes de capas e do disco."
             : settingsRow_ == 20
-            ? "Codec do streaming: H.264 (AVC). Escolha hardware ou software; nao troca o codec."
+            ? "H.264 (AVC): GPU = MediaCodec; CPU = FFmpeg. Escolha antes de jogar; pode haver fallback."
             : settingsRow_ == 31
             ? "Melhora a escala da imagem; depende do processamento grafico disponivel."
             : settingsRow_ == 32
@@ -2651,8 +2661,13 @@ void AppUi::drawGameSettings(Canvas& c) {
             break;
         }
         case 15:
+#if defined(__ANDROID__)
+            label = "Decodificador H.264";
+            value = activeGameProfile_.videoDecoder == 1 ? "CPU / FFmpeg" : "GPU / MediaCodec";
+#else
             label = tr(Str::VideoDecoder);
             value = activeGameProfile_.videoDecoder == 1 ? tr(Str::VideoDecoderSw) : tr(Str::VideoDecoderHw);
+#endif
             break;
         case 18:
             label = tr(Str::SyncTrophies);
