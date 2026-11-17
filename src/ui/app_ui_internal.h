@@ -72,10 +72,23 @@ constexpr int kResolutionOrder[3] = {1, 0, 2};
 // stream (resolution, a desktop's display mode, 120 Hz, bitrate, region, network test);
 // the controller, keyboard and queue-ready alert; support and updates last. A group starts at each
 // kSettingsGroupStart.
-constexpr int kSettingsCount = 27;
-constexpr int kSettingsOrder[kSettingsCount] = {0, 2, 8, 27, 17, 18, 24, 25, 1, 20, 13, 9, 26, 10, 14, 12, 3, 15, 4, 21, 5, 6, 16, 22, 19, 7, 23};
-constexpr bool kSettingsGroupStart[kSettingsCount] = {false, false, false, false, false, false, false, false, true, false, false, false, false, false,
-                                                      true, false, false, false, false, false, false, false, false, false, true, false, true};
+constexpr int kSettingsCount = 30;
+// Keep every original row and controller position unchanged. The new visual
+// preferences are a final group so existing system tests/navigation stay stable.
+constexpr int kSettingsOrder[kSettingsCount] = {
+    0, 2, 8, 27, 17, 18, 24, 25,
+    1, 20, 13, 9, 26, 10,
+    14, 12, 3, 15, 4, 21, 5, 6, 16, 22,
+    19, 7, 23,
+    nimbox_theme::kAppearanceFirst, nimbox_theme::kAppearanceReflection, nimbox_theme::kAppearanceMotion
+};
+constexpr bool kSettingsGroupStart[kSettingsCount] = {
+    false, false, false, false, false, false, false, false,
+    true, false, false, false, false, false,
+    true, false, false, false, false, false, false, false, false, false,
+    true, false, true,
+    true, false, false
+};
 // The game settings' rows on screen (ids: 0 profile, 1 upscaler, 2
 // sharpness, 3 block smoothing, 4 resolution, 5 dead zone, 6 triggers, 7
 // confirm, 8 120 Hz, 9 keyboard keys, 10 back to the default, 11 controller
@@ -91,11 +104,11 @@ constexpr const char* kReleasesPage = "https://github.com/breno-bgod/Nimbox/rele
 constexpr const char* kNimboxSupportPage = "https://github.com/breno-bgod/Nimbox";
 
 #if defined(__ANDROID__)
-constexpr int kSettingsRowW = 1140, kSettingsRowH = 46, kSettingsGap = 4, kSettingsGroupGap = 12, kSettingsRowPx = 25;
-constexpr int kSettingsListTop = 210, kSettingsClipTop = 196;
+constexpr int kSettingsRowW = 1140, kSettingsRowH = 46, kSettingsGap = 4, kSettingsGroupGap = 42, kSettingsRowPx = 24;
+constexpr int kSettingsListTop = 258, kSettingsClipTop = 250;
 #else
-constexpr int kSettingsRowW = 1140, kSettingsRowH = 30, kSettingsGap = 1, kSettingsGroupGap = 4, kSettingsRowPx = 22;
-constexpr int kSettingsListTop = 188, kSettingsClipTop = 180;
+constexpr int kSettingsRowW = 1140, kSettingsRowH = 35, kSettingsGap = 3, kSettingsGroupGap = 38, kSettingsRowPx = 21;
+constexpr int kSettingsListTop = 258, kSettingsClipTop = 250;
 #endif
 
 inline int settingsTotalHeight(const UiCaps& caps) {
