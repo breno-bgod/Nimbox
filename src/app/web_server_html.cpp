@@ -963,6 +963,14 @@ pre { background:#061321; border-color:rgba(133,190,214,.18); }
   .card h2 { font-size:1rem; margin-bottom:9px; }
   .card p { font-size:.82rem; }
 }
+/* Keep the existing virtual-controller layout and touch geometry intact.
+   Its calibrated modules depend on the original compact padding. */
+#tab-gamepad #gamepadCard { padding:4px 6px!important; }
+#tab-gamepad #gamepadCard .gamepad-container { touch-action:none!important; }
+body:has(#tab-gamepad.active) .remote-hero { display:none; }
+@media (orientation:landscape) and (min-width:521px) {
+  #tab-gamepad #gamepadCard { padding:4px 4px!important; }
+}
 @media (prefers-reduced-motion:reduce) {
   *,*::before,*::after { animation-duration:.01ms!important; transition-duration:.01ms!important; scroll-behavior:auto!important; }
 }
