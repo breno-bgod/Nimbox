@@ -1071,15 +1071,17 @@ void AppUi::drawNimboxCarousel(Canvas& c, uint64_t nowMs) {
         if (it != detailInfo_.end()) hero = it->second.heroUrl;
     }
     if (!hero.empty()) drawHero(c, nowMs, hero, true);
-    c.fillRect({0, 140, kW, 830}, rgba(3, 13, 27, 92));
-    c.gradientV({0, 135, kW, 740}, withAlpha(topShade, 48),
-                rgba(8, 17, 31, 175));
-    c.gradientH({0, 140, 560, 655}, rgba(6, 21, 39, 195),
+    // The Preview 3.0 hero is a luminous continuous studio above catalog rails.
+    // Real xCloud hero art remains visible underneath.
+    c.fillRect({0, 140, kW, preview31::kHeroShelfBoundary - 140}, rgba(3, 13, 27, 49));
+    c.gradientV({0, 135, kW, preview31::kHeroShelfBoundary - 135},
+                withAlpha(topShade, 105), rgba(10, 37, 57, 165));
+    c.gradientH({0, 140, 560, 660}, rgba(6, 21, 39, 173),
                 rgba(6, 21, 39, 0));
     // Ambient floor is drawn beneath the physical collection and its disc.
-    c.gradientV({0, 660, kW, 335}, rgba(28, 85, 116, 54), deep);
-    c.line(220.0f, 719.0f, 1680.0f, 719.0f, 2.0f,
-           rgba(73, 188, 226, 44));
+    c.gradientV({0, 645, kW, 224}, rgba(50, 128, 160, 63), deep);
+    c.line(220.0f, 715.0f, 1680.0f, 715.0f, 1.0f,
+           rgba(147, 214, 235, 29));
     drawTopBar(c);
     drawTabs(c);
 
@@ -1255,14 +1257,15 @@ void AppUi::drawNimboxCarousel(Canvas& c, uint64_t nowMs) {
         c.fillCircle(dcx, dcy, 13.0f, deep);
         c.strokeCircle(dcx, dcy, 13.0f, 2.0f, rgba(188, 228, 240));
     }
-    // Fade the virtual reflections instead of drawing a shelf-divider line.
-    c.gradientV({0, 738, kW, 150}, rgba(17, 39, 60, 0), rgba(17, 39, 60, 174));
+    // Studio fades into real catalog rails exactly like Preview 3.0/3.1.
+    c.gradientV({0, 738, kW, 130}, rgba(17, 39, 60, 0), rgba(17, 39, 60, 148));
+    preview31::shelfBackdrop(c);
 
     if (count) {
         const GameTile& current = row.tiles[static_cast<size_t>(selected)];
         // Current data, never a hardcoded game name, artwork, platform or rating.
         const auto title = fonts_.bold.wrap(current.name, 42, 1120, 1);
-        if (!title.empty()) drawCentered(c, fonts_.bold, title.front(), 783, 42, kWhite);
+        if (!title.empty()) drawCentered(c, fonts_.bold, title.front(), preview31::kFocusNameY, 42, kWhite);
         std::string meta = current.publisher;
         if (!current.categories.empty()) {
             if (!meta.empty()) meta += "  -  ";
@@ -1270,7 +1273,7 @@ void AppUi::drawNimboxCarousel(Canvas& c, uint64_t nowMs) {
         }
         if (!meta.empty()) {
             meta = fonts_.regular.fit(meta, 20, 1040);
-            drawCentered(c, fonts_.regular, meta, 843, 20, rgba(191, 216, 228));
+            drawCentered(c, fonts_.regular, meta, preview31::kFocusMetaY, 20, rgba(191, 216, 228));
         }
         // Selecting a cover opens the existing details/Play flow.
         // This visual affordance deliberately does not pretend to launch
@@ -1288,9 +1291,9 @@ void AppUi::drawNimboxCarousel(Canvas& c, uint64_t nowMs) {
                              detailsButton.y + 14, 24, kWhite);
         drawCentered(c, fonts_.regular,
                      std::to_string(selected + 1) + " / " + std::to_string(count),
-                     964, 18, rgba(165, 202, 215));
+                     855, 16, rgba(165, 202, 215));
     }
-    c.gradientV({0, 970, kW, 110}, withAlpha(deep, 0), deep);
+    preview31::footerBackdrop(c);
     drawHints(c, {{kIconCross, tr(Str::Select)}, {kIconR3, "Classic UI"},
                   {kIconTriangle, tr(Str::TabSearch)}, {kIconOptions, tr(Str::Settings)}});
     drawPads(c);
