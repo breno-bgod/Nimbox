@@ -8,6 +8,7 @@
 #include "ui/nimbox_pose_core.h"
 #include <algorithm>
 #include <cmath>
+#include <vector>
 
 namespace xc::ui::nimbox {
 
@@ -143,6 +144,26 @@ inline bool hit(const CaseGeometry& g, float x, float y) {
 inline int indexForOffset(int selected, int count, int offset) {
     if (count <= 0 || offset < -count / 2 || offset > (count - 1) / 2) return -1;
     return ((selected + offset) % count + count) % count;
+}
+
+// Painter order is shared by rendering and pointer hit-testing. Far cases are
+// drawn first, while input walks this vector backward (frontmost first).
+// This matters when physical boxes overlap in a cascading arc or animate
+// between selected positions.
+inline std::vector<int> caseDrawOrder(int selected, int count, float slide) {
+    std::vector<int> order;
+    if (!std::isfinite(slide)) slide = 0.0f;
+    // Pointer taps may jump directly to an outer case (up to +/-4), while
+    // controller movement is normally a single step. Both need the same order.
+    slide = std::clamp(slide, -float(kSideCases), float(kSideCases));
+    for (int offset = -kSideCases; offset <= kSideCases; ++offset) {
+        if (indexForOffset(selected, count, offset) >= 0) order.push_back(offset);
+    }
+    std::stable_sort(order.begin(), order.end(), [slide](int a, int b) {
+        return std::fabs(static_cast<float>(a) + slide) >
+               std::fabs(static_cast<float>(b) + slide);
+    });
+    return order;
 }
 
 } // namespace xc::ui::nimbox

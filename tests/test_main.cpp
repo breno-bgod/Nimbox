@@ -1066,9 +1066,9 @@ static void testNimboxSharedCppPose() {
     const auto right = previewPose(2);
     CHECK(center.x == 0.0f && center.z == 160.0f && center.scale == 1.0f);
     CHECK(center.zIndex == 20 && center.opacity == 1.0f);
-    CHECK(left.x == -280.0f && left.y == 35.0f && left.z == -58.0f);
-    CHECK(left.rotationY == 48.0f && left.scale > 0.89f);
-    CHECK(right.x == 450.0f && right.rotationY == -57.0f && right.scale > 0.79f);
+    CHECK(left.x == -275.0f && left.y == 35.0f && left.z == -58.0f);
+    CHECK(left.rotationY == 36.0f && left.scale > 0.89f);
+    CHECK(right.x == 420.0f && right.rotationY == -67.0f && right.scale > 0.79f);
     CHECK(previewPose(5).opacity == 0.0f);
     CHECK(previewRelativeOffset(9, 0, 10) == -1);
     CHECK(previewRelativeOffset(1, 9, 10) == 2);
@@ -1103,6 +1103,67 @@ static void testNimboxProjected3DCase() {
     CHECK(std::isfinite(midway.front.tl.x) && std::isfinite(midway.front.tl.y));
     const auto malformed = layoutAnimated(std::numeric_limits<float>::quiet_NaN());
     CHECK(malformed.bounds.w == center.bounds.w);
+}
+
+static void testNimboxCascadeArc() {
+    using namespace xc::ui::nimbox;
+    constexpr float kRadToDeg = 180.0f / kPi3D;
+    constexpr float expectedApparentYaw[] = {0.0f, 24.0f, 50.0f, 79.0f, 87.0f};
+    float priorFront = 10000.0f;
+    for (int d = 0; d <= kSideCases; ++d) {
+        const PreviewPose poseR = previewPose(d);
+        const PreviewPose poseL = previewPose(-d);
+        CHECK(std::fabs(poseR.rotationY + poseL.rotationY) < 0.001f);
+        const float viewingOffset = std::atan2(std::fabs(poseR.x),
+                                               kPerspective - poseR.z) * kRadToDeg;
+        const float apparentYaw = std::fabs(poseR.rotationY) - viewingOffset;
+        CHECK(std::fabs(apparentYaw - expectedApparentYaw[d]) < 1.3f);
+
+        const CaseGeometry right = layout(d);
+        const CaseGeometry left = layout(-d);
+        CHECK(right.bounds.w > 0 && right.bounds.h > 0);
+        CHECK(right.bounds.x >= 0 && right.bounds.x + right.bounds.w <= 1920);
+        CHECK(left.bounds.x >= 0 && left.bounds.x + left.bounds.w <= 1920);
+        CHECK(std::isfinite(right.front.tl.x) && std::isfinite(left.front.tl.x));
+        const float front = std::fabs(right.front.tr.x - right.front.tl.x);
+        const float spine = std::fabs(right.spine.tr.x - right.spine.tl.x);
+        CHECK(front < priorFront);
+        priorFront = front;
+        if (d == 1) CHECK(front > spine * 8.0f);
+        if (d == kSideCases) CHECK(spine > front * 1.5f);
+        if (d > 0) {
+            const CaseGeometry near = layout(d - 1);
+            // Partial overlap, but a distinguishable outer sliver remains.
+            const float x0 = std::max(near.bounds.x, right.bounds.x);
+            const float x1 = std::min(near.bounds.x + near.bounds.w,
+                                      right.bounds.x + right.bounds.w);
+            CHECK(x1 - x0 > 4.0f);
+            CHECK(right.bounds.x + right.bounds.w > near.bounds.x + near.bounds.w);
+        }
+    }
+
+    // The render stack and hit test must share the same ordering.
+    const auto order = caseDrawOrder(0, 9, 0.0f);
+    CHECK(order.size() == 9);
+    CHECK(order.front() == -4 && order.back() == 0);
+    const auto moving = caseDrawOrder(0, 9, 0.5f);
+    CHECK(moving.size() == 9);
+    CHECK(moving.back() == -1 || moving.back() == 0);
+    CHECK(caseDrawOrder(0, 0, 0.0f).empty());
+    // Touch can select a deep-profile case in one tap: stacking must still
+    // agree with rendering for +/-3 and +/-4 transitions.
+    const auto deepTap = caseDrawOrder(0, 9, 3.0f);
+    CHECK(deepTap.size() == 9 && deepTap.back() == -3);
+    const auto deepOtherSide = caseDrawOrder(0, 9, -4.0f);
+    CHECK(deepOtherSide.size() == 9 && deepOtherSide.back() == 4);
+
+    // All 3D coordinates stay finite throughout left/right interpolation.
+    for (int step = -4; step <= 4; ++step) {
+        const CaseGeometry tween = layoutAnimated(static_cast<float>(step) + 0.5f);
+        CHECK(std::isfinite(tween.front.tl.x));
+        CHECK(std::isfinite(tween.spine.bl.y));
+        CHECK(tween.bounds.w > 0);
+    }
 }
 
 static void testNimboxXboxCaseFinish() {
@@ -11707,6 +11768,7 @@ int main() {
     testFreeAccountPlayability();
     testNimboxSharedCppPose();
     testNimboxProjected3DCase();
+    testNimboxCascadeArc();
     testNimboxXboxCaseFinish();
     testNimboxDefaultCarouselNavigation();
     testDetailsHydrationAndPlaytimeBadge();

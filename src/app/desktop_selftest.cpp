@@ -344,9 +344,12 @@ int desktopSelftest(const std::string& dir) {
     {
         ui::GameRow showcase;
         showcase.title = "Colecao de teste";
+        // Nine synthetic titles expose all +/-4 profile zones of the arc.
+        // No external artwork or console account is needed for the capture.
         const char* names[] = {"Aurora Nexus", "Ember Realms", "Polaris Siege",
-                               "Lumen Falls", "Void Drifter"};
-        for (int i = 0; i < 5; ++i) {
+                               "Lumen Falls", "Void Drifter", "Deep Orbit",
+                               "Neon Tides", "Crystal Trail", "Iron Valley"};
+        for (int i = 0; i < 9; ++i) {
             ui::GameTile tile;
             tile.productId = "cv-test-" + std::to_string(i);
             tile.titleId = "cv-title-" + std::to_string(i);

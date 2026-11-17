@@ -888,25 +888,25 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
                 const int count = static_cast<int>(tiles.size());
                 if (count > 0) {
                     const int selected = std::clamp(focusCol_[static_cast<size_t>(rowIndex)], 0, count - 1);
-                    // Frontmost first. This matches occlusion in drawNimboxCarousel.
-                    for (int distance = 0; distance <= nimbox::kSideCases; ++distance) {
-                        for (int side : {-1, 1}) {
-                            if (distance == 0 && side == 1) continue;
-                            const int offset = distance * side;
-                            const int index = nimbox::indexForOffset(selected, count, offset);
-                            if (index < 0) continue;
-                            if (!nimbox::hit(nimbox::layoutAnimated(static_cast<float>(offset) +
-                                nimboxSlide_.value / 1000.0f), x, y)) continue;
-                            if (distance == 0) openDetails(tiles[static_cast<size_t>(index)]);
-                            else {
-                                focusCol_[static_cast<size_t>(rowIndex)] = index;
-                                nimboxSlide_.value = nimboxReducedMotion_ ? 0.0f : static_cast<float>(offset) * 1000.0f;
-                                nimboxSlide_.target = 0.0f;
-                                retarget();
-                                dirty_ = true;
-                            }
-                            return ev;
+                    // The physical arc overlaps. Touch goes from the last
+                    // painted case to the first, including mid-transition.
+                    const auto order = nimbox::caseDrawOrder(
+                        selected, count, nimboxSlide_.value / 1000.0f);
+                    for (auto it = order.rbegin(); it != order.rend(); ++it) {
+                        const int offset = *it;
+                        const int index = nimbox::indexForOffset(selected, count, offset);
+                        if (index < 0) continue;
+                        if (!nimbox::hit(nimbox::layoutAnimated(static_cast<float>(offset) +
+                            nimboxSlide_.value / 1000.0f), x, y)) continue;
+                        if (offset == 0) openDetails(tiles[static_cast<size_t>(index)]);
+                        else {
+                            focusCol_[static_cast<size_t>(rowIndex)] = index;
+                            nimboxSlide_.value = nimboxReducedMotion_ ? 0.0f : static_cast<float>(offset) * 1000.0f;
+                            nimboxSlide_.target = 0.0f;
+                            retarget();
+                            dirty_ = true;
                         }
+                        return ev;
                     }
                 }
             }
