@@ -1253,6 +1253,42 @@ void AppUi::drawGenres(Canvas& c, uint64_t nowMs) {
     drawToast(c, nowMs);
 }
 
+
+void AppUi::drawProfile(Canvas& c, uint64_t nowMs) {
+    // Native account view: show only values provided by Xbox authentication.
+    c.clear(kBg);
+    drawBackground(c);
+    drawTopBar(c);
+    const Rect panel{310, 230, 1300, 650};
+    c.fillRect(panel, rgba(27, 45, 56, 245), 24);
+    c.strokeRect(panel, rgba(143, 221, 239, 100), 2, 24);
+    fonts_.bold.draw(c, tr(Str::Profile), panel.x + 60, panel.y + 55, 48, kWhite);
+    Rect backButton{kMargin, 165, 180, 52};
+    c.fillRect(backButton, rgba(255, 255, 255, 22), 14);
+    fonts_.semibold.draw(c, tr(Str::Back), backButton.x + 26,
+                         fonts_.semibold.centeredY(backButton.y, backButton.h, 22), 22, kWhite);
+
+    const int imageX = panel.x + 62, imageY = panel.y + 160, imageSize = 190;
+    if (auto pic = images_.get(gamerpicUrl_, imageSize, imageSize))
+        c.drawImage(*pic, imageX, imageY, 255, 24);
+    else
+        c.fillCircle(imageX + imageSize / 2.0f, imageY + imageSize / 2.0f, imageSize / 2.0f, kPanel);
+
+    const int dataX = imageX + imageSize + 56;
+    fonts_.bold.draw(c, gamertag_.empty() ? "-" : gamertag_, dataX, imageY + 28, 40, kWhite);
+    if (!gamerscore_.empty()) {
+        drawGamerscoreBadge(c, dataX + 18, imageY + 121, 18);
+        fonts_.semibold.draw(c, gamerscore_, dataX + 55, imageY + 105, 28, kGray);
+    }
+    if (!subscription_.empty()) {
+        fonts_.semibold.draw(c, tr(Str::TabGamePass), dataX, imageY + 180, 24, kGray);
+        fonts_.bold.draw(c, subscription_, dataX, imageY + 220, 26, kWhite);
+    }
+    drawHints(c, {{kIconCircle, tr(Str::Back)}, {kIconOptions, tr(Str::Settings)}});
+    drawPads(c);
+    drawToast(c, nowMs);
+}
+
 void AppUi::drawFriends(Canvas& c, uint64_t nowMs) {
     c.clear(kBg);
     drawBackground(c);
@@ -2282,6 +2318,7 @@ void AppUi::render(Canvas& c, uint64_t nowMs) {
         case Screen::Error: drawError(c); break;
         case Screen::Settings: drawSettings(c); break;
         case Screen::Updating: drawUpdating(c, nowMs); break;
+        case Screen::Profile: drawProfile(c, nowMs); break;
         case Screen::Streaming: break;
     }
     if (screen_ == Screen::Home && updatePrompt_) {
