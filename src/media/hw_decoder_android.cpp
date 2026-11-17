@@ -218,8 +218,20 @@ bool HwDecoder::init(int maxWidth, int maxHeight) {
     }
 
     decoder_ = s;
-    XC_LOGI("hw_decoder_android: MediaCodec ByteBuffer initialized (%dx%d, preferred=%s; "
-            "hardware/low-latency depends on actual codec support)",
+    // AMediaCodec_getName is public since API 28 (minSdk=26), so resolve
+    // dynamically. This reports the *actual* component after all fallbacks.
+    using GetCodecNameFn = media_status_t (*)(AMediaCodec*, char**);
+    using ReleaseCodecNameFn = void (*)(AMediaCodec*, char*);
+    auto* getName = reinterpret_cast<GetCodecNameFn>(dlsym(RTLD_DEFAULT, "AMediaCodec_getName"));
+    auto* releaseName = reinterpret_cast<ReleaseCodecNameFn>(dlsym(RTLD_DEFAULT, "AMediaCodec_releaseName"));
+    if (getName && releaseName) {
+        char* componentName = nullptr;
+        if (getName(s->codec, &componentName) == AMEDIA_OK && componentName) {
+            XC_LOGI("hw_decoder_android: active video/avc component: %s", componentName);
+            releaseName(s->codec, componentName);
+        }
+    }
+    XC_LOGI("hw_decoder_android: MediaCodec ByteBuffer initialized (%dx%d, requested=%s)",
             s->width, s->height, preferredCodecName.empty() ? "system-default" :
             preferredCodecName.c_str());
     return true;
@@ -273,9 +285,20 @@ bool HwDecoder::decode(const uint8_t* data, size_t len, uint64_t pts, Picture& o
         ssize_t outIdx = AMediaCodec_dequeueOutputBuffer(s->codec, &info, waitUs);
         waitUs = 0;
         if (outIdx >= 0) {
+            if (info.size <= 0) {
+                // Empty codec config/EOS buffers are not displayable video frames.
+                AMediaCodec_releaseOutputBuffer(s->codec, static_cast<size_t>(outIdx), false);
+                continue;
+            }
             if (latestIdx >= 0) {
-                // Drop older queued frame immediately for lowest display latency
+                // Keep the most recent frame, but track backlog explicitly so
+                // jitter/decoder pressure can be distinguished in Android logs.
                 AMediaCodec_releaseOutputBuffer(s->codec, static_cast<size_t>(latestIdx), false);
+                static uint64_t backlogDrops = 0;
+                if (++backlogDrops % 120 == 1) {
+                    XC_LOGW("hw_decoder_android: stale decoded output discarded (%llu total)",
+                            static_cast<unsigned long long>(backlogDrops));
+                }
             }
             latestIdx = outIdx;
             latestInfo = info;
@@ -340,8 +363,10 @@ bool HwDecoder::decode(const uint8_t* data, size_t len, uint64_t pts, Picture& o
     s->currentOutIdx = latestIdx;
     size_t bufSize = 0;
     uint8_t* buf = AMediaCodec_getOutputBuffer(s->codec, static_cast<size_t>(latestIdx), &bufSize);
-    if (!buf || bufSize == 0) {
-        XC_LOGE("hw_decoder_android: getOutputBuffer failed or size 0");
+    // On Android through API 35, AMediaCodec_getOutputBuffer's out_size
+    // is not guaranteed accurate. Use the dequeued BufferInfo.size instead.
+    if (!buf || latestInfo.size <= 0) {
+        XC_LOGE("hw_decoder_android: getOutputBuffer failed or invalid BufferInfo size");
         AMediaCodec_releaseOutputBuffer(s->codec, static_cast<size_t>(latestIdx), false);
         s->currentOutIdx = -1;
         out.error = true;
