@@ -1177,14 +1177,14 @@ void AppUi::drawNimboxCarousel(Canvas& c, uint64_t nowMs) {
         if (d <= 1) {
             const int textX = static_cast<int>(g.x) + (focused ? 17 : 12);
             const int bandY = static_cast<int>(g.y + (offset < 0 ? (focused ? 0 : 18) : 2));
-            // Disc-platform symbol and printed platform title (not a fake
-            // retail-box artwork or a platform logo asset).
-            c.fillCircle(textX + 9, bandY + 21, focused ? 11 : 8, rgba(25, 116, 63));
-            c.line(textX + 5, bandY + 17, textX + 13, bandY + 25, 2.0f, kWhite);
-            c.line(textX + 13, bandY + 17, textX + 5, bandY + 25, 2.0f, kWhite);
+            // Nimbox is the case identity. Only show an Xbox generation when
+            // it is present in the real catalog metadata.
+            c.fillCircle(textX + 9, bandY + 21, focused ? 11 : 8, rgba(18, 91, 119));
+            fonts_.semibold.draw(c, "N", textX + (focused ? 3 : 5),
+                                 bandY + (focused ? 10 : 12), focused ? 16 : 12, kWhite);
             const char* platformName = tile.platform == "360" ? "XBOX 360" :
                                        tile.platform == "ONE" ? "XBOX ONE" :
-                                       tile.platform == "XS" ? "XBOX SERIES" : "XBOX CLOUD";
+                                       tile.platform == "XS" ? "XBOX SERIES" : "NIMBOX";
             fonts_.bold.draw(c, platformName, textX + (focused ? 26 : 22), bandY + 11,
                              focused ? 20 : 14, rgba(17, 53, 51));
             const auto lines = fonts_.bold.wrap(tile.name, focused ? 24 : 16,
@@ -1238,7 +1238,8 @@ void AppUi::drawNimboxCarousel(Canvas& c, uint64_t nowMs) {
     // On slower devices it is held still by the existing reduced-motion toggle.
     if (count) {
         const GameTile& current = row.tiles[static_cast<size_t>(selected)];
-        constexpr float dcx = 1228.0f, dcy = 546.0f, dr = 132.0f;
+        // Keep the decorative disc below the selected cover's visual weight.
+        constexpr float dcx = 1250.0f, dcy = 546.0f, dr = 116.0f;
         const float spin = nimboxReducedMotion_ ? 0.0f :
                            static_cast<float>(nowMs % 60000ull) * 0.00044f;
         c.fillCircle(dcx + 14, dcy + 17, dr + 18, rgba(1, 8, 16, 100));
@@ -1276,7 +1277,7 @@ void AppUi::drawNimboxCarousel(Canvas& c, uint64_t nowMs) {
         // Selecting a cover opens the existing details/Play flow.
         // This visual affordance deliberately does not pretend to launch
         // streaming directly from this screen.
-        constexpr Rect detailsButton{756, 886, 408, 58};
+        const Rect& detailsButton = kCollectionDetailsCta;
         c.fillRect({detailsButton.x - 7, detailsButton.y - 7,
                     detailsButton.w + 14, detailsButton.h + 14},
                    rgba(45, 191, 227, 38), 22);
