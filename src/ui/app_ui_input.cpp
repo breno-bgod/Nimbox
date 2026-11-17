@@ -1120,7 +1120,6 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
             for (int i = 0; i < nimbox_theme::kThemeCount; ++i) {
                 if (!nimbox_theme::contains(nimbox_theme::kThemeCards[i], x, y)) continue;
                 settings_.nimboxTheme = i;
-                settingsRow_ = nimbox_theme::kAppearanceFirst;
                 dirty_ = true;
                 ev.action = Action::SettingsChanged;
                 ev.settings = settings_;
@@ -1131,7 +1130,6 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
                                    nimbox_theme::kReflectionTrack.w, 48};
             if (nimbox_theme::contains(reflectZone, x, y)) {
                 settings_.nimboxReflection = nimbox_theme::reflectionFromX(x);
-                settingsRow_ = nimbox_theme::kAppearanceReflection;
                 dirty_ = true;
                 ev.action = Action::SettingsChanged;
                 ev.settings = settings_;
@@ -1140,7 +1138,6 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
             if (nimbox_theme::contains(nimbox_theme::kReducedMotionButton, x, y)) {
                 nimboxReducedMotion_ = !nimboxReducedMotion_;
                 settings_.nimboxReducedMotion = nimboxReducedMotion_;
-                settingsRow_ = nimbox_theme::kAppearanceMotion;
                 if (nimboxReducedMotion_) nimboxSlide_.value = nimboxSlide_.target;
                 dirty_ = true;
                 ev.action = Action::SettingsChanged;
@@ -1464,7 +1461,6 @@ UiEvent AppUi::onTouch(const app::shell::TouchEvent& ev) {
                                        nimbox_theme::kReflectionTrack.w, 55};
                 if (nimbox_theme::contains(reflectZone, ev.x, ev.y)) {
                     settings_.nimboxReflection = nimbox_theme::reflectionFromX(ev.x);
-                    settingsRow_ = nimbox_theme::kAppearanceReflection;
                     dirty_ = true;
                     uiEv.action = Action::SettingsChanged;
                     uiEv.settings = settings_;
