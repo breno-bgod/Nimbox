@@ -40,3 +40,35 @@ A próxima decisão técnica deve ser tomada **após revisar as capturas e o des
 - **Frontend Design:** jogo e capa como protagonistas, restrição do brilho e assinatura visual Coleção Viva.
 
 A tela **ainda não está homologada**; esta entrega é a primeira base 3D verificável para aperfeiçoamento incremental.
+
+
+## Fase de acabamento — referência de caixa Xbox One
+
+Referência visual fornecida pelo usuário: embalagem de **LEGO Worlds para Xbox One**,
+com faixa Xbox, esfera branca, estojo verde, lombada impressa e plástico
+semiopaco. A referência determina o **material e o desenho do estojo**, nunca
+a arte permanente do catálogo.
+
+Alterações de acabamento sobre a geometria 3D **sem alterar os 8 vértices**:
+
+- `src/ui/collection_case_finish.h`: tokens da resina plástica verde, faixas,
+  topo e lombada com brilho contido, base de impressão recuada, filetes e
+  glaze translúcido; compartilha helpers entre Home e Detalhes.
+- Faixa verde e símbolo Xbox em geometria vetorial no Canvas, com texto
+  `XBOX`, `XBOX ONE`, `XBOX SERIES` ou `XBOX 360` **somente quando a
+  geração correspondente estiver nos metadados**. O modelo de identidade
+  Nimbox da interface não é substituído.
+- Arte de `GameTile.tileUrl` permanece dinamicamente no quadro; ela não é
+  substituída por imagens de demonstração.
+- Desenho de uma sombra no encaixe da arte, plástico translúcido sobre a
+  borda e brilho suave na lombada. A faixa inferior traz o nome real.
+- Testes adicionais verificam que as subdivisões visuais continuam dentro
+  da face projetada e que o banner preserva a cromia verde.
+- O `desktop_selftest` usa dados de plataforma sintéticos para verificar
+  visualmente variantes Xbox One / Series / 360; isso não interfere no
+  catálogo real.
+
+**Restrições mantidas:** Canvas em software; sem shader PBR, sem GPU adicional,
+sem modificação na navegação, hit-testing, medidas de perspectiva, streaming,
+login ou fonte de imagens. Aprovação visual em captura nativa e PS5 ainda
+necessária antes de merge/release.
