@@ -1261,6 +1261,66 @@ void AppUi::drawNimboxCarousel(Canvas& c, uint64_t nowMs) {
     c.gradientV({0, 738, kW, 130}, rgba(17, 39, 60, 0), rgba(17, 39, 60, 148));
     preview31::shelfBackdrop(c);
 
+    // Native counterpart of #home-shelves in Premium Preview 3.0.
+    // Display-only rail sourced from current GameRows and saved playtime.
+    // Up/down already browses rows; no input system is changed here.
+    std::vector<const GameTile*> rail;
+    std::unordered_set<std::string> unique;
+    for (const GameRow& group : rows_) {
+        for (const GameTile& t : group.tiles) {
+            const auto product = settings_.titlePlaytime.find(t.productId);
+            const auto titleId = settings_.titlePlaytime.find(t.titleId);
+            const bool played = (product != settings_.titlePlaytime.end() &&
+                                 product->second > 0) ||
+                                (titleId != settings_.titlePlaytime.end() &&
+                                 titleId->second > 0);
+            if (!played || !t.playable) continue;
+            const std::string key = !t.productId.empty() ? t.productId : t.titleId;
+            if (key.empty() || !unique.insert(key).second) continue;
+            rail.push_back(&t);
+            if (rail.size() >= 6) break;
+        }
+        if (rail.size() >= 6) break;
+    }
+    const bool hasContinue = !rail.empty();
+    if (!hasContinue) {
+        for (const GameTile& t : row.tiles) {
+            if (rail.size() >= 6) break;
+            rail.push_back(&t);
+        }
+    }
+    const std::string railTitle = hasContinue ? "CONTINUE JOGANDO" :
+                                 (row.title.empty() ? "EXPLORE JOGOS" : row.title);
+    fonts_.bold.draw(c, fonts_.bold.fit(railTitle, 27, 900),
+                     preview31::kShelfLeft, preview31::kShelfHeaderY, 27,
+                     preview31::kText);
+    const char* shelfHint = "CIMA / BAIXO  -  COLECOES";
+    fonts_.regular.draw(c, shelfHint,
+                        1823 - fonts_.regular.measure(shelfHint, 17),
+                        preview31::kShelfHeaderY + 6, 17, preview31::kMuted);
+    c.setClip({0, preview31::kShelfTileY, kW,
+               preview31::kShelfBottom - preview31::kShelfTileY});
+    for (size_t i = 0; i < rail.size(); ++i) {
+        const GameTile& t = *rail[i];
+        const int x = preview31::kShelfLeft + static_cast<int>(i) *
+            (preview31::kShelfTileW + preview31::kShelfGap);
+        const Rect tile{x, preview31::kShelfTileY,
+                        preview31::kShelfTileW, preview31::kShelfTileH};
+        if (x + tile.w > kW - 65) break;
+        preview31::glassPanel(c, tile, 12);
+        if (!t.tileUrl.empty()) {
+            if (auto art = images_.get(t.tileUrl, tile.w, tile.h))
+                c.drawImage(*art, x, tile.y, 218, 12);
+        }
+        c.gradientV({x, tile.y + 42, tile.w, tile.h - 42},
+                    rgba(5, 23, 40, 0), rgba(4, 16, 29, 233));
+        c.strokeRect(tile, rgba(165, 217, 237, 83), 1, 12);
+        const std::string label = fonts_.semibold.fit(t.name, 17, tile.w - 22);
+        fonts_.semibold.draw(c, label, x + 11, tile.y + tile.h - 31,
+                             17, preview31::kText);
+    }
+    c.clearClip();
+
     if (count) {
         const GameTile& current = row.tiles[static_cast<size_t>(selected)];
         // Current data, never a hardcoded game name, artwork, platform or rating.
