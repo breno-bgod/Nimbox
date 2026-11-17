@@ -1282,7 +1282,7 @@ void AppUi::drawNimboxCarousel(Canvas& c, uint64_t nowMs) {
                    rgba(45, 191, 227, 38), 22);
         c.fillRect(detailsButton, rgba(20, 104, 137, 210), 18);
         c.strokeRect(detailsButton, rgba(133, 236, 250), 2, 18);
-        const char* openText = "VER DETALHES / JOGAR";
+        const char* openText = "VER DETALHES";
         fonts_.semibold.draw(c, openText,
                              detailsButton.x +
                              (detailsButton.w - fonts_.semibold.measure(openText, 24)) / 2,
