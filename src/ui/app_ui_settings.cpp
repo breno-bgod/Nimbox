@@ -1279,7 +1279,7 @@ void AppUi::drawSettings(Canvas& c) {
     constexpr int kListTop = kSettingsListTop, kClipTop = kSettingsClipTop;
     Rect rows[kSettingRows];  // by row id
     int y = kListTop - static_cast<int>(std::lround(settingsScrollY_));
-    c.setClip({kMargin - 8, kClipTop, kRowW + 16, kH - kClipTop - 80});
+    c.setClip({kMargin - 8, kClipTop, kRowW + 16, kSettingsListBottom - kClipTop});
     for (const auto& [i, groupStart] : visibleSettingsRows(caps_)) {  // what caps_ rules out is hidden
         if (groupStart) {
             const char* group = i == 1 ? "TRANSMISSAO E IMAGEM" :
@@ -1429,8 +1429,9 @@ void AppUi::drawSettings(Canvas& c) {
             : settingsRow_ == nimbox_theme::kAppearanceMotion
             ? "Reduz animacoes de capas e do disco."
             : tr(kSettingDescs[settingsRow_]);
-        auto lines = fonts_.regular.wrap(desc, 19, kRowW - 40, 2);
-        const int hintBaseline = kH - 64;
+        auto lines = fonts_.regular.wrap(desc, 18, kRowW - 40, 2);
+        // Dedicated explanation area inside the left panel, not below it.
+        const int hintBaseline = 904;
         int dy = (lines.size() > 1) ? (hintBaseline - 26) : hintBaseline;
         for (const auto& line : lines) {
             fonts_.regular.draw(c, line, kMargin, dy, 22, kDim);
