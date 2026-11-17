@@ -17,6 +17,7 @@
 #include "platform/toasts.h"
 #include "ui/brand.h"
 #include "ui/preview_visual_layout.h"
+#include "ui/nimbox_visual_theme.h"
 #include "ui/strings.h"
 #include "ui/toast_view.h"
 #include "app/update_check.h"
