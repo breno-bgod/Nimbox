@@ -4920,14 +4920,14 @@ static void testVisibleSettingsRows() {
     // How far down the autoplay tests walk to each row (autoplay.cpp's downsTo).
     CHECK(ui::settingsRowPosition(ps5, 24) == 6);
     CHECK(ui::settingsRowPosition(ps5, 25) == 7);
-    CHECK(ui::settingsRowPosition(ps5, 27) == 3 && ui::settingsRowPosition(ps5, 1) == 8 && ui::settingsRowPosition(ps5, 3) == 15);
-    CHECK(ui::settingsRowPosition(ps5, 16) == 21);
-    CHECK(ui::settingsRowPosition(ps5, 5) == 19 && ui::settingsRowPosition(ps5, 6) == 20);
-    CHECK(ui::settingsRowPosition(ps5, 12) == 14 && ui::settingsRowPosition(ps5, 14) == 13);
-    CHECK(ui::settingsRowPosition(ps5, 22) == 22);
-    CHECK(ui::settingsRowPosition(ps5, 7) == 24 && ui::settingsRowPosition(ps5, 19) == 23 && ui::settingsRowPosition(ps5, 2) == 1);
-    CHECK(ui::settingsRowPosition(ps5, 21) == 18);
-    CHECK(ui::settingsRowPosition(pc, 5) == 13 && ui::settingsRowPosition(pc, 6) == -1 && ui::settingsRowPosition(pc, 4) == -1);
+    CHECK(ui::settingsRowPosition(ps5, 27) == 3 && ui::settingsRowPosition(ps5, 1) == 8 && ui::settingsRowPosition(ps5, 3) == 20);
+    CHECK(ui::settingsRowPosition(ps5, 16) == 26);
+    CHECK(ui::settingsRowPosition(ps5, 5) == 24 && ui::settingsRowPosition(ps5, 6) == 25);
+    CHECK(ui::settingsRowPosition(ps5, 12) == 19 && ui::settingsRowPosition(ps5, 14) == 18);
+    CHECK(ui::settingsRowPosition(ps5, 22) == 27);
+    CHECK(ui::settingsRowPosition(ps5, 7) == 29 && ui::settingsRowPosition(ps5, 19) == 28 && ui::settingsRowPosition(ps5, 2) == 1);
+    CHECK(ui::settingsRowPosition(ps5, 21) == 23);
+    CHECK(ui::settingsRowPosition(pc, 5) == 15 && ui::settingsRowPosition(pc, 6) == -1 && ui::settingsRowPosition(pc, 4) == -1);
 }
 
 // The controller's glyphs by pad kind (ui/pad_glyphs.h).
@@ -8653,6 +8653,16 @@ static void testBlock1Corrections() {
         CHECK(abxyBlock.find("scale") == std::string::npos);
         CHECK(abxyBlock.find("translate") == std::string::npos);
         CHECK(htmlStr.find("-webkit-tap-highlight-color: transparent;") != std::string::npos);
+        // Native Settings and QR Web Control must present the same shared
+        // stream/image knobs. The page must not offer an unsupported codec
+        // switch while describing its H.264 hardware/software preference.
+        for (const char* id : {"selectVideoDecoder", "selectUpscaler", "selectDeband",
+                               "inputCas", "selectVoiceRouting", "selectFpsLimit"}) {
+            CHECK(htmlStr.find(id) != std::string::npos);
+        }
+        CHECK(htmlStr.find("GPU ou CPU não são codecs") != std::string::npos);
+        CHECK(htmlStr.find("NIMBOX CONTROL CENTER V2") != std::string::npos);
+        CHECK(htmlStr.find("remote-hero") != std::string::npos);
     }
 
     // 2. Search cursor stability across background updates (pools, prices, delta-sync, setOwned, setRows)
