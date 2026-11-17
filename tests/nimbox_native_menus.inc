@@ -52,6 +52,23 @@ static void testNimboxNativeMenuPages() {
 
     app.handle(back);
     CHECK(app.screen() == ui::Screen::Home);
+
+    // Square opens the real profile screen from the friends page.
+    ui::NavInput profile;
+    profile.square = true;
+    app.handle(profile);
+    CHECK(app.screen() == ui::Screen::Profile);
+    app.handle(back);
+    CHECK(app.screen() == ui::Screen::Home);
+
     app.handle(next);
-    CHECK(app.tab() == ui::Tab::GamePass);  // wrap-around preserves old Home
+    CHECK(app.tab() == ui::Tab::GamePass); // wrap-around preserves old Home
+
+    // In the native header, avatar and Settings gear have different targets.
+    app.onMouseDown(1760.0f, 72.0f, 1);
+    CHECK(app.screen() == ui::Screen::Profile);
+    app.handle(back);
+    CHECK(app.screen() == ui::Screen::Home);
+    app.onMouseDown(1850.0f, 72.0f, 1);
+    CHECK(app.screen() == ui::Screen::Settings);
 }
