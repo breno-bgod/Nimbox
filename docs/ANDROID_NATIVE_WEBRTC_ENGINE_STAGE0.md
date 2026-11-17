@@ -1,44 +1,39 @@
-# Nimbox Android — WebRTC como reprodutor de vídeo (fase 0)
+# Nimbox Android — terceiro reprodutor H.264 usando WebRTC Video
 
-## Direção corrigida
+## Propósito
 
-O usuário já possui um Nimbox funcional. **Não reconstruir** autenticação, sessão GSSV, WebRTC de transporte, SDP/ICE, áudio, microfone, entrada, controle ou reconexão.
+O Nimbox tem autenticação, GSSV, SDP/ICE, transporte `libdatachannel`, áudio, input e reconexão próprios. **Nenhum deles foi duplicado ou substituído.**
 
-O Nimbox já recebe unidades de acesso **H.264 Annex-B** completas e com timestamps no fluxo existente:
-`src/stream/stream_session.cpp` → `stream::StreamCallbacks::video` → `src/app/stream_player.cpp` → `videoLoop()`.
+O backend opcional usa **apenas o decodificador de vídeo H.264** do SDK Android WebRTC. `org.webrtc.HardwareVideoDecoderFactory` costuma utilizar o Android MediaCodec internamente, mas oferece uma implementação diferente de fila/entrega de quadros. Não afirmar desempenho superior sem benchmarks.
 
-As duas rotas atuais são `MediaCodec` e `FFmpeg` dentro de `media::VideoDecoder`. A nova rota é um **terceiro reprodutor Android**, e não outra conexão WebRTC.
+## Implementação integrada
 
-## Implementado nesta fase
+- `src/stream/stream_session.cpp` continua entregando os access units H.264/Annex-B;
+- `src/app/stream_player.cpp` continua com o mesmo `videoLoop`, áudio, input e conexão;
+- `src/media/decoder.cpp` aceita, exclusivamente no Android, o terceiro backend `androidWebRtcVideo`;
+- `src/media/android_webrtc_decoder.{h,cpp}` converte o access unit recebido para chamada JNI na `MainActivity`, preservando a tag RTP;
+- `MainActivity.java` cria e controla `AndroidWebRtcVideoPlayer`;
+- `AndroidWebRtcVideoPlayer.java` alimenta o hardware H.264 decoder WebRTC, recebe quadros I420 e os empacota para o renderer atual do Nimbox;
+- O mesmo `display::drawYuv420` já existente apresenta o quadro, **sem adicionar outra Android SurfaceView por cima do menu/touch**;
+- Menu Android durante partida e configurações globais/por jogo oferecem escolha entre `MediaCodec`, `FFmpeg` e `WebRTC Video`;
+- Configurações no Android aceitam 0,1,2. Demais plataformas continuam limitadas a 0,1;
+- Se o WebRTC video codec não abrir ou parar de produzir frames, o pipeline volta para o MediaCodec nativo (com novo keyframe).
 
-1. Removeu-se `AndroidNativeWebRtcEngine.java`, que criava indevidamente `PeerConnection`, transceivers, canais e SDP/ICE duplicados;
-2. Criou-se `android/app/src/main/java/com/rafaelngp/psbox/streaming/AndroidWebRtcVideoPlayer.java`:
-   - usa a API `org.webrtc.HardwareVideoDecoderFactory` para H.264;
-   - recebe unidades de acesso H.264 já desfragmentadas em `submitH264(byte[], captureTimeNs, keyFrame)`;
-   - decodifica com `org.webrtc.VideoDecoder` e usa `org.webrtc.SurfaceViewRenderer` como saída de vídeo;
-   - roda exclusivamente no Android; preserva os drivers C++ existentes em outras plataformas;
-   - expõe contadores de quadros entregues e apresentados e faz limpeza do decodificador;
-   - não gera `PeerConnection`, não negocia SDP nem faz login.
-3. O SDK Android WebRTC permanece como dependência Gradle exclusiva do aplicativo Android.
+## Limitação explícita da primeira integração
 
-**Não utilizamos código fonte do XStreaming.** A implementação é nova e usa API pública do WebRTC Android.
+Esta primeira integração faz **cópia de H.264 comprimido para Java e cópia de I420 decodificado de volta a C++**. Isso permite o **primeiro teste real de gameplay** com os painéis, áudio, input e render SDL/Vulkan existentes, mas pode ter custo extra e não é zero-copy. O desempenho e a latência ainda não foram medidos em aparelho real.
 
-## Limitações e requisitos para tornar jogável
+A futura otimização de `Surface`/`EGL` para zero-copy é trabalho separado, pois deve compor vídeo sem cobrir a UI e controles touch SDL. Não anunciar o modo como solução de performance definitiva.
 
-- **JNI ainda não ligado:** o `StreamPlayer::videoLoop()` C++ precisa encaminhar as unidades H.264 ao `AndroidWebRtcVideoPlayer`, sem iniciar outro transporte. Necessário lidar com SPS/PPS, IDR, mudanças de resolução, timestamps, reconexão e retorno de falhas.
-- **Composição visual ainda pendente:** `SurfaceViewRenderer` adiciona uma superfície Android sobre o SDL/Vulkan, que pode **cobrir o painel, menu e controles touch do Nimbox**. O método `attachVideoSurface()` permanece sem chamada por esse motivo. É obrigatório projetar e testar a composição dos dois elementos antes de habilitar o modo.
-- **Sem seletor funcional ainda:** não mostrar `WebRTC` ao usuário antes que a troca preserve áudio, controles, UI e vídeo real.
-- **Baixa latência não garantida:** o caminho copia bytes H.264 comprimidos para Java, mas pretende manter o output decodificado em textura/EGL, sem YUV readback. Confirmar em Android real.
-- **Recomenda-se manter FSR e demais filtros SDL desativados inicialmente nesse modo**, porque a saída de vídeo usará outra superfície; validar visual e integração posteriormente.
+## Testes necessários
+- [ ] Gradle + CMake compila todas as plataformas; o novo arquivo C++ é compilado só no Android;
+- [ ] Instala Nimbox Alpha, mantém todos os menus e opção de decodificação;
+- [ ] Em jogo, selecionar WebRTC Video: logs mostram `android webrtc video: connected` e `h264 decoder: Android WebRTC video-only backend active`;
+- [ ] Quadro da gameplay aparece e a tag RTP corresponde ao vídeo recebido;
+- [ ] Áudio, entrada, touch, microfone e interface continuam funcionais;
+- [ ] Troca pelo controle entre três modos funciona sem nova sessão xCloud;
+- [ ] Conexão perdida e retomada, keyframe, mudança 720p/1080p e fallback;
+- [ ] A/B com mesma rede/jogo/bitrate, gráficos de fps/latência/drops/CPU/temperatura;
+- [ ] Se falhar, relatar logs e não mesclar na main.
 
-## Critérios
-
-- [ ] CI compila Android com a nova classe e dependência WebRTC, sem alterações no resto;
-- [ ] JNI recebe o H.264 do `StreamPlayer` existente;
-- [ ] Primeiro quadro é mostrado dentro do Nimbox, sem ocultar controles/menu;
-- [ ] Toque, gamepad, áudio e microfone preservados;
-- [ ] H.264 keyframe, tamanho variável, reconnect e fallback exercitados;
-- [ ] Somente depois: modo `Reprodutor Android: atual / WebRTC` no menu, **independente** de `Decodificador: GPU / CPU`;
-- [ ] A/B de fps, tempo de render, latência e perdas no mesmo aparelho.
-
-**Essa fase prepara o reprodutor, mas ainda não é um modo selecionável e funcional.**
+PR experimental, sem alteração de `main`.
