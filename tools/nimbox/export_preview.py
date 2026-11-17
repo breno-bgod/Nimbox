@@ -34,7 +34,7 @@ def export(source: Path, target: Path) -> None:
             '-fno-exceptions', '-fno-rtti', '-nostdlib',
             '-Wl,--no-entry', '-Wl,--export=nimbox_pose_value',
             '-Wl,--export=nimbox_relative_offset', '-Wl,--strip-all',
-            '-I', str(POSE_CPP.parent), str(POSE_CPP), '-o', str(wasm),
+            '-I', str(ROOT / 'src'), str(POSE_CPP), '-o', str(wasm),
         ], check=True)
         payload = base64.b64encode(wasm.read_bytes()).decode('ascii')
 
@@ -43,11 +43,12 @@ def export(source: Path, target: Path) -> None:
     original = original[:start] + original[finish:]
     begin = original.index('function renderCases(){')
     pos = original.index('el.style.transform=', begin)
-    original = original[:begin] + '''function renderCases(){if(!window.nimboxCppExports)return;const t=state.index;GAMES.forEach((g,i)=>{const el=caseNodes[i],d=window.nimboxCppExports.nimbox_relative_offset(i,t,count),a=Math.abs(d),v=a<=4;
+    original = original[:begin] + '''function renderCases(){if(!window.nimboxCppExports)return;const t=state.index;GAMES.forEach((g,i)=>{const el=caseNodes[i],d=window.nimboxCppExports.nimbox_relative_offset(i,t,count),a=Math.abs(d),v=window.nimboxCppExports.nimbox_pose_value(d,5)>.5;
 const pose=window.nimboxCppExports.nimbox_pose_value;
 const x=pose(d,0),y=pose(d,1),z=pose(d,2),rotation=pose(d,3),scale=pose(d,4);
 ''' + original[pos:]
 
+    original = original.replace('el.style.zIndex=String(20-a)', 'el.style.zIndex=String(pose(d,6))')
     boot = "makeCases();renderCases();setTheme('aurora');setReduced(false);renderLibrary();renderGenres();"
     if boot not in original:
         raise RuntimeError('Approved preview boot code changed; refuse to modify unknown layout')

@@ -331,3 +331,24 @@ jobs:
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
 
+
+  # Same C++ layout routine runs in native builds and in the browser using WASM.
+  # The approved HTML/CSS is preserved; only poses/wrap logic are replaced.
+  nimbox-preview-cpp-wasm:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - name: WebAssembly compiler
+        run: sudo apt-get update -q && sudo apt-get install -y -q clang lld
+      - name: Export browser preview from native C++ poses
+        run: |
+          python3 tools/nimbox/export_preview.py \
+            docs/prototypes/nimbox-preview-3.1.html \
+            "$RUNNER_TEMP/Nimbox_Preview_3_1_CPP_WASM.html"
+          grep -q "NIMBOX_CPP_WASM_BASE64" "$RUNNER_TEMP/Nimbox_Preview_3_1_CPP_WASM.html"
+          grep -q "nimboxCppExports.nimbox_pose_value" "$RUNNER_TEMP/Nimbox_Preview_3_1_CPP_WASM.html"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: nimbox-cpp-wasm-preview
+          path: ${{ runner.temp }}/Nimbox_Preview_3_1_CPP_WASM.html
+          if-no-files-found: error
