@@ -20,11 +20,13 @@ bool AppUi::needsRedraw(uint64_t nowMs) const {
     std::lock_guard<std::mutex> lock(mutex_);
     if (screen_ == Screen::Streaming) return false;
     if (dirty_ || animating_) return true;
-    // Efficient 24 fps redraw for the continuously rotating disc.
-    if (screen_ == Screen::Details && nimboxCarousel_ && tab_ == Tab::GamePass &&
-        !nimboxReducedMotion_ && !detail_.purchasable &&
-        !gameSettingsOpen_ && !achievementsOpen_ &&
-        nowMs - lastRender_ >= 42) return true;
+    // Limit decorative disc animation to 12 fps in the collection and 24
+    // fps in details: this is still a CPU Canvas on some platforms.
+    if (nimboxCarousel_ && tab_ == Tab::GamePass && !nimboxReducedMotion_ &&
+        ((screen_ == Screen::Home && !searching_ && nowMs - lastRender_ >= 84) ||
+         (screen_ == Screen::Details && !detail_.purchasable &&
+          !gameSettingsOpen_ && !achievementsOpen_ &&
+          nowMs - lastRender_ >= 42))) return true;
     if (mouseCursorVisible_ && nowMs >= mouseCursorVisibleUntil_) return true;
     // A desktop's toast came or went (the PS5 sends system notifications).
     if (platform::toastsEnabled() && platform::toasts().version(nowMs) != toastsDrawn_) return true;
@@ -1038,8 +1040,8 @@ void AppUi::drawConsoles(Canvas& c, uint64_t nowMs) {
 // This is an opt-in, software-rendered 2.5D presentation, with case faces
 // projected into trapezoids. No change to GameTile data or streaming actions.
 void AppUi::drawNimboxCarousel(Canvas& c, uint64_t nowMs) {
-    const Color deep = rgba(16, 34, 52);
-    const Color aqua = rgba(105, 218, 232);
+    const Color deep = rgba(8, 17, 31);
+    const Color aqua = rgba(79, 225, 247);
     // Follow the selected game's dominant artwork colour, cached by title URL.
     // Clamp luminance to keep the interface and headings readable.
     Color topShade = rgba(66, 112, 136);
@@ -1059,12 +1061,24 @@ void AppUi::drawNimboxCarousel(Canvas& c, uint64_t nowMs) {
         }
     }
     c.clear(deep);
-    c.gradientV({0, 136, kW, 700}, topShade, deep);
-    // Lighter infinity-room atmosphere; the cases remain the main focus.
-    c.gradientV({0, 380, kW, 310}, rgba(108, 163, 190, 42), rgba(23, 49, 71, 33));
-    c.gradientH({0, 220, kW, 490}, rgba(11, 30, 43, 110), rgba(15, 70, 75, 60));
-    // No hard horizontal shelf line. Subtle ambient falloff behind reflected art.
-    c.gradientV({0, 695, kW, 240}, rgba(79, 133, 165, 45), rgba(11, 30, 51, 95));
+    // Keep receiving the game's actual hero art from the PSBox/xCloud data.
+    // The visual layer never invents a new title or modifies the session.
+    const GameTile* artworkTile = focusedTile();
+    std::string hero = artworkTile ? artworkTile->heroUrl : std::string();
+    if (hero.empty() && artworkTile && !artworkTile->productId.empty()) {
+        auto it = detailInfo_.find(artworkTile->productId);
+        if (it != detailInfo_.end()) hero = it->second.heroUrl;
+    }
+    if (!hero.empty()) drawHero(c, nowMs, hero, true);
+    c.fillRect({0, 140, kW, 830}, rgba(3, 13, 27, 92));
+    c.gradientV({0, 135, kW, 740}, withAlpha(topShade, 48),
+                rgba(8, 17, 31, 175));
+    c.gradientH({0, 140, 560, 655}, rgba(6, 21, 39, 195),
+                rgba(6, 21, 39, 0));
+    // Ambient floor is drawn beneath the physical collection and its disc.
+    c.gradientV({0, 660, kW, 335}, rgba(28, 85, 116, 54), deep);
+    c.line(220.0f, 719.0f, 1680.0f, 719.0f, 2.0f,
+           rgba(73, 188, 226, 44));
     drawTopBar(c);
     drawTabs(c);
 
@@ -1080,13 +1094,17 @@ void AppUi::drawNimboxCarousel(Canvas& c, uint64_t nowMs) {
     const int count = static_cast<int>(row.tiles.size());
     const int selected = count ? std::clamp(focusCol_[static_cast<size_t>(rowIdx)], 0, count - 1) : 0;
 
-    fonts_.semibold.draw(c, "NIMBOX  /  GAME COLLECTION", 106, 163, 23, aqua);
-    fonts_.regular.draw(c, row.title, 106, 204, 25, rgba(205, 226, 233));
+    fonts_.semibold.draw(c, "NIMBOX  /  COLECAO VIVA", 106, 163, 21, aqua);
+    fonts_.bold.draw(c, "SUA COLECAO EM NUVEM", 106, 202, 29, kWhite);
+    const std::string rowLabel = fonts_.semibold.fit(row.title, 23, 580);
+    fonts_.regular.draw(c, rowLabel, 106, 249, 23,
+                        rgba(204, 225, 234));
     // The row already represents a collection in the original catalog.
     // Up/down changes it without rebuilding the catalog or losing favorites.
     const std::string section = "COLECAO " + std::to_string(rowIdx + 1) +
                                 " / " + std::to_string(rows_.size()) + "  -  CIMA/BAIXO";
-    fonts_.regular.draw(c, section, 106, 238, 17, rgba(151, 187, 197));
+    fonts_.regular.draw(c, section, 106, 287, 17,
+                        rgba(151, 187, 197));
     c.fillRect({1422, 146, 402, 79}, rgba(7, 24, 32, 183), 12);
     c.strokeRect({1422, 146, 402, 79}, rgba(116, 196, 208, 88), 1, 12);
     fonts_.semibold.draw(c, nimboxReducedMotion_ ? "R2  MOVIMENTO REDUZIDO" :
@@ -1215,24 +1233,65 @@ void AppUi::drawNimboxCarousel(Canvas& c, uint64_t nowMs) {
                std::fabs(static_cast<float>(b) + shift);
     });
     for (int offset : order) drawCase(offset);
+    // The signature optical disc is deliberately part of the collection,
+    // not just the details page. Its art is the selected game's cached image.
+    // On slower devices it is held still by the existing reduced-motion toggle.
+    if (count) {
+        const GameTile& current = row.tiles[static_cast<size_t>(selected)];
+        constexpr float dcx = 1228.0f, dcy = 546.0f, dr = 132.0f;
+        const float spin = nimboxReducedMotion_ ? 0.0f :
+                           static_cast<float>(nowMs % 60000ull) * 0.00044f;
+        c.fillCircle(dcx + 14, dcy + 17, dr + 18, rgba(1, 8, 16, 100));
+        c.strokeCircle(dcx, dcy, dr + 9, 7.0f, rgba(60, 185, 224, 54));
+        c.fillCircle(dcx, dcy, dr + 2, rgba(199, 221, 230, 248));
+        if (auto discArt = images_.get(current.tileUrl, 320, 320)) {
+            c.drawImageDisc(*discArt, dcx, dcy, dr, spin);
+        } else {
+            c.fillCircle(dcx, dcy, dr - 4, rgba(37, 87, 118));
+        }
+        c.strokeCircle(dcx, dcy, dr - 4, 2.5f, rgba(223, 251, 255, 220));
+        c.strokeCircle(dcx, dcy, dr * 0.84f, 2.0f, rgba(230, 244, 250, 70));
+        c.fillCircle(dcx, dcy, 30.0f, rgba(210, 229, 235));
+        c.strokeCircle(dcx, dcy, 31.0f, 5.0f, rgba(102, 162, 184));
+        c.fillCircle(dcx, dcy, 13.0f, deep);
+        c.strokeCircle(dcx, dcy, 13.0f, 2.0f, rgba(188, 228, 240));
+    }
     // Fade the virtual reflections instead of drawing a shelf-divider line.
     c.gradientV({0, 738, kW, 150}, rgba(17, 39, 60, 0), rgba(17, 39, 60, 174));
 
     if (count) {
         const GameTile& current = row.tiles[static_cast<size_t>(selected)];
-        const auto title = fonts_.bold.wrap(current.name, 38, kW - 340, 1);
-        if (!title.empty()) drawCentered(c, fonts_.bold, title.front(), 805, 38, kWhite);
+        // Current data, never a hardcoded game name, artwork, platform or rating.
+        const auto title = fonts_.bold.wrap(current.name, 42, 1120, 1);
+        if (!title.empty()) drawCentered(c, fonts_.bold, title.front(), 783, 42, kWhite);
         std::string meta = current.publisher;
         if (!current.categories.empty()) {
             if (!meta.empty()) meta += "  -  ";
             meta += current.categories.front();
         }
-        drawCentered(c, fonts_.regular, meta, 858, 20, kGray);
-        drawCentered(c, fonts_.semibold,
+        if (!meta.empty()) {
+            meta = fonts_.regular.fit(meta, 20, 1040);
+            drawCentered(c, fonts_.regular, meta, 843, 20, rgba(191, 216, 228));
+        }
+        // Selecting a cover opens the existing details/Play flow.
+        // This visual affordance deliberately does not pretend to launch
+        // streaming directly from this screen.
+        constexpr Rect detailsButton{756, 886, 408, 58};
+        c.fillRect({detailsButton.x - 7, detailsButton.y - 7,
+                    detailsButton.w + 14, detailsButton.h + 14},
+                   rgba(45, 191, 227, 38), 22);
+        c.fillRect(detailsButton, rgba(20, 104, 137, 210), 18);
+        c.strokeRect(detailsButton, rgba(133, 236, 250), 2, 18);
+        const char* openText = "VER DETALHES / JOGAR";
+        fonts_.semibold.draw(c, openText,
+                             detailsButton.x +
+                             (detailsButton.w - fonts_.semibold.measure(openText, 24)) / 2,
+                             detailsButton.y + 14, 24, kWhite);
+        drawCentered(c, fonts_.regular,
                      std::to_string(selected + 1) + " / " + std::to_string(count),
-                     909, 19, aqua);
+                     964, 18, rgba(165, 202, 215));
     }
-    c.gradientV({0, 942, kW, 138}, withAlpha(deep, 0), deep);
+    c.gradientV({0, 970, kW, 110}, withAlpha(deep, 0), deep);
     drawHints(c, {{kIconCross, tr(Str::Select)}, {kIconR3, "Classic UI"},
                   {kIconTriangle, tr(Str::TabSearch)}, {kIconOptions, tr(Str::Settings)}});
     drawPads(c);
