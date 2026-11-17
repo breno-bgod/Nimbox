@@ -152,7 +152,9 @@ void AppUi::drawTopBar(Canvas& c) {
         fonts_.semibold.draw(c, "NIMBOX", brandX, 42, kBrandPx, kWhite);
         drawCloudTime(c, brandX, 72);
     } else {
-        fonts_.semibold.draw(c, "NIMBOX", brandX, 58, kBrandPx, kWhite);
+        fonts_.semibold.draw(c, "NIMBOX", brandX, 46, kBrandPx, kWhite);
+        fonts_.regular.draw(c, "CLOUD GAMING", brandX, 77, 13,
+                            rgba(173, 221, 229));
     }
 
     // Avatar and centered Settings touch button
@@ -516,12 +518,15 @@ void AppUi::drawTabs(Canvas& c) {
         bool on = static_cast<int>(tab_) == i;
         Rect r{x, kY, widths[i], kH};
         if (on) {
-            c.fillRect({r.x - 5, r.y - 5, r.w + 10, r.h + 10}, rgba(38, 186, 218, 50), kH / 2);
-            c.fillRect(r, rgba(22, 100, 131, 230), kH / 2);
-            c.strokeRect(r, rgba(123, 232, 250), 2, kH / 2);
+            // The native tab remains the SAME target as before; only its
+            // appearance follows Preview 3.0's bright active navigation pill.
+            c.fillRect({r.x - 5, r.y - 5, r.w + 10, r.h + 10},
+                       rgba(82, 197, 222, 28), kH / 2);
+            c.fillRect(r, rgba(237, 250, 254), kH / 2);
+            c.strokeRect(r, rgba(194, 240, 246), 2, kH / 2);
         }
         fonts_.semibold.draw(c, labels[i], x + kPad, fonts_.semibold.centeredY(kY, kH, kPx),
-                             kPx, on ? kWhite : kGray);
+                             kPx, on ? rgba(12, 49, 66) : kGray);
         x += widths[i] + kGap;
     }
     shoulder(g_keyboardHints ? "E" : buttonName(g_glyphStyle, PadButton::R1), x - kGap + 40);
