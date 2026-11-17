@@ -500,8 +500,13 @@ void AppUi::drawTabs(Canvas& c) {
     for (int i = 0; i < 3; ++i) {
         bool on = static_cast<int>(tab_) == i;
         Rect r{x, kY, widths[i], kH};
-        if (on) c.fillRect(r, kWhite, kH / 2);
-        fonts_.semibold.draw(c, labels[i], x + kPad, fonts_.semibold.centeredY(kY, kH, kPx), kPx, on ? kBg : kGray);
+        // Presentation-only Nimbox skin: preserve the original tab sizes,
+        // order, input hitboxes and L1/R1 behaviour from PSBox.
+        c.fillRect(r, on ? rgba(36, 83, 106, 236) : rgba(255, 255, 255, 18), kH / 2);
+        c.strokeRect(r, on ? rgba(146, 221, 244, 212) : rgba(255, 255, 255, 40),
+                     on ? 2 : 1, kH / 2);
+        fonts_.semibold.draw(c, labels[i], x + kPad, fonts_.semibold.centeredY(kY, kH, kPx),
+                             kPx, on ? kWhite : kGray);
         x += widths[i] + kGap;
     }
     shoulder(g_keyboardHints ? "E" : buttonName(g_glyphStyle, PadButton::R1), x - kGap + 40);
