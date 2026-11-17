@@ -11521,6 +11521,8 @@ static void testWorkerMobileM4Features() {
     }
 }
 
+#include "nimbox_native_menus.inc"
+
 int main() {
     testMilestone1TouchOverlayCanvasAndHaptics();
     testHwPictureContract();
@@ -11646,6 +11648,7 @@ int main() {
     testFreeAccountPlayability();
     testNimboxSharedCppPose();
     testNimboxDefaultCarouselNavigation();
+    testNimboxNativeMenuPages();
     testDetailsHydrationAndPlaytimeBadge();
     testMilestone5TransmissionQualityAndStreamReload();
     testMilestone6UsbKeyboardMouseIsolation();
