@@ -34,8 +34,8 @@ constexpr PreviewPose previewPose(int offset) {
     // 0, 24, 50, 79, 87 degrees from centre to outermost case.
     // Wider spacing near the centre and compressed spacing at the edge
     // generate physical cascading overlap rather than a flat poster row.
-    constexpr float xOffsets[] = {0, 275, 420, 490, 548};
-    constexpr float angles[] = {0, 36, 67, 98, 107};
+    constexpr float xOffsets[] = {0, 275, 420, 520, 580};
+    constexpr float angles[] = {0, 36, 67, 99, 108};
     constexpr float scales[] = {1, 0.90f, 0.80f, 0.72f, 0.65f};
     const float side = offset < 0 ? -1.0f : 1.0f;
     return {side * xOffsets[distance], distance * 10.0f + 25.0f,
