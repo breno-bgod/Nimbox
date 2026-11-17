@@ -345,7 +345,11 @@ bool SettingsManager::updateFromJson(const json::Value& root, bool fromWebUi) {
             }
         }
         if (root.has("videoDecoder")) {
+            #if defined(__ANDROID__)
+            int v = static_cast<int>(std::clamp<int64_t>(root["videoDecoder"].asInt(settings_.videoDecoder), 0, 2));
+#else
             int v = static_cast<int>(std::clamp<int64_t>(root["videoDecoder"].asInt(settings_.videoDecoder), 0, 1));
+#endif
             if (v != settings_.videoDecoder) {
                 settings_.videoDecoder = v;
                 changed = true;
@@ -567,7 +571,11 @@ bool SettingsManager::updateGameProfileFromJson(const std::string& gameKey, cons
             if (v != prof.deband) { prof.deband = v; changed = true; ev.affectsDisplay = true; }
         }
         if (root.has("videoDecoder")) {
+            #if defined(__ANDROID__)
+            int v = static_cast<int>(std::clamp<int64_t>(root["videoDecoder"].asInt(prof.videoDecoder), 0, 2));
+#else
             int v = static_cast<int>(std::clamp<int64_t>(root["videoDecoder"].asInt(prof.videoDecoder), 0, 1));
+#endif
             if (v != prof.videoDecoder) { prof.videoDecoder = v; changed = true; ev.affectsDisplay = true; }
         }
         if (root.has("fpsLimit")) {
