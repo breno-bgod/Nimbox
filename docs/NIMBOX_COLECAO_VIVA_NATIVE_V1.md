@@ -18,6 +18,8 @@ Identidade: *Coleção Viva* — caixas de jogos em perspectiva, mídia óptica 
 - Não inventar valores de 4K, HDR, progresso, duração, plataforma, instalação ou assinatura. As imagens conceituais usam dados fictícios; estes não são inseridos no catálogo real.
 - `Select` no carrossel continua abrindo os detalhes do título. `Jogar` nos detalhes executa o **mesmo** fluxo original. O CTA visual do carrossel diz “Ver detalhes”, pois é a ação atual; o botão Jogar permanece nos detalhes quando o título está disponível.
 - Não adicionar eventos, filtros ou botões que aparentem ser clicáveis sem terem ação real.
+- O CTA “VER DETALHES” da Home agora é uma área real de clique/toque e chama `openDetails` do jogo selecionado, assim como Select no controle. A área de desenho e a de toque compartilham `kCollectionDetailsCta`.
+- A caixa exibe a marca Nimbox; o rótulo Xbox só identifica uma geração quando `GameTile.platform` realmente a informa. Não desenhar símbolo Xbox improvisado nem presumir plataforma para `platform` vazio.
 
 ## Tokens base desta primeira etapa
 
@@ -46,7 +48,7 @@ Aplicar iluminação com moderação. O jogo selecionado é protagonista; menus 
 
 A interface continua em C++/Canvas, dentro do pipeline de apresentação existente (PS5 ou SDL3 desktop/Android). A primeira etapa **não** adiciona navegador web, JS ou dependência 3D.
 
-- O novo disco na Home é atualizado a **até ~12 FPS** para reduzir carga da CPU; o disco de detalhes mantém ~24 FPS.
+- O novo disco na Home é atualizado a **até ~12 FPS** para reduzir carga da CPU; o disco de detalhes mantém ~24 FPS. Na v1.1, seu raio foi reduzido para não disputar a atenção com as capas.
 - A preferência **R2 de movimento reduzido** continua interrompendo o giro.
 - Quando imagens do catálogo estão ausentes ou ainda carregando, a interface usa fundos e caixas com cores de reserva. Nenhum dado é fabricado.
 - Capturas para análise em CI desktop: `6-colecao-viva-home.png` e `6b-colecao-viva-details.png`, produzidas pelo `psbox --selftest` sem conta ou rede.
