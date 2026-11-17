@@ -4838,21 +4838,21 @@ static void testVisibleSettingsRows() {
     };
     const ui::UiCaps ps5;
     auto all = ui::visibleSettingsRows(ps5);
-    CHECK((ids(all) == std::vector<int>{0, 2, 8, 27, 17, 18, 24, 25, 1, 20, 9, 26, 10, 14, 12, 3, 15, 4, 21, 5, 6, 16, 22, 19, 7, 23, 28, 29, 30}));
-    CHECK((groups(all) == std::vector<bool>{false, false, false, false, false, false, false, false, true, false, false, false, false, true, false, false, false, false, false, false, false, false, false, true, false, true, true, false, false}));
+    CHECK((ids(all) == std::vector<int>{0, 2, 8, 27, 17, 18, 24, 25, 1, 20, 31, 32, 33, 9, 26, 10, 11, 34, 14, 12, 3, 15, 4, 21, 5, 6, 16, 22, 19, 7, 23, 28, 29, 30}));
+    CHECK((groups(all) == std::vector<bool>{false, false, false, false, false, false, false, false, true, false, false, false, false, false, false, false, false, false, true, false, false, false, false, false, false, false, false, false, true, false, true, true, false, false}));
     ui::UiCaps pc;
     pc.lightBar = pc.triggerRumble = pc.adaptiveTriggers = pc.gyro = pc.touchpad = false;
     pc.upscalers = pc.sharpen = pc.deband = pc.highRefresh = pc.console = pc.selfUpdate = pc.trophies = false;
     pc.openUrl = true;
     auto desk = ui::visibleSettingsRows(pc);
-    CHECK((ids(desk) == std::vector<int>{0, 2, 8, 27, 17, 18, 1, 20, 26, 10, 14, 12, 3, 5, 16, 22, 19, 7, 23, 28, 29, 30}));
-    CHECK((groups(desk) == std::vector<bool>{false, false, false, false, false, false, true, false, false, false, true, false, false, false, false, false, true, false, true, true, false, false}));
+    CHECK((ids(desk) == std::vector<int>{0, 2, 8, 27, 17, 18, 1, 20, 26, 10, 11, 34, 14, 12, 3, 5, 16, 22, 19, 7, 23, 28, 29, 30}));
+    CHECK((groups(desk) == std::vector<bool>{false, false, false, false, false, false, true, false, false, false, false, false, true, false, false, false, false, false, true, false, true, true, false, false}));
     // The desktop app's window: Display mode after the resolution, in the stream's group.
     ui::UiCaps win = pc;
     win.desktopWindow = true;
     auto w = ui::visibleSettingsRows(win);
-    CHECK((ids(w) == std::vector<int>{0, 2, 8, 27, 17, 18, 1, 20, 13, 26, 10, 14, 12, 3, 5, 16, 22, 19, 7, 23, 28, 29, 30}));
-    CHECK((groups(w) == std::vector<bool>{false, false, false, false, false, false, true, false, false, false, false, true, false, false, false, false, false, true, false, true, true, false, false}));
+    CHECK((ids(w) == std::vector<int>{0, 2, 8, 27, 17, 18, 1, 20, 13, 26, 10, 11, 34, 14, 12, 3, 5, 16, 22, 19, 7, 23, 28, 29, 30}));
+    CHECK((groups(w) == std::vector<bool>{false, false, false, false, false, false, true, false, false, false, false, false, false, true, false, false, false, false, false, true, false, true, true, false, false}));
     auto deskIds = ids(desk);
     CHECK(std::find(deskIds.begin(), deskIds.end(), 24) == deskIds.end());
     CHECK(std::find(deskIds.begin(), deskIds.end(), 25) == deskIds.end());
@@ -4861,6 +4861,16 @@ static void testVisibleSettingsRows() {
     CHECK(std::find(allIds.begin(), allIds.end(), 25) != allIds.end());
     CHECK(ui::settingsRowPosition(pc, 24) == -1);
     CHECK(ui::settingsRowPosition(pc, 25) == -1);
+    // Web Control quality preferences are now also available in native Settings
+    // when their actual rendering capabilities are enabled.
+    CHECK(ui::settingsRowPosition(ps5, 20) >= 0);
+    for (int row : {31, 32, 33, 34}) {
+        CHECK(ui::settingsRowPosition(ps5, row) >= 0);
+    }
+    for (int row : {31, 32, 33}) {
+        CHECK(ui::settingsRowPosition(pc, row) == -1);
+    }
+    CHECK(ui::settingsRowPosition(pc, 34) >= 0);
     ui::UiCaps xbox = pc;  // an Xbox pad: impulse triggers, no light bar
     xbox.triggerRumble = true;
     auto x = ids(ui::visibleSettingsRows(xbox));
