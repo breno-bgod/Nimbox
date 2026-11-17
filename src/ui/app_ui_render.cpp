@@ -1055,7 +1055,7 @@ void AppUi::drawConsoles(Canvas& c, uint64_t nowMs) {
 // projected into trapezoids. No change to GameTile data or streaming actions.
 void AppUi::drawNimboxCarousel(Canvas& c, uint64_t nowMs) {
     const Color deep = rgba(8, 17, 31);
-    const Color aqua = rgba(79, 225, 247);
+    const Color aqua = rgba(159, 195, 201);
     // Follow the selected game's dominant artwork colour, cached by title URL.
     // Clamp luminance to keep the interface and headings readable.
     Color topShade = rgba(66, 112, 136);
@@ -1097,7 +1097,7 @@ void AppUi::drawNimboxCarousel(Canvas& c, uint64_t nowMs) {
                 withAlpha(topShade, 105), rgba(10, 37, 57, 165));
     c.gradientH({0, 140, 560, 660}, rgba(6, 21, 39, 173),
                 rgba(6, 21, 39, 0));
-    // Ambient floor is drawn beneath the physical collection and its disc.
+    // Ambient floor is drawn beneath the physical closed-case collection.
     c.gradientV({0, 645, kW, 224}, rgba(50, 128, 160, 63), deep);
     c.line(220.0f, 715.0f, 1680.0f, 715.0f, 1.0f,
            rgba(147, 214, 235, 29));
@@ -1128,7 +1128,7 @@ void AppUi::drawNimboxCarousel(Canvas& c, uint64_t nowMs) {
     fonts_.regular.draw(c, section, 106, 287, 17,
                         rgba(151, 187, 197));
     c.fillRect({1422, 146, 402, 79}, rgba(7, 24, 32, 183), 12);
-    c.strokeRect({1422, 146, 402, 79}, rgba(116, 196, 208, 88), 1, 12);
+    c.strokeRect({1422, 146, 402, 79}, rgba(160, 188, 196, 64), 1, 12);
     fonts_.semibold.draw(c, nimboxReducedMotion_ ? "R2  MOVIMENTO REDUZIDO" :
                          "R2  ANIMACOES SUAVES", 1447, 174, 20, rgba(202, 237, 239));
     fonts_.regular.draw(c, "TOQUE PARA ALTERNAR", 1447, 200, 14, rgba(143, 190, 202));
@@ -1252,30 +1252,8 @@ void AppUi::drawNimboxCarousel(Canvas& c, uint64_t nowMs) {
     const auto order = nimbox::caseDrawOrder(selected, count,
                                              nimboxSlide_.value / 1000.0f);
     for (int offset : order) drawCase(offset);
-    // The signature optical disc is deliberately part of the collection,
-    // not just the details page. Its art is the selected game's cached image.
-    // On slower devices it is held still by the existing reduced-motion toggle.
-    if (count) {
-        const GameTile& current = row.tiles[static_cast<size_t>(selected)];
-        // Keep the decorative disc below the selected cover's visual weight.
-        constexpr float dcx = 1250.0f, dcy = 546.0f, dr = 116.0f;
-        const float spin = nimboxReducedMotion_ ? 0.0f :
-                           static_cast<float>(nowMs % 60000ull) * 0.00044f;
-        c.fillCircle(dcx + 14, dcy + 17, dr + 18, rgba(1, 8, 16, 100));
-        c.strokeCircle(dcx, dcy, dr + 9, 7.0f, rgba(60, 185, 224, 54));
-        c.fillCircle(dcx, dcy, dr + 2, rgba(199, 221, 230, 248));
-        if (auto discArt = images_.get(current.tileUrl, 320, 320)) {
-            c.drawImageDisc(*discArt, dcx, dcy, dr, spin);
-        } else {
-            c.fillCircle(dcx, dcy, dr - 4, rgba(37, 87, 118));
-        }
-        c.strokeCircle(dcx, dcy, dr - 4, 2.5f, rgba(223, 251, 255, 220));
-        c.strokeCircle(dcx, dcy, dr * 0.84f, 2.0f, rgba(230, 244, 250, 70));
-        c.fillCircle(dcx, dcy, 30.0f, rgba(210, 229, 235));
-        c.strokeCircle(dcx, dcy, 31.0f, 5.0f, rgba(102, 162, 184));
-        c.fillCircle(dcx, dcy, 13.0f, deep);
-        c.strokeCircle(dcx, dcy, 13.0f, 2.0f, rgba(188, 228, 240));
-    }
+    // Home is the closed-case collection: NO optical disc here.
+    // The selected game's spinning disc only appears after opening Details.
     // Studio fades into real catalog rails exactly like Preview 3.0/3.1.
     c.gradientV({0, 738, kW, 130}, rgba(17, 39, 60, 0), rgba(17, 39, 60, 148));
     preview31::shelfBackdrop(c);
@@ -1354,23 +1332,14 @@ void AppUi::drawNimboxCarousel(Canvas& c, uint64_t nowMs) {
             meta = fonts_.regular.fit(meta, 20, 1040);
             drawCentered(c, fonts_.regular, meta, preview31::kFocusMetaY, 20, rgba(191, 216, 228));
         }
-        // Selecting a cover opens the existing details/Play flow.
-        // This visual affordance deliberately does not pretend to launch
-        // streaming directly from this screen.
-        const Rect& detailsButton = kCollectionDetailsCta;
-        c.fillRect({detailsButton.x - 7, detailsButton.y - 7,
-                    detailsButton.w + 14, detailsButton.h + 14},
-                   rgba(45, 191, 227, 38), 22);
-        c.fillRect(detailsButton, rgba(20, 104, 137, 210), 18);
-        c.strokeRect(detailsButton, rgba(133, 236, 250), 2, 18);
-        const char* openText = "VER DETALHES";
-        fonts_.semibold.draw(c, openText,
-                             detailsButton.x +
-                             (detailsButton.w - fonts_.semibold.measure(openText, 24)) / 2,
-                             detailsButton.y + 14, 24, kWhite);
-        // Position indicator sits beside, never on top of, the Details CTA.
-        fonts_.regular.draw(c, std::to_string(selected + 1) + " / " + std::to_string(count),
-                            1196, detailsButton.y + 15, 17, rgba(165, 202, 215));
+        // Selecting the centre physical case (touch or controller Select)
+        // opens the existing Details flow. No redundant CTA or fake button.
+        // Keep the position counter as quiet metadata below the game title.
+        const std::string position = std::to_string(selected + 1) + " / " +
+                                     std::to_string(count);
+        fonts_.regular.draw(c, position,
+                            (kW - fonts_.regular.measure(position, 17)) / 2,
+                            827, 17, rgba(173, 194, 200));
     }
     preview31::footerBackdrop(c);
     drawHints(c, {{kIconCross, tr(Str::Select)}, {kIconR3, "Classic UI"},
@@ -1570,11 +1539,12 @@ void AppUi::drawHome(Canvas& c, uint64_t nowMs) {
 void AppUi::drawNimboxDisc(Canvas& c, const GameTile& tile, uint64_t nowMs) {
     const float t = std::clamp(nimboxDetailIntro_.value / 1000.0f, 0.0f, 1.0f);
     const float ease = t * t * (3.0f - 2.0f * t);
-    // Disc slides partly out of the game's physical case. Remain inside
-    // the safe area even when a 1080p canvas is letterboxed on mobile.
-    const float cx = 1435.0f + 113.0f * ease;
-    constexpr float cy = 499.0f;
-    const float radius = 138.0f + 28.0f * ease;
+    // The case was opened on Home: Details reveals ONLY the disc.
+    // A restrained slide/scale intro implies unpacking without
+    // duplicating the physical case. Disc remains in the right-hand column.
+    const float cx = 1540.0f - 60.0f * ease;
+    constexpr float cy = 468.0f;
+    const float radius = 150.0f + 36.0f * ease;
     const float rotation = nimboxReducedMotion_ ? 0.0f :
                            static_cast<float>(nowMs % 60000ull) * 0.00115f;
     // A restrained halo keeps the circular artwork readable over hero images.
@@ -1635,43 +1605,9 @@ void AppUi::drawDetails(Canvas& c, uint64_t nowMs) {
     if (nimboxCarousel_ && tab_ == Tab::GamePass && !g->purchasable) {
         fonts_.semibold.draw(c, "NIMBOX  /  COLECAO VIVA", kMargin, 201, 20,
                              rgba(92, 226, 246));
-        // Details screen inherits the SAME matte-green material library as
-        // the carousel. Existing details geometry, Play and hit targets remain.
-        const Quad spine{{1212.0f, 244.0f}, {1245.0f, 227.0f},
-                         {1245.0f, 631.0f}, {1212.0f, 615.0f}};
-        const Quad front{{1245.0f, 227.0f}, {1502.0f, 235.0f},
-                         {1502.0f, 622.0f}, {1245.0f, 631.0f}};
-        const Point backRight{front.tr.x + (spine.tl.x - front.tl.x),
-                              front.tr.y + (spine.tl.y - front.tl.y)};
-        nimbox::CaseGeometry caseFace;
-        caseFace.front = front;
-        caseFace.spine = spine;
-        caseFace.top = {spine.tl, backRight, front.tr, front.tl};
-        c.fillRect({1223, 635, 292, 15}, rgba(2, 8, 18, 112), 8);
-        nimbox::finish::drawShell(c, caseFace, true);
-        if (auto art = images_.get(g->tileUrl, 384, 384)) {
-            c.drawImageQuad(*art, nimbox::finish::imageSlot(caseFace));
-        } else {
-            c.fillQuad(nimbox::finish::imageSlot(caseFace), rgba(26, 55, 43));
-        }
-        nimbox::finish::drawGlaze(c, caseFace, true);
-        const char* generation = g->platform == "360" ? "XBOX 360" :
-                                 g->platform == "ONE" ? "XBOX ONE" :
-                                 g->platform == "XS" ? "XBOX SERIES" : "XBOX";
-        const int brandPx = 20;
-        constexpr float orbR = 13.0f;
-        const int totalW = static_cast<int>(orbR * 2.0f + 8.0f) +
-                           fonts_.bold.measure(generation, brandPx);
-        const float brandCx = (front.tl.x + front.tr.x) * 0.5f;
-        const int badgeX = static_cast<int>(brandCx - totalW * 0.5f);
-        const float badgeY = 252.0f;
-        nimbox::finish::drawXboxOrb(c, badgeX + orbR, badgeY, orbR);
-        fonts_.bold.draw(c, generation, badgeX + static_cast<int>(orbR * 2.0f + 8.0f),
-                         static_cast<int>(badgeY - 12.0f), brandPx,
-                         nimbox::finish::kPrintWhite);
-        const std::string caseName = fonts_.semibold.fit(g->name, 19, 226);
-        fonts_.semibold.draw(c, caseName, 1262, 579, 19,
-                             nimbox::finish::kPrintWhite);
+        // The media is revealed only after opening a case from the Home
+        // carousel: no duplicate green DVD box on this page.
+        // Real game artwork is printed on the rotating disc below.
         drawNimboxDisc(c, *g, nowMs);
     }
     int y = 260;
@@ -2405,7 +2341,21 @@ void AppUi::render(Canvas& c, uint64_t nowMs) {
     for (auto& a : rowScroll_) animating_ |= a.step(dt);
     animating_ |= gridScroll_.step(dt);
     animating_ |= resultScroll_.step(dt);
-    animating_ |= nimboxSlide_.step(dt);
+    // Colecao Viva gets a slower, framerate-independent ease-out than
+    // regular list scrolling. Navigation targets stay owned by the same
+    // controller/touch code; only their visual travel is softened.
+    if (nimboxReducedMotion_) {
+        nimboxSlide_.value = nimboxSlide_.target;
+    } else {
+        const float remaining = nimboxSlide_.target - nimboxSlide_.value;
+        if (std::fabs(remaining) < 0.5f) {
+            nimboxSlide_.value = nimboxSlide_.target;
+        } else {
+            const float blend = 1.0f - std::exp(-6.7f * dt);
+            nimboxSlide_.value += remaining * std::clamp(blend, 0.0f, 1.0f);
+            animating_ = true;
+        }
+    }
     animating_ |= nimboxDetailIntro_.step(dt);
     if (nimboxReturningHome_ && nimboxDetailIntro_.value <= 0.5f) {
         nimboxReturningHome_ = false;
