@@ -1005,7 +1005,11 @@ Canvas StreamMenu::renderMenu(const StreamInfo& info) const {
                             : i == Profile             ? tr(Str::Profile)
                             : i == Stats               ? tr(Str::MenuStats)
                             : i == Resolution          ? tr(Str::MenuResolution)
+#if defined(__ANDROID__)
                             : i == VideoDecoderItem    ? "Decodificador H.264"
+#else
+                            : i == VideoDecoderItem    ? tr(Str::VideoDecoder)
+#endif
                             : i == FpsLimiterItem      ? tr(Str::FpsLimit)
                             : i == BitrateLimiterItem  ? tr(Str::BitrateCap)
                             : i == VrrItem             ? tr(Str::HighRefresh)
