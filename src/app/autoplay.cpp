@@ -224,6 +224,7 @@ void loadAutoplay() {
         if (opt == "gamegyrotest") g_autoplay.gameSettingsTest = g_autoplay.gameGyroTest = true;
         if (opt == "publishertest") g_autoplay.publisherTest = true;
         if (opt == "friendstest") g_autoplay.friendsTest = true;
+        if (opt == "nativemenustest") g_autoplay.nativeMenusTest = true;
         if (opt == "mw4test") g_autoplay.mw4Test = true;
         if (opt == "v150test") g_autoplay.v150Test = true;
         if (opt == "claimtest") g_autoplay.claimTest = true;
