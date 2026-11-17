@@ -37,6 +37,7 @@
 #include "ui/app_ui.h"
 #include "ui/nimbox_pose_core.h"
 #include "ui/box_carousel.h"
+#include "ui/collection_case_finish.h"
 #include "app/shell.h"
 #include "ui/touch_pad_overlay.h"
 #include "ui/accent_color.h"
@@ -1102,6 +1103,35 @@ static void testNimboxProjected3DCase() {
     CHECK(std::isfinite(midway.front.tl.x) && std::isfinite(midway.front.tl.y));
     const auto malformed = layoutAnimated(std::numeric_limits<float>::quiet_NaN());
     CHECK(malformed.bounds.w == center.bounds.w);
+}
+
+static void testNimboxXboxCaseFinish() {
+    using namespace xc::ui::nimbox;
+    // The plastic finish is projected onto the existing 3D box, and does not
+    // mutate the underlying geometry or change its pointer hit target.
+    const auto g = layout(0);
+    const auto slot = finish::imageSlot(g);
+    CHECK(finish::kArtTop > finish::kBannerBottom);
+    CHECK(finish::kArtBottom < finish::kFooterTop);
+    CHECK(slot.tl.x > g.front.tl.x && slot.tr.x < g.front.tr.x);
+    CHECK(slot.tl.y > g.front.tl.y && slot.bl.y < g.front.bl.y);
+    CHECK(hit(g, (g.front.tl.x + g.front.br.x) * 0.5f,
+                 (g.front.tl.y + g.front.br.y) * 0.5f));
+    ui::Canvas frame(1920, 1080, ui::rgba(2, 11, 21));
+    finish::drawShell(frame, g, true);
+    const ui::Point headerTop = between(g.front.tl, g.front.tr, 0.5f);
+    const ui::Point headerBottom = between(g.front.bl, g.front.br, 0.5f);
+    const ui::Point banner = between(headerTop, headerBottom, 0.07f);
+    const int x = static_cast<int>(banner.x);
+    const int y = static_cast<int>(banner.y);
+    CHECK(x >= 0 && x < 1920 && y >= 0 && y < 1080);
+    if (x >= 0 && x < 1920 && y >= 0 && y < 1080) {
+        const ui::Color pixel = frame.data()[static_cast<size_t>(y) * 1920u + static_cast<size_t>(x)];
+        CHECK(((pixel >> 8) & 255u) > (pixel & 255u)); // green > red
+        CHECK(((pixel >> 8) & 255u) > ((pixel >> 16) & 255u)); // green > blue
+    }
+    finish::drawGlaze(frame, g, true);
+    finish::drawXboxOrb(frame, banner.x, banner.y, 13.0f);
 }
 
 static void testNimboxDefaultCarouselNavigation() {
@@ -11677,6 +11707,7 @@ int main() {
     testFreeAccountPlayability();
     testNimboxSharedCppPose();
     testNimboxProjected3DCase();
+    testNimboxXboxCaseFinish();
     testNimboxDefaultCarouselNavigation();
     testDetailsHydrationAndPlaytimeBadge();
     testMilestone5TransmissionQualityAndStreamReload();
