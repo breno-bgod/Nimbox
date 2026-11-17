@@ -41,7 +41,9 @@ void AppUi::drawCentered(Canvas& c, const Font& f, const std::string& text, int 
 }
 
 void AppUi::drawBackground(Canvas& c) {
-    c.gradientV({0, 0, kW, kH}, rgba(24, 28, 24), kBg);
+    // Colecao Viva: the same midnight-blue base in every native menu.
+    c.gradientV({0, 0, kW, kH}, rgba(15, 43, 65), kBg);
+    c.gradientH({0, 0, kW, 520}, rgba(26, 74, 98, 38), rgba(5, 21, 40, 0));
 }
 
 void AppUi::drawLogo(Canvas& c, float cx, float cy, float r) { drawBrandMark(c, cx, cy, r); }
@@ -109,6 +111,12 @@ void AppUi::drawCloudTime(Canvas& c, int x, int y) {
 }
 
 void AppUi::drawTopBar(Canvas& c) {
+    // A frosted, dark header preserves the original touch and controller
+    // targets while making all native screens visually consistent.
+    c.fillRect({0, 0, kW, 122}, rgba(6, 16, 29, 228));
+    c.gradientV({0, 122, kW, 28}, rgba(6, 16, 29, 110), rgba(6, 16, 29, 0));
+    c.line(50.0f, 121.0f, static_cast<float>(kW - 50), 121.0f, 1.0f,
+           rgba(84, 199, 224, 85));
     const bool hasCloudTime = playtimeUnlimited_ || playtimeRemaining_ >= 0;
 #if defined(__ANDROID__)
     constexpr int kLogoR = 30;
@@ -500,8 +508,13 @@ void AppUi::drawTabs(Canvas& c) {
     for (int i = 0; i < 3; ++i) {
         bool on = static_cast<int>(tab_) == i;
         Rect r{x, kY, widths[i], kH};
-        if (on) c.fillRect(r, kWhite, kH / 2);
-        fonts_.semibold.draw(c, labels[i], x + kPad, fonts_.semibold.centeredY(kY, kH, kPx), kPx, on ? kBg : kGray);
+        if (on) {
+            c.fillRect({r.x - 5, r.y - 5, r.w + 10, r.h + 10}, rgba(38, 186, 218, 50), kH / 2);
+            c.fillRect(r, rgba(22, 100, 131, 230), kH / 2);
+            c.strokeRect(r, rgba(123, 232, 250), 2, kH / 2);
+        }
+        fonts_.semibold.draw(c, labels[i], x + kPad, fonts_.semibold.centeredY(kY, kH, kPx),
+                             kPx, on ? kWhite : kGray);
         x += widths[i] + kGap;
     }
     shoulder(g_keyboardHints ? "E" : buttonName(g_glyphStyle, PadButton::R1), x - kGap + 40);
@@ -677,7 +690,13 @@ void AppUi::drawCard(Canvas& c, const GameTile& t, int x, int y, bool focused, b
             }
         }
     }
-    if (focused) c.strokeRect({x - 7, y - 7, kCard + 14, kCard + 14}, kWhite, 4, 16);
+    if (focused) {
+        // A legible focus marker on gamepad, mouse and touch.
+        c.strokeRect({x - 8, y - 8, kCard + 16, kCard + 16},
+                     rgba(29, 176, 212, 95), 8, 17);
+        c.strokeRect({x - 6, y - 6, kCard + 12, kCard + 12},
+                     rgba(121, 230, 246), 3, 16);
+    }
 }
 
 void AppUi::drawGrid(Canvas& c, const std::vector<GameTile>& tiles, int x0, int y0, int cols, float scroll, int focus,
@@ -749,6 +768,10 @@ void AppUi::drawLibrary(Canvas& c, uint64_t nowMs) {
     c.gradientV({0, clipTop, kW, 12}, kBg, withAlpha(kBg, 0));
     drawTopBar(c);
     drawTabs(c);
+    // Visual heading only. Library sections, sorting and selection still use
+    // their original data and exactly the same hit targets.
+    fonts_.semibold.draw(c, "NIMBOX  /  COLECAO VIVA", 100, 130, 19,
+                         rgba(116, 222, 240));
     if (owned_.empty() && purchasable_.empty() && hiddenTiles_.empty()) {
         if (!ownedKnown_) {
             drawSpinner(c, kW / 2.0f, 470, 26, nowMs);
