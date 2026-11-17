@@ -1312,7 +1312,8 @@ void AppUi::drawFriends(Canvas& c, uint64_t nowMs) {
             }
         }
     }
-    drawHints(c, {{kIconCross, tr(Str::Select)}, {kIconOptions, tr(Str::Settings)}});
+    drawHints(c, {{kIconCross, tr(Str::Select)}, {kIconSquare, tr(Str::Profile)},
+                  {kIconOptions, tr(Str::Settings)}});
     drawPads(c);
     drawToast(c, nowMs);
 }
