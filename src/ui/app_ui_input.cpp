@@ -865,6 +865,23 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
                 dirty_ = true;
                 return ev;
             }
+            // Rendered CTA is also clickable/tappable; gamepad Select already
+            // follows the same existing openDetails path.
+            if (x >= kCollectionDetailsCta.x &&
+                x < kCollectionDetailsCta.x + kCollectionDetailsCta.w &&
+                y >= kCollectionDetailsCta.y &&
+                y < kCollectionDetailsCta.y + kCollectionDetailsCta.h) {
+                if (!rows_.empty()) {
+                    const int rowIndex = std::clamp(focusRow_, 0, static_cast<int>(rows_.size()) - 1);
+                    const auto& tiles = rows_[static_cast<size_t>(rowIndex)].tiles;
+                    if (!tiles.empty()) {
+                        const int selected = std::clamp(focusCol_[static_cast<size_t>(rowIndex)],
+                                                        0, static_cast<int>(tiles.size()) - 1);
+                        openDetails(tiles[static_cast<size_t>(selected)]);
+                    }
+                }
+                return ev;
+            }
             if (!rows_.empty()) {
                 const int rowIndex = std::clamp(focusRow_, 0, static_cast<int>(rows_.size()) - 1);
                 const auto& tiles = rows_[static_cast<size_t>(rowIndex)].tiles;
