@@ -36,6 +36,7 @@
 #include "stream/stream_session.h"
 #include "ui/app_ui.h"
 #include "ui/nimbox_pose_core.h"
+#include "ui/box_carousel.h"
 #include "app/shell.h"
 #include "ui/touch_pad_overlay.h"
 #include "ui/accent_color.h"
@@ -1072,6 +1073,35 @@ static void testNimboxSharedCppPose() {
     CHECK(previewRelativeOffset(1, 9, 10) == 2);
     CHECK(nimbox_pose_value(0, 2) == 160.0f);
     CHECK(nimbox_relative_offset(9, 0, 10) == -1);
+}
+
+static void testNimboxProjected3DCase() {
+    using namespace xc::ui::nimbox;
+    // The same physical box uses shared HTML camera/pose values on all
+    // platforms. The selected one is nearest; the others rotate in depth.
+    const auto center = layout(0);
+    const auto left = layout(-1);
+    const auto right = layout(1);
+    CHECK(center.w > left.w && center.w > right.w);
+    CHECK(left.x < center.x && right.x > center.x);
+    CHECK(center.bounds.w > 0 && center.bounds.h > 0);
+    CHECK(center.bounds.x >= 0 && center.bounds.x + center.bounds.w <= 1920);
+    CHECK(center.bounds.y >= 0 && center.bounds.y + center.bounds.h <= 1080);
+    CHECK(hit(center, (center.front.tl.x + center.front.br.x) * 0.5f,
+                      (center.front.tl.y + center.front.br.y) * 0.5f));
+    CHECK(!hit(center, -1.0f, -1.0f));
+    // A side face is created from distinct projected near/back Z corners:
+    // this is a cuboid, not a manually positioned flat trapezoid.
+    CHECK(std::fabs(left.spine.tl.x - left.spine.tr.x) > 1.0f);
+    CHECK(std::fabs(right.spine.tl.x - right.spine.tr.x) > 1.0f);
+    // During an input transition the camera-space yaw, size and position
+    // interpolate continuously, so there is no sudden switch of flat quads.
+    const auto midway = layoutAnimated(0.5f);
+    CHECK(midway.x > center.x && midway.x < right.x);
+    CHECK(midway.w < center.w && midway.w > 0.0f);
+    CHECK(std::isfinite(midway.front.tl.x) && std::isfinite(midway.front.tl.y));
+    const auto malformed = layoutAnimated(std::numeric_limits<float>::quiet_NaN());
+    CHECK(malformed.bounds.w == center.bounds.w);
 }
 
 static void testNimboxDefaultCarouselNavigation() {
@@ -11646,6 +11676,7 @@ int main() {
     testFontsFallBackToBuiltin();
     testFreeAccountPlayability();
     testNimboxSharedCppPose();
+    testNimboxProjected3DCase();
     testNimboxDefaultCarouselNavigation();
     testDetailsHydrationAndPlaytimeBadge();
     testMilestone5TransmissionQualityAndStreamReload();
