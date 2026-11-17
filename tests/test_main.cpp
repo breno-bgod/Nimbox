@@ -1169,11 +1169,10 @@ static void testNimboxCascadeArc() {
 
 static void testNimboxPreview3PageStructure() {
     using namespace xc::ui::preview31;
-    // Layout invariants: the studio ends before the rails, and the existing
-    // 'VER DETALHES' CTA keeps a visible/clickable shared rectangle.
-    CHECK(kDetailsCta.x > 0 && kDetailsCta.w > 250);
-    CHECK(kDetailsCta.y > kFocusMetaY + 22);
-    CHECK(kDetailsCta.y + kDetailsCta.h < kHeroShelfBoundary);
+    // Details is entered by selecting the physical game case; the redundant
+    // Home CTA is neither painted nor tappable.
+    CHECK(kDetailsCta.w == 0 && kDetailsCta.h == 0);
+    CHECK(kFocusMetaY + 30 < kHeroShelfBoundary);
     CHECK(kShelfHeaderY > kHeroShelfBoundary);
     CHECK(kShelfTileY >= kShelfHeaderY + 28);
     CHECK(kShelfBottom > kShelfTileY + 80);
