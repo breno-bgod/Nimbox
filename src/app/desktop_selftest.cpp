@@ -377,8 +377,12 @@ int desktopSelftest(const std::string& dir) {
                   screenshot(dir, "6-colecao-viva-home.png", shot) && varied(shot),
               "Colecao Viva native carousel (6-colecao-viva-home.png)");
 
-        // The centred physical cover is the ONLY pointer entry to Details:
-        // no redundant "VER DETALHES" button remains on Home.
+        // The old CTA zone is visually blank AND must no longer react to touch.
+        ui.onMouseDown(960.0f, 830.0f, 1);
+        check(ui.screen() == ui::Screen::Home,
+              "Removed VER DETALHES button has no invisible touch target");
+
+        // The centred physical cover is the ONLY pointer entry to Details.
         ui.onMouseDown(960.0f, 418.0f, 1);
         check(ui.screen() == ui::Screen::Details,
               "Colecao Viva centre-case tap opens the game's real details");
