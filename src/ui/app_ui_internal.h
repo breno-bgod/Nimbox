@@ -111,6 +111,10 @@ constexpr int kSettingsRowW = 1140, kSettingsRowH = 35, kSettingsGap = 3, kSetti
 constexpr int kSettingsListTop = 258, kSettingsClipTop = 250;
 #endif
 
+// The Settings list must end INSIDE its left glass panel. The remaining
+// space is reserved for the focused option's explanatory text.
+constexpr int kSettingsListBottom = 852;
+
 inline int settingsTotalHeight(const UiCaps& caps) {
     int totalH = 0;
     for (const auto& [i, groupStart] : visibleSettingsRows(caps)) {
@@ -121,7 +125,7 @@ inline int settingsTotalHeight(const UiCaps& caps) {
 }
 
 inline float settingsMaxScroll(const UiCaps& caps) {
-    const float viewportH = static_cast<float>(kH - kSettingsListTop - 80);
+    const float viewportH = static_cast<float>(kSettingsListBottom - kSettingsListTop);
     return std::max(0.0f, static_cast<float>(settingsTotalHeight(caps)) - viewportH);
 }
 
