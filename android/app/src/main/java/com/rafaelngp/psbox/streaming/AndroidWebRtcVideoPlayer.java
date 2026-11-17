@@ -20,6 +20,7 @@ import org.webrtc.VideoFrame;
 
 import java.nio.ByteBuffer;
 import java.util.HashMap;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Android-only H.264 playback adapter using libwebrtc's hardware video decoder
@@ -49,8 +50,8 @@ public final class AndroidWebRtcVideoPlayer implements AutoCloseable {
     private boolean closed;
     private int width;
     private int height;
-    private long submitted;
-    private long rendered;
+    private final AtomicLong submitted = new AtomicLong();
+    private final AtomicLong rendered = new AtomicLong();
 
     public AndroidWebRtcVideoPlayer(Activity activity) {
         if (activity == null) throw new IllegalArgumentException("Activity required");
@@ -94,9 +95,7 @@ public final class AndroidWebRtcVideoPlayer implements AutoCloseable {
                         SurfaceViewRenderer sink = renderer;
                         if (sink != null) {
                             sink.onFrame(frame);
-                            synchronized (stateLock) {
-                                ++rendered;
-                            }
+                            rendered.incrementAndGet();
                         }
                     });
             if (status != VideoCodecStatus.OK) {
@@ -107,8 +106,8 @@ public final class AndroidWebRtcVideoPlayer implements AutoCloseable {
             decoder = candidate;
             width = videoWidth;
             height = videoHeight;
-            submitted = 0;
-            rendered = 0;
+            submitted.set(0);
+            rendered.set(0);
             playing = true;
             Log.i(TAG, "Video-only libwebrtc H.264 decoder: "
                     + candidate.getImplementationName() + " " + width + "x" + height);
@@ -145,7 +144,7 @@ public final class AndroidWebRtcVideoPlayer implements AutoCloseable {
                     Log.w(TAG, "WebRTC video decode result: " + status);
                     return false;
                 }
-                ++submitted;
+                submitted.incrementAndGet();
                 return true;
             } finally {
                 encoded.release();
@@ -163,7 +162,7 @@ public final class AndroidWebRtcVideoPlayer implements AutoCloseable {
     public void attachVideoSurface() {
         activity.runOnUiThread(() -> {
             synchronized (stateLock) {
-                if (closed || renderer != null) return;
+                if (closed || !playing || renderer != null) return;
                 ViewGroup root = activity.findViewById(android.R.id.content);
                 if (root == null) {
                     Log.w(TAG, "Cannot find Android content root for video playback");
@@ -186,16 +185,14 @@ public final class AndroidWebRtcVideoPlayer implements AutoCloseable {
         });
     }
 
-    public long submittedFrames() {
-        synchronized (stateLock) { return submitted; }
-    }
+    public long submittedFrames() { return submitted.get(); }
 
-    public long renderedFrames() {
-        synchronized (stateLock) { return rendered; }
-    }
+    public long renderedFrames() { return rendered.get(); }
 
     /** Stop the codec; no network, input, audio or account state is modified. */
     public void stop() {
+        // Keep the decode callback lock-free: decoder.release() may wait for
+        // a callback running on another thread.
         synchronized (stateLock) {
             playing = false;
             if (decoder != null) {
