@@ -1122,11 +1122,21 @@ void AppUi::drawNimboxCarousel(Canvas& c, uint64_t nowMs) {
         // Only soft contact shadows. The dark bars in the earlier prototype
         // looked like dividers, unlike a continuous reflective collection floor.
         const int shadowW = static_cast<int>(g.w + 8);
-        c.fillRect({static_cast<int>(g.x) - 2, 712, shadowW, focused ? 8 : 5},
+        // Contact shadow follows the projected base rather than an arbitrary
+        // desktop-only trapezoid, while staying above the reflective floor.
+        const int shadowY = std::clamp(static_cast<int>(
+            std::max(g.front.bl.y, g.front.br.y) + 9.0f), 620, 732);
+        c.fillRect({static_cast<int>(g.x) - 2, shadowY, shadowW, focused ? 8 : 5},
                    rgba(0, 0, 0, focused ? 60 : 32), 8);
-        // The case has a translucent jewel-box spine, a rim and inset printed insert.
-        c.fillQuad(g.spine, rgba(47, 95, 108));
-        c.line(g.spine.tl.x, g.spine.tl.y, g.spine.bl.x, g.spine.bl.y, 2.0f, rgba(204, 245, 249, 125));
+        // Three projected faces of a *rigid 3D box*: top, side and front.
+        // The geometry comes from the approved Preview pose/camera contract.
+        // Only rasterisation is still software Canvas at this milestone.
+        c.fillQuad(g.top, rgba(121, 174, 188, focused ? 195 : 143));
+        c.fillQuad(g.spine, rgba(35, 79, 103));
+        c.line(g.spine.tl.x, g.spine.tl.y, g.spine.bl.x, g.spine.bl.y,
+               2.0f, rgba(204, 245, 249, 125));
+        c.line(g.top.tl.x, g.top.tl.y, g.top.tr.x, g.top.tr.y,
+               1.5f, rgba(215, 251, 252, 135));
         c.fillQuad(g.front, rgba(26, 48, 61));
 
         const Quad strip = nimbox::verticalSlice(g.front, 0.012f, 0.105f);
