@@ -48,14 +48,16 @@ constexpr int kCardPitch = kCard + kCardGap;
 constexpr int kRowPitch = 340;
 constexpr int kRowTop = 470;  // y of the focused row's title
 constexpr uint64_t kHeroFadeMs = 300;
+// Shared draw + pointer hit box: the Colecao Viva CTA is a real action.
+constexpr Rect kCollectionDetailsCta{756, 886, 408, 58};
 
-constexpr Color kBg = rgba(14, 14, 14);
+constexpr Color kBg = rgba(8, 17, 31);
 constexpr Color kWhite = rgba(255, 255, 255);
 constexpr Color kGray = rgba(190, 190, 190);
 constexpr Color kDim = rgba(140, 140, 140);
 constexpr Color kGreen = rgba(16, 124, 16);
-constexpr Color kPanel = rgba(36, 36, 36);
-constexpr Color kPlaceholder = rgba(44, 44, 44);
+constexpr Color kPanel = rgba(17, 36, 53);
+constexpr Color kPlaceholder = rgba(26, 45, 63);
 
 enum Icon { kIconCross, kIconCircle, kIconOptions, kIconTriangle, kIconTouchpad, kIconSquare, kIconR3, kIconL3, kIconL2R2, kIconDpadLR, kIconL1R1 };
 

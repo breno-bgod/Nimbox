@@ -1634,8 +1634,9 @@ static void testSmartGlassInGameMenuInvariants() {
         int oy = box.y + 20 + mod;
         uint32_t modulePixel = testCanvas.data()[(oy + mod / 2) * testCanvas.width() + (ox + mod / 2)];
         CHECK(xc::ui::alphaOf(modulePixel) == 255);
-        // Finder pattern module is drawn with kBg = rgba(14, 14, 14)
-        CHECK(modulePixel == xc::ui::rgba(14, 14, 14));
+        // Finder pattern module follows the native theme background token.
+        // Compare with kBg rather than a hardcoded pre-Colecao-Viva grey.
+        CHECK(modulePixel == xc::ui::kBg);
 
         // Check quiet zone around the QR code (at ox - mod/2, oy - mod/2) is white
         uint32_t quietPixel = testCanvas.data()[(oy - mod / 2) * testCanvas.width() + (ox - mod / 2)];
