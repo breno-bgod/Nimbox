@@ -73,6 +73,11 @@ public:
     // Used only by the opt-in Nimbox box-carousel screen.
     void fillQuad(const Quad& quad, Color color);
     void drawImageQuad(const Image& img, const Quad& quad, uint8_t opacity = 255);
+    // Same, sampling only the (u0,v0)-(u1,v1) part of the image (0..1). Used to
+    // draw a perspective face as several strips with exact projected corners.
+    // `shade` (0..255) darkens the colour while sampling, 255 = unchanged.
+    void drawImageQuadUV(const Image& img, const Quad& quad, float u0, float v0,
+                         float u1, float v1, uint8_t opacity = 255, uint8_t shade = 255);
     // Rotated artwork clipped to a genuine circle for the virtual optical disc.
     void drawImageDisc(const Image& img, float cx, float cy, float radius,
                        float radians, uint8_t opacity = 255);
@@ -81,7 +86,9 @@ public:
 
 private:
     void blend(uint32_t& dst, Color src, uint32_t alpha /*0..255*/) const;
-    void drawQuadImpl(const Quad& q, Color solid, const Image* image, uint8_t opacity);
+    void drawQuadImpl(const Quad& q, Color solid, const Image* image, uint8_t opacity,
+                      float u0 = 0.0f, float v0 = 0.0f, float u1 = 1.0f, float v1 = 1.0f,
+                      uint8_t shade = 255);
     // Coverage (0..255) of a rounded rectangle at pixel (px, py).
     static uint32_t cornerCoverage(Rect r, int radius, int px, int py);
 

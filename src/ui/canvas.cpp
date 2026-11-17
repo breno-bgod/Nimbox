@@ -311,11 +311,15 @@ void Canvas::line(float x0, float y0, float x1, float y1, float thickness, Color
 
 // A small software rasterizer for flat-shaded and textured quadrilaterals.
 // Each convex quad is split into two triangles with affine UV interpolation.
-// This is a deliberate 2.5D implementation, not a GPU 3D renderer.
-void Canvas::drawQuadImpl(const Quad& q, Color solid, const Image* image, uint8_t opacity) {
+// This is a deliberate 2.5D implementation, not a GPU 3D renderer: callers that
+// need perspective-correct textures draw a face as several narrow quads.
+// Per scanline the covered span is solved from the three barycentric
+// inequalities, so only covered pixels are visited.
+void Canvas::drawQuadImpl(const Quad& q, Color solid, const Image* image, uint8_t opacity,
+                          float u0, float v0, float u1, float v1, uint8_t shade) {
     if (opacity == 0 || (image && (image->w <= 0 || image->h <= 0 || image->px.empty()))) return;
     const std::array<Point, 4> p = {q.tl, q.tr, q.br, q.bl};
-    const std::array<Point, 4> uv = {Point{0, 0}, Point{1, 0}, Point{1, 1}, Point{0, 1}};
+    const std::array<Point, 4> uv = {Point{u0, v0}, Point{u1, v0}, Point{u1, v1}, Point{u0, v1}};
     constexpr int triangles[2][3] = {{0, 1, 2}, {0, 2, 3}};
     for (const auto& tri : triangles) {
         const Point a = p[tri[0]], b = p[tri[1]], d = p[tri[2]];
@@ -331,41 +335,64 @@ void Canvas::drawQuadImpl(const Quad& q, Color solid, const Image* image, uint8_
                    static_cast<int>(std::ceil(yMax) - std::floor(yMin))};
         const Rect box = intersect(bound, clip_);
         if (box.w <= 0 || box.h <= 0) continue;
+        // w1 = e1*(X-a.x) + f1*(Y-a.y), w2 = e2*(X-a.x) + f2*(Y-a.y), w0 = 1-w1-w2.
+        const float e1 = (d.y - a.y) * invDen, f1 = -(d.x - a.x) * invDen;
+        const float e2 = -(b.y - a.y) * invDen, f2 = (b.x - a.x) * invDen;
+        const Point ta = uv[tri[0]], tb = uv[tri[1]], td = uv[tri[2]];
+        const float dux = e1 * (tb.x - ta.x) + e2 * (td.x - ta.x);
+        const float dvx = e1 * (tb.y - ta.y) + e2 * (td.y - ta.y);
         for (int y = box.y; y < box.y + box.h; ++y) {
             uint32_t* dst = &px_[static_cast<size_t>(y) * w_];
-            const float py = static_cast<float>(y) + 0.5f - a.y;
-            for (int x = box.x; x < box.x + box.w; ++x) {
-                const float px = static_cast<float>(x) + 0.5f - a.x;
-                const float w1 = (px * (d.y - a.y) - py * (d.x - a.x)) * invDen;
-                const float w2 = ((b.x - a.x) * py - (b.y - a.y) * px) * invDen;
-                const float w0 = 1.0f - w1 - w2;
-                if (w0 < 0.0f || w1 < 0.0f || w2 < 0.0f) continue;
-                Color pixel = solid;
-                if (image) {
-                    const Point ta = uv[tri[0]], tb = uv[tri[1]], td = uv[tri[2]];
-                    const float u = w0 * ta.x + w1 * tb.x + w2 * td.x;
-                    const float v = w0 * ta.y + w1 * tb.y + w2 * td.y;
-                    // Bilinear texel filtering gives much cleaner angled
-                    // covers and reduces the blocky stair-step of the MVP.
-                    const float fx = std::clamp(u * (image->w - 1), 0.0f, float(image->w - 1));
-                    const float fy = std::clamp(v * (image->h - 1), 0.0f, float(image->h - 1));
-                    const int x0 = static_cast<int>(fx), y0 = static_cast<int>(fy);
-                    const int x1 = std::min(x0 + 1, image->w - 1);
-                    const int y1 = std::min(y0 + 1, image->h - 1);
-                    const float tu = fx - x0, tv = fy - y0;
-                    const Color a0 = image->px[static_cast<size_t>(y0) * image->w + x0];
-                    const Color a1 = image->px[static_cast<size_t>(y0) * image->w + x1];
-                    const Color b0 = image->px[static_cast<size_t>(y1) * image->w + x0];
-                    const Color b1 = image->px[static_cast<size_t>(y1) * image->w + x1];
-                    auto channel = [tu, tv](Color a, Color b, Color c, Color d, int shift) -> uint8_t {
-                        const float top = float((a >> shift) & 255u) * (1.0f - tu) +
-                                          float((b >> shift) & 255u) * tu;
-                        const float bottom = float((c >> shift) & 255u) * (1.0f - tu) +
-                                             float((d >> shift) & 255u) * tu;
-                        return static_cast<uint8_t>(std::clamp(top * (1.0f - tv) + bottom * tv, 0.0f, 255.0f));
-                    };
-                    pixel = rgba(channel(a0,a1,b0,b1,0), channel(a0,a1,b0,b1,8),
-                                 channel(a0,a1,b0,b1,16), channel(a0,a1,b0,b1,24));
+            const float Y = static_cast<float>(y) + 0.5f - a.y;
+            const float base1 = f1 * Y - e1 * a.x;
+            const float base2 = f2 * Y - e2 * a.x;
+            const float base0 = 1.0f - base1 - base2;
+            const float k0 = -(e1 + e2);
+            float lo = -1e30f, hi = 1e30f;
+            bool empty = false;
+            auto constrain = [&](float base, float k) {
+                if (k > 1e-9f) lo = std::max(lo, -base / k);
+                else if (k < -1e-9f) hi = std::min(hi, -base / k);
+                else if (base < 0.0f) empty = true;
+            };
+            constrain(base0, k0);
+            constrain(base1, e1);
+            constrain(base2, e2);
+            if (empty || lo > hi) continue;
+            const int xs = std::max(box.x, static_cast<int>(std::ceil(lo - 0.5f)));
+            const int xe = std::min(box.x + box.w - 1, static_cast<int>(std::floor(hi - 0.5f)));
+            if (xs > xe) continue;
+            const float uRow = ta.x + base1 * (tb.x - ta.x) + base2 * (td.x - ta.x);
+            const float vRow = ta.y + base1 * (tb.y - ta.y) + base2 * (td.y - ta.y);
+            if (!image) {
+                const uint32_t a8 = (static_cast<uint32_t>(alphaOf(solid)) * opacity + 127) / 255;
+                for (int x = xs; x <= xe; ++x) blend(dst[x], solid, a8);
+                continue;
+            }
+            const float wMax = static_cast<float>(image->w - 1), hMax = static_cast<float>(image->h - 1);
+            for (int x = xs; x <= xe; ++x) {
+                const float X = static_cast<float>(x) + 0.5f;
+                // Bilinear texel filtering keeps angled covers clean. Fixed
+                // point, two channels per multiply: this runs for every pixel.
+                const float fx = std::clamp((uRow + dux * X) * wMax, 0.0f, wMax);
+                const float fy = std::clamp((vRow + dvx * X) * hMax, 0.0f, hMax);
+                const int x0 = static_cast<int>(fx), y0 = static_cast<int>(fy);
+                const int x1 = std::min(x0 + 1, image->w - 1);
+                const int y1 = std::min(y0 + 1, image->h - 1);
+                const uint32_t tu = static_cast<uint32_t>((fx - x0) * 256.0f);
+                const uint32_t tv = static_cast<uint32_t>((fy - y0) * 256.0f);
+                const uint32_t* r0 = &image->px[static_cast<size_t>(y0) * image->w];
+                const uint32_t* r1 = &image->px[static_cast<size_t>(y1) * image->w];
+                auto lerp = [](uint32_t pp, uint32_t qq, uint32_t t) -> uint32_t {
+                    const uint32_t rb = ((pp & 0x00FF00FFu) * (256 - t) + (qq & 0x00FF00FFu) * t) >> 8;
+                    const uint32_t ag = (((pp >> 8) & 0x00FF00FFu) * (256 - t) + ((qq >> 8) & 0x00FF00FFu) * t);
+                    return (rb & 0x00FF00FFu) | (ag & 0xFF00FF00u);
+                };
+                Color pixel = lerp(lerp(r0[x0], r0[x1], tu), lerp(r1[x0], r1[x1], tu), tv);
+                if (shade < 255) {
+                    const uint32_t rb = (((pixel & 0x00FF00FFu) * shade) >> 8) & 0x00FF00FFu;
+                    const uint32_t g = (((pixel & 0x0000FF00u) * shade) >> 8) & 0x0000FF00u;
+                    pixel = (pixel & 0xFF000000u) | rb | g;
                 }
                 const uint32_t a8 = (static_cast<uint32_t>(alphaOf(pixel)) * opacity + 127) / 255;
                 blend(dst[x], pixel, a8);
@@ -420,6 +447,11 @@ void Canvas::fillQuad(const Quad& q, Color color) { drawQuadImpl(q, color, nullp
 
 void Canvas::drawImageQuad(const Image& img, const Quad& q, uint8_t opacity) {
     drawQuadImpl(q, rgba(255, 255, 255), &img, opacity);
+}
+
+void Canvas::drawImageQuadUV(const Image& img, const Quad& q, float u0, float v0,
+                             float u1, float v1, uint8_t opacity, uint8_t shade) {
+    drawQuadImpl(q, rgba(255, 255, 255), &img, opacity, u0, v0, u1, v1, shade);
 }
 
 void Canvas::drawImage(const Image& img, int x, int y, uint8_t opacity, int radius) {

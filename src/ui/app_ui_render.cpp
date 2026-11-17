@@ -5,6 +5,7 @@
 #include "ui/app_ui_internal.h"
 #include "ui/cloud_time.h"
 #include "ui/box_carousel.h"
+#include "ui/nimbox_case_view.h"
 
 #include <algorithm>
 
@@ -1040,13 +1041,7 @@ void AppUi::drawNimboxCarousel(Canvas& c, uint64_t nowMs) {
                             static_cast<uint8_t>(100 + ((rgb >> 16) & 255u) / 7));
         }
     }
-    c.clear(deep);
-    c.gradientV({0, 136, kW, 700}, topShade, deep);
-    // Lighter infinity-room atmosphere; the cases remain the main focus.
-    c.gradientV({0, 380, kW, 310}, rgba(108, 163, 190, 42), rgba(23, 49, 71, 33));
-    c.gradientH({0, 220, kW, 490}, rgba(11, 30, 43, 110), rgba(15, 70, 75, 60));
-    // No hard horizontal shelf line. Subtle ambient falloff behind reflected art.
-    c.gradientV({0, 695, kW, 240}, rgba(79, 133, 165, 45), rgba(11, 30, 51, 95));
+    nimbox::drawStage(c, topShade);
     drawTopBar(c);
     drawTabs(c);
 
@@ -1079,109 +1074,24 @@ void AppUi::drawNimboxCarousel(Canvas& c, uint64_t nowMs) {
         const int index = nimbox::indexForOffset(selected, count, offset);
         if (index < 0) return;
         const GameTile& tile = row.tiles[static_cast<size_t>(index)];
-        const nimbox::CaseGeometry g = nimbox::layoutAnimated(
-            static_cast<float>(offset) + nimboxSlide_.value / 1000.0f);
         const int d = std::abs(offset);
-        const bool focused = offset == 0;
-        // Only soft contact shadows. The dark bars in the earlier prototype
-        // looked like dividers, unlike a continuous reflective collection floor.
-        const int shadowW = static_cast<int>(g.w + 8);
-        c.fillRect({static_cast<int>(g.x) - 2, 712, shadowW, focused ? 8 : 5},
-                   rgba(0, 0, 0, focused ? 60 : 32), 8);
-        // The case has a translucent jewel-box spine, a rim and inset printed insert.
-        c.fillQuad(g.spine, rgba(47, 95, 108));
-        c.line(g.spine.tl.x, g.spine.tl.y, g.spine.bl.x, g.spine.bl.y, 2.0f, rgba(204, 245, 249, 125));
-        c.fillQuad(g.front, rgba(26, 48, 61));
-
-        const Quad strip = nimbox::verticalSlice(g.front, 0.012f, 0.105f);
         // A real title's platform metadata takes priority; avoid inventing
         // 'Xbox 360' packaging for games where the platform is unknown.
-        const bool xboxPlatform = tile.platform == "360" || tile.platform == "ONE" || tile.platform == "XS";
-        c.fillQuad(strip, xboxPlatform ? rgba(226, 240, 233) : rgba(185, 227, 232));
-        const Quad art = nimbox::verticalSlice(g.front, 0.11f, 0.78f);
-        // Catalog thumbnails are square; preserve their full composition in a
-        // square-ish printed insert, rather than cutting off the game's title.
-        // Ask for a larger cached decode on the selected case. This helps
-        // texture detail when the catalog provides a high-resolution source;
-        // it cannot recover detail absent from the remote artwork itself.
-        const int artSize = focused ? 512 : (d <= 2 ? 256 : 128);
+        nimbox::CaseArt art;
+        art.name = tile.name;
+        art.xboxPlatform = tile.platform == "360" || tile.platform == "ONE" || tile.platform == "XS";
+        art.platformName = tile.platform == "360" ? "XBOX 360" :
+                           tile.platform == "ONE" ? "XBOX ONE" :
+                           tile.platform == "XS" ? "XBOX SERIES" : "XBOX CLOUD";
+        // Catalog thumbnails are square. Ask for a larger cached decode on the
+        // selected case; it cannot recover detail absent from the remote artwork.
+        const int artSize = offset == 0 ? 512 : (d <= 2 ? 256 : 128);
         auto coverImage = images_.get(tile.tileUrl, artSize, artSize);
-        if (coverImage) {
-            c.drawImageQuad(*coverImage, art,
-                            focused ? 255 : static_cast<uint8_t>(std::max(138, 246 - d * 17)));
-        } else {
-            c.fillQuad(art, rgba(49, 78, 91));
-        }
-        const Quad footer = nimbox::verticalSlice(g.front, 0.78f, 0.985f);
-        c.fillQuad(footer, rgba(16, 34, 45));
-        c.line(g.front.tl.x, g.front.tl.y, g.front.tr.x, g.front.tr.y, 2.0f,
-               rgba(233, 251, 251, 110));
-        c.line(g.front.tl.x, g.front.tl.y, g.front.bl.x, g.front.bl.y, 2.0f,
-               rgba(232, 250, 252, focused ? 210 : 110));
-        c.line(g.front.tr.x, g.front.tr.y, g.front.br.x, g.front.br.y, 2.0f,
-               rgba(26, 33, 38, 240));
-        c.line(g.front.bl.x, g.front.bl.y, g.front.br.x, g.front.br.y, 2.0f,
-               rgba(4, 11, 16, 220));
-
-        // Even a mostly side-facing case retains a readable book-style spine.
-        if (offset != 0 && std::fabs(nimboxSlide_.value) < 800.0f) {
-            const float spineX = offset < 0 ? g.spine.tl.x : g.front.tr.x;
-            const int labelX = static_cast<int>(spineX) + 8;
-            int labelY = static_cast<int>(g.y) + 67;
-            for (char ch : tile.name) {
-                if (labelY > g.y + g.h - 45) break;
-                if (static_cast<unsigned char>(ch) < 32 ||
-                    static_cast<unsigned char>(ch) > 126) continue;
-                if (ch == ' ') { labelY += 9; continue; }
-                fonts_.semibold.draw(c, std::string(1, ch), labelX, labelY, 13,
-                                     rgba(225, 245, 242, 210));
-                labelY += 16;
-            }
-        }
-        if (d <= 1) {
-            const int textX = static_cast<int>(g.x) + (focused ? 17 : 12);
-            const int bandY = static_cast<int>(g.y + (offset < 0 ? (focused ? 0 : 18) : 2));
-            // Disc-platform symbol and printed platform title (not a fake
-            // retail-box artwork or a platform logo asset).
-            c.fillCircle(textX + 9, bandY + 21, focused ? 11 : 8, rgba(25, 116, 63));
-            c.line(textX + 5, bandY + 17, textX + 13, bandY + 25, 2.0f, kWhite);
-            c.line(textX + 13, bandY + 17, textX + 5, bandY + 25, 2.0f, kWhite);
-            const char* platformName = tile.platform == "360" ? "XBOX 360" :
-                                       tile.platform == "ONE" ? "XBOX ONE" :
-                                       tile.platform == "XS" ? "XBOX SERIES" : "XBOX CLOUD";
-            fonts_.bold.draw(c, platformName, textX + (focused ? 26 : 22), bandY + 11,
-                             focused ? 20 : 14, rgba(17, 53, 51));
-            const auto lines = fonts_.bold.wrap(tile.name, focused ? 24 : 16,
-                                                 static_cast<int>(g.w) - 30, 2);
-            for (size_t line = 0; line < lines.size(); ++line) {
-                fonts_.bold.draw(c, lines[line], textX, static_cast<int>(g.y + g.h * 0.80f) +
-                                 9 + static_cast<int>(line) * (focused ? 31 : 21),
-                                 focused ? 24 : 16, kWhite);
-            }
-        }
-        // Subtle inverted game-art reflection below the cases. Images are
-        // reused from cache; far cases are omitted to limit Android CPU cost.
-        if (d <= 3 && !tile.tileUrl.empty()) {
-            const int reflectH = focused ? 81 : (d == 1 ? 61 : 43);
-            const float floorY = 724.0f;
-            const Quad mirror{{g.front.bl.x, floorY + reflectH},
-                              {g.front.br.x, floorY + reflectH},
-                              {g.front.br.x, floorY},
-                              {g.front.bl.x, floorY}};
-            if (coverImage) {
-                c.drawImageQuad(*coverImage, mirror,
-                                focused ? 77 : static_cast<uint8_t>(d == 1 ? 41 : 18));
-            }
-        }
-        // The further-away boxes are visibly dimmer; their artwork still
-        // belongs to the original catalog, with no made-up physical covers.
-        if (d > 1) c.fillQuad(g.front, rgba(6, 15, 24, static_cast<uint8_t>(std::min(110, d * 14))));
-        if (focused) {
-            const Color edge = rgba(146, 226, 234, 170);
-            c.line(g.front.tl.x, g.front.tl.y, g.front.tr.x, g.front.tr.y, 2.0f, edge);
-            c.line(g.front.tl.x, g.front.tl.y, g.front.bl.x, g.front.bl.y, 2.0f, edge);
-            c.line(g.front.tr.x, g.front.tr.y, g.front.br.x, g.front.br.y, 2.0f, edge);
-            if (!tile.playable) drawLock(c, static_cast<int>(g.x + g.w - 34), static_cast<int>(g.y + 80));
+        art.cover = coverImage ? &*coverImage : nullptr;
+        nimbox::drawCase(c, fonts_, offset, nimboxSlide_.value, art);
+        if (offset == 0 && !tile.playable) {
+            const nimbox::CaseGeometry g = nimbox::layoutAnimated(nimboxSlide_.value / 1000.0f);
+            drawLock(c, static_cast<int>(g.x + g.w - 34), static_cast<int>(g.y + 80));
         }
     };
 
@@ -1198,7 +1108,7 @@ void AppUi::drawNimboxCarousel(Canvas& c, uint64_t nowMs) {
     });
     for (int offset : order) drawCase(offset);
     // Fade the virtual reflections instead of drawing a shelf-divider line.
-    c.gradientV({0, 738, kW, 150}, rgba(17, 39, 60, 0), rgba(17, 39, 60, 174));
+    nimbox::drawFloorFade(c);
 
     if (count) {
         const GameTile& current = row.tiles[static_cast<size_t>(selected)];

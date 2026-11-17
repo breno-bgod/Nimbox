@@ -169,6 +169,7 @@ add_library(xcloud_ui STATIC
     src/ui/strings.cpp
     src/ui/canvas.cpp
     src/ui/nimbox_pose_core.cpp
+    src/ui/nimbox_case_view.cpp
     src/ui/font.cpp
     src/ui/image_cache.cpp
     src/ui/app_ui.cpp
