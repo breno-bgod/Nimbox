@@ -49,6 +49,7 @@ public final class AndroidNativeWebRtcEngine implements AutoCloseable {
     }
 
     private final Events events;
+    private final VideoSink frameSink;
     private final EglBase eglBase;
     private final JavaAudioDeviceModule audioModule;
     private final PeerConnectionFactory factory;
@@ -60,6 +61,8 @@ public final class AndroidNativeWebRtcEngine implements AutoCloseable {
     public AndroidNativeWebRtcEngine(Context context, Events events) {
         if (events == null) throw new IllegalArgumentException("Events required");
         this.events = events;
+        // Build the sink after assigning the final callback dependency.
+        this.frameSink = frame -> this.events.onVideoFrame(frame);
         synchronized (AndroidNativeWebRtcEngine.class) {
             if (!sInitialized) {
                 PeerConnectionFactory.initialize(
@@ -125,7 +128,7 @@ public final class AndroidNativeWebRtcEngine implements AutoCloseable {
         createChannel("message", "messageV1", true, -1);
 
         peer.addTransceiver(MediaStreamTrack.MediaType.MEDIA_TYPE_AUDIO,
-                new RtpTransceiver.RtpTransceiverInit(RtpTransceiver.RtpTransceiverDirection.RECV_ONLY));
+                new RtpTransceiver.RtpTransceiverInit(RtpTransceiver.RtpTransceiverDirection.SEND_RECV));
         peer.addTransceiver(MediaStreamTrack.MediaType.MEDIA_TYPE_VIDEO,
                 new RtpTransceiver.RtpTransceiverInit(RtpTransceiver.RtpTransceiverDirection.RECV_ONLY));
         return true;
@@ -157,11 +160,8 @@ public final class AndroidNativeWebRtcEngine implements AutoCloseable {
         });
     }
 
-    private final VideoSink frameSink = frame -> {
-        // Retaining a frame or presenting it is the Android renderer's job.
-        // The callback is synchronous; consumer must retain/release correctly.
-        events.onVideoFrame(frame);
-    };
+    // Retaining a frame or presenting it is the Android renderer's job.
+    // Video callbacks are synchronous; consumers must retain/release frames.
 
     private void attach(VideoTrack track) {
         if (videoTrack == track) return;
