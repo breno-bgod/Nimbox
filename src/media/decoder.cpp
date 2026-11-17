@@ -563,6 +563,8 @@ static enum AVPixelFormat getHwFormat(AVCodecContext* ctx, const enum AVPixelFor
     return AV_PIX_FMT_NONE;
 }
 
+VideoDecoder::VideoDecoder() = default;
+
 VideoDecoder::~VideoDecoder() {
 #if defined(__ANDROID__)
     androidWebRtc_.reset();
