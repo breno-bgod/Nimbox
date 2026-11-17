@@ -153,7 +153,9 @@ inline int indexForOffset(int selected, int count, int offset) {
 inline std::vector<int> caseDrawOrder(int selected, int count, float slide) {
     std::vector<int> order;
     if (!std::isfinite(slide)) slide = 0.0f;
-    slide = std::clamp(slide, -1.0f, 1.0f);
+    // Pointer taps may jump directly to an outer case (up to +/-4), while
+    // controller movement is normally a single step. Both need the same order.
+    slide = std::clamp(slide, -float(kSideCases), float(kSideCases));
     for (int offset = -kSideCases; offset <= kSideCases; ++offset) {
         if (indexForOffset(selected, count, offset) >= 0) order.push_back(offset);
     }
