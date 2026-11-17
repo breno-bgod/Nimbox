@@ -80,7 +80,10 @@ public final class AndroidWebRtcVideoPlayer implements AutoCloseable {
                 || videoWidth > 4096 || videoHeight > 4096) return false;
         synchronized (stateLock) {
             if (closed || playing) return false;
-            VideoCodecInfo codec = new VideoCodecInfo("H264", new HashMap<>());
+            // SDK 150 exposes the payload-number constructor (or the
+            // three-argument constructor with scalability modes).
+            // Payload 100 here is local codec metadata, not an SDP offer.
+            VideoCodecInfo codec = new VideoCodecInfo(100, "H264", new HashMap<String, String>());
             VideoDecoder candidate = decoderFactory.createDecoder(codec);
             if (candidate == null) {
                 Log.w(TAG, "No libwebrtc H.264 hardware decoder available");
