@@ -28,7 +28,7 @@ struct GameProfile {
     int deband = 3;              // 0 off, 1 low, 2 high, 3 auto
     int upscaler = 2;            // 0 FSR 1, 1 Anime4K, 2 FSR + clean, 3 Anime4K + clean
     int resolution = 0;          // 0 1080p, 1 720p, 2 1440p
-    int videoDecoder = 0;        // 0 Hardware, 1 Software
+    int videoDecoder = 0;        // Android: 0 MediaCodec, 1 FFmpeg, 2 WebRTC H264 (video only); other OS: 0/1
     int fpsLimit = 0;            // 0 Unlimited, 30, 60, 120
     // Controller: dead zone (percent), triggers, confirm button
     int deadzoneLeft = 15, deadzoneRight = 15;
@@ -121,7 +121,7 @@ struct Settings {
     // Anime4K after Anime4K Restore (the clean-up of compression artefacts).
     int upscaler = 2;
 #endif
-    int videoDecoder = 0;  // 0 Hardware, 1 Software
+    int videoDecoder = 0;  // Android: 0 MediaCodec, 1 FFmpeg, 2 WebRTC video; other OS: 0/1
     // Controller: stick dead zone (percent), vibration in the triggers,
     // Circle as the confirm button (Xbox A).
     int deadzoneLeft = 15, deadzoneRight = 15;  // percent, each stick's own
