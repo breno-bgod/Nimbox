@@ -324,11 +324,25 @@ jobs:
           done
           echo "All shared libraries in APK are 16 KB page-aligned."
 
+      # Reject accidentally uploaded PSBox builds before publishing an APK.
+      # The Nimbox experimental package coexists with the original PSBox.
+      - name: Verify Nimbox Alpha APK identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk="android/app/build/outputs/apk/debug/app-debug.apk"
+          aapt_bin="$(find "$ANDROID_SDK_ROOT/build-tools" -type f -name aapt -perm /111 | sort -V | tail -1)"
+          test -n "$aapt_bin" && test -f "$apk"
+          "$aapt_bin" dump badging "$apk" > "$RUNNER_TEMP/nimbox-apk-identity.txt"
+          grep -Fq "package: name='com.rafaelngp.psbox.nimboxalpha'" "$RUNNER_TEMP/nimbox-apk-identity.txt"
+          grep -Fq "application-label:'Nimbox Alpha'" "$RUNNER_TEMP/nimbox-apk-identity.txt"
+          cp "$apk" "android/app/build/outputs/apk/debug/Nimbox-Android-Alpha.apk"
+
       - name: Upload Android APK Artifact
         uses: actions/upload-artifact@v7
         with:
-          name: nimbox-android
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          name: nimbox-android-alpha
+          path: android/app/build/outputs/apk/debug/Nimbox-Android-Alpha.apk
           if-no-files-found: error
 
 
