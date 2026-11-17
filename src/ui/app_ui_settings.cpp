@@ -687,7 +687,7 @@ std::vector<std::string> AppUi::settingOptions(int row) const {
 #if defined(__ANDROID__)
         // Both are real selectable backends; choosing hardware does not
         // guarantee the driver accepts acceleration on every device.
-        out = {"GPU - MediaCodec (H.264)", "CPU - FFmpeg (H.264)"};
+        out = {"GPU - MediaCodec (H.264)", "CPU - FFmpeg (H.264)", "WebRTC Video (Android)"};
 #else
         out = {tr(Str::VideoDecoderHw), tr(Str::VideoDecoderSw)};
 #endif
@@ -738,7 +738,11 @@ int AppUi::settingSelected(int row) const {
     if (row == 13) return settings_.fullscreen ? 1 : 0;
     if (row == 15) return std::clamp(settings_.gyroMode, 0, 4);
     if (row == 16) return settings_.queueReadyAlert ? 1 : 0;
+    #if defined(__ANDROID__)
+    if (row == 20) return std::clamp(settings_.videoDecoder, 0, 2);
+#else
     if (row == 20) return std::clamp(settings_.videoDecoder, 0, 1);
+#endif
     if (row == 31) return std::clamp(settings_.upscaler, 0, 3);
     if (row == 32) return std::clamp(settings_.deband, 0, 3);
     if (row == 33) return std::clamp(settings_.sharpness, 0, 3);
@@ -873,7 +877,11 @@ void AppUi::applySetting(int row, int index) {
     } else if (row == 16) {
         settings_.queueReadyAlert = (index == 1);
     } else if (row == 20) {
+        #if defined(__ANDROID__)
+        settings_.videoDecoder = std::clamp(index, 0, 2);
+#else
         settings_.videoDecoder = std::clamp(index, 0, 1);
+#endif
     } else if (row == 31) {
         settings_.upscaler = std::clamp(index, 0, 3);
     } else if (row == 32) {
@@ -1042,7 +1050,11 @@ void AppUi::handleGameSettings(const NavInput& in, UiEvent& ev) {
             break;
         }
         case 15: // Video decoder (0 Hardware, 1 Software)
+            #if defined(__ANDROID__)
+            activeGameProfile_.videoDecoder = (activeGameProfile_.videoDecoder + 1) % 3;
+#else
             activeGameProfile_.videoDecoder = (activeGameProfile_.videoDecoder == 0 ? 1 : 0);
+#endif
             activeGameHasCustom_ = true;
             dirty_ = true;
             break;
@@ -1148,7 +1160,11 @@ void AppUi::handleGameSettings(const NavInput& in, UiEvent& ev) {
             break;
         }
         case 15:
+            #if defined(__ANDROID__)
+            activeGameProfile_.videoDecoder = (activeGameProfile_.videoDecoder + 1) % 3;
+#else
             activeGameProfile_.videoDecoder = (activeGameProfile_.videoDecoder == 0 ? 1 : 0);
+#endif
             activeGameHasCustom_ = true;
             dirty_ = true;
             break;
@@ -1507,7 +1523,7 @@ void AppUi::drawSettings(Canvas& c) {
             ? "Reduz animacoes de capas e do disco."
             : settingsRow_ == 20
 #if defined(__ANDROID__)
-            ? "H.264 (AVC): GPU = MediaCodec; CPU = FFmpeg. Escolha antes de jogar; pode haver fallback."
+            ? "H.264: GPU MediaCodec, CPU FFmpeg ou video WebRTC Android (mesma conexao). Fallback automatico."
 #else
             ? "Codec do streaming: H.264 (AVC). Escolha hardware ou software; nao troca o codec."
 #endif
@@ -2667,7 +2683,8 @@ void AppUi::drawGameSettings(Canvas& c) {
         case 15:
 #if defined(__ANDROID__)
             label = "Decodificador H.264";
-            value = activeGameProfile_.videoDecoder == 1 ? "CPU / FFmpeg" : "GPU / MediaCodec";
+            value = activeGameProfile_.videoDecoder == 2 ? "WebRTC Video" :
+                    activeGameProfile_.videoDecoder == 1 ? "CPU / FFmpeg" : "GPU / MediaCodec";
 #else
             label = tr(Str::VideoDecoder);
             value = activeGameProfile_.videoDecoder == 1 ? tr(Str::VideoDecoderSw) : tr(Str::VideoDecoderHw);
