@@ -397,11 +397,15 @@ void AppUi::drawSplash(Canvas& c, uint64_t nowMs) {
 void AppUi::drawSignIn(Canvas& c, uint64_t nowMs) {
     drawBackground(c);
     c.gradientH({0, 80, kW, 920}, rgba(8, 27, 42, 115), rgba(13, 71, 85, 105));
-    c.fillRect({139, 110, 890, 850}, rgba(8, 23, 33, 94), 22);
-    c.strokeRect({139, 110, 890, 850}, rgba(119, 211, 222, 55), 1, 22);
+    preview31::glassPanel(c, {139, 110, 890, 850}, 22);
+    preview31::glassPanel(c, {1160, 190, 660, 690}, 22);
+    c.gradientV({1160, 190, 660, 690}, rgba(19, 76, 91, 34),
+                rgba(5, 21, 38, 24));
     const int left = 180;
     drawLogo(c, left + 26, 160, 26);
     fonts_.semibold.draw(c, tr(Str::AppName), left + 70, 144, 30, kWhite);
+    fonts_.semibold.draw(c, "NIMBOX  /  ACESSO", left, 214, 19,
+                         preview31::kAccent);
     fonts_.bold.draw(c, tr(Str::SignInTitle), left, 260, 72, kWhite);
     fonts_.regular.draw(c, tr(Str::SignInStep1), left, 400, 32, kGray);
     std::string shortUrl = codeUrl_;
@@ -768,13 +772,17 @@ void AppUi::drawLibrary(Canvas& c, uint64_t nowMs) {
     }
     c.clearClip();
     c.fillRect({0, 0, kW, clipTop}, kBg);
+    c.gradientH({0, 122, kW, clipTop - 122}, rgba(23, 68, 91), rgba(5, 19, 34));
     c.gradientV({0, clipTop, kW, 12}, kBg, withAlpha(kBg, 0));
     drawTopBar(c);
     drawTabs(c);
-    // Visual heading only. Library sections, sorting and selection still use
-    // their original data and exactly the same hit targets.
-    fonts_.semibold.draw(c, "NIMBOX  /  COLECAO VIVA", 100, 130, 19,
-                         rgba(116, 222, 240));
+    // Preview 3.x library hierarchy. Keep the existing owned/purchasable/
+    // hidden sections, sort selector, hitboxes and catalog data.
+    fonts_.semibold.draw(c, "NIMBOX  /  BIBLIOTECA", kMargin, 141, 18,
+                         preview31::kAccent);
+    fonts_.bold.draw(c, "Seus jogos", kMargin, 171, 38, preview31::kText);
+    fonts_.regular.draw(c, "Colecao, organizacao e jogos disponiveis",
+                        kMargin, 216, 18, preview31::kMuted);
     if (owned_.empty() && purchasable_.empty() && hiddenTiles_.empty()) {
         if (!ownedKnown_) {
             drawSpinner(c, kW / 2.0f, 470, 26, nowMs);
@@ -1601,6 +1609,15 @@ void AppUi::drawDetails(Canvas& c, uint64_t nowMs) {
         }
     }
     drawTopBar(c);
+    // Preview 3.0 detail page: cinematic art in the background and a
+    // readable smoked-glass text column opposite the physical Xbox case.
+    // All Play, achievements, queue and gamedata controls remain unchanged.
+    if (nimboxCarousel_ && tab_ == Tab::GamePass && !g->purchasable) {
+        c.fillRect({76, 182, 1080, 766}, rgba(3, 17, 30, 107), 20);
+        c.strokeRect({76, 182, 1080, 766}, rgba(143, 225, 243, 43), 1, 20);
+        c.gradientH({76, 182, 1040, 766}, rgba(5, 18, 29, 87),
+                    rgba(9, 37, 52, 0));
+    }
     // The complete original title, descriptions, availability and Play
     // handling below remain intact. Render physical media only in the
     // unused right-hand visual area.
