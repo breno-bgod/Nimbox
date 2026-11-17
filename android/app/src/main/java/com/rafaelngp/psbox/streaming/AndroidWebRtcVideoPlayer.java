@@ -3,225 +3,187 @@ package com.rafaelngp.psbox.streaming;
 
 import android.app.Activity;
 import android.util.Log;
-import android.view.View;
-import android.view.ViewGroup;
-import android.widget.FrameLayout;
 
 import org.webrtc.EglBase;
 import org.webrtc.EncodedImage;
 import org.webrtc.HardwareVideoDecoderFactory;
 import org.webrtc.PeerConnectionFactory;
-import org.webrtc.RendererCommon;
-import org.webrtc.SurfaceViewRenderer;
 import org.webrtc.VideoCodecInfo;
 import org.webrtc.VideoCodecStatus;
 import org.webrtc.VideoDecoder;
 import org.webrtc.VideoFrame;
 
 import java.nio.ByteBuffer;
-import java.util.HashMap;
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.ArrayDeque;
 
 /**
- * Android-only H.264 playback adapter using libwebrtc's hardware video decoder
- * and EGL/SurfaceView renderer.
+ * Video-only adapter: takes complete H.264 access units from Nimbox's
+ * EXISTING GSSV/libdatachannel session, decodes with libwebrtc's Android
+ * hardware decoder, and returns YUV420 frames to Nimbox's existing renderer.
  *
- * It intentionally does NOT create PeerConnection, SDP, ICE, data channels,
- * audio, authentication or input. Those already belong to Nimbox's C++
- * libdatachannel/GSSV stream. The eventual JNI bridge will pass complete
- * H.264 Annex-B access units from StreamPlayer's existing video callback.
- *
- * The renderer is an independent Android SurfaceView above SDL. It must not
- * be enabled until video/UI composition and touch overlay coexistence are
- * solved and tested on a device. The shipping decoder path is unaffected.
+ * No PeerConnection, authentication, audio, gamepad or extra network session.
+ * The initial bridge copies decoded YUV once. Zero-copy EGL/UI compositing
+ * is a separate optimization, not required to make the backend playable.
  */
 public final class AndroidWebRtcVideoPlayer implements AutoCloseable {
     private static final String TAG = "NimboxWebRtcVideo";
     private static boolean nativeInitialized;
+    private static final int MAX_QUEUED_FRAMES = 3;
 
-    private final Activity activity;
-    private final Object stateLock = new Object();
+    private final Object lock = new Object();
+    private final ArrayDeque<byte[]> frames = new ArrayDeque<>();
     private final EglBase eglBase;
-    private final HardwareVideoDecoderFactory decoderFactory;
-    private volatile SurfaceViewRenderer renderer;
-
+    private final HardwareVideoDecoderFactory factory;
     private VideoDecoder decoder;
-    private boolean playing;
-    private boolean closed;
-    private int width;
-    private int height;
-    private final AtomicLong submitted = new AtomicLong();
-    private final AtomicLong rendered = new AtomicLong();
+    private boolean active;
+    private long submitted;
+    private long decoded;
 
     public AndroidWebRtcVideoPlayer(Activity activity) {
-        if (activity == null) throw new IllegalArgumentException("Activity required");
-        this.activity = activity;
-        // This initializes libwebrtc's native runtime, NOT a PeerConnection.
         synchronized (AndroidWebRtcVideoPlayer.class) {
             if (!nativeInitialized) {
                 PeerConnectionFactory.initialize(
-                        PeerConnectionFactory.InitializationOptions
-                                .builder(activity.getApplicationContext())
-                                .createInitializationOptions());
+                    PeerConnectionFactory.InitializationOptions
+                        .builder(activity.getApplicationContext()).createInitializationOptions());
                 nativeInitialized = true;
             }
         }
         eglBase = EglBase.create();
-        decoderFactory = new HardwareVideoDecoderFactory(eglBase.getEglBaseContext());
+        factory = new HardwareVideoDecoderFactory(eglBase.getEglBaseContext());
     }
 
-    /**
-     * Prepare only video decoding. This is called from the existing Nimbox
-     * video thread; no new xCloud transport or audio session is started.
-     * Returns false when a libwebrtc hardware H.264 decoder is unavailable.
-     */
-    public boolean start(int videoWidth, int videoHeight) {
-        if (videoWidth < 16 || videoHeight < 16
-                || videoWidth > 4096 || videoHeight > 4096) return false;
-        synchronized (stateLock) {
-            if (closed || playing) return false;
-            // SDK 150 exposes the payload-number constructor (or the
-            // three-argument constructor with scalability modes).
-            // Payload 100 here is local codec metadata, not an SDP offer.
-            VideoCodecInfo codec = new VideoCodecInfo(100, "H264", new HashMap<String, String>());
-            VideoDecoder candidate = decoderFactory.createDecoder(codec);
+    public boolean start(int width, int height) {
+        if (width < 16 || height < 16 || width > 4096 || height > 4096) return false;
+        synchronized (lock) {
+            if (active) return false;
+            VideoDecoder candidate = null;
+            for (VideoCodecInfo info : factory.getSupportedCodecs()) {
+                if ("H264".equalsIgnoreCase(info.name)) {
+                    candidate = factory.createDecoder(info);
+                    if (candidate != null) break;
+                }
+            }
             if (candidate == null) {
-                Log.w(TAG, "No libwebrtc H.264 hardware decoder available");
+                Log.w(TAG, "WebRTC Android hardware H264 decoder unavailable");
                 return false;
             }
-            VideoCodecStatus status = candidate.initDecode(
-                    new VideoDecoder.Settings(
-                            Math.max(1, Runtime.getRuntime().availableProcessors()),
-                            videoWidth, videoHeight),
-                    (frame, decodeMs, qp) -> {
-                        // libwebrtc may invoke this callback on another thread.
-                        SurfaceViewRenderer sink = renderer;
-                        if (sink != null) {
-                            sink.onFrame(frame);
-                            rendered.incrementAndGet();
-                        }
-                    });
-            if (status != VideoCodecStatus.OK) {
-                Log.w(TAG, "WebRTC H.264 decoder init failed: " + status);
+            VideoCodecStatus code = candidate.initDecode(
+                new VideoDecoder.Settings(1, width, height),
+                (frame, decodeTimeMs, qp) -> enqueue(frame));
+            if (code != VideoCodecStatus.OK) {
+                Log.w(TAG, "H264 decoder initialization failed: " + code);
                 candidate.release();
                 return false;
             }
             decoder = candidate;
-            width = videoWidth;
-            height = videoHeight;
-            submitted.set(0);
-            rendered.set(0);
-            playing = true;
-            Log.i(TAG, "Video-only libwebrtc H.264 decoder: "
-                    + candidate.getImplementationName() + " " + width + "x" + height);
+            active = true;
+            submitted = decoded = 0;
+            frames.clear();
+            Log.i(TAG, "Nimbox WebRTC video decoder active: " + candidate.getImplementationName());
             return true;
         }
     }
 
-    /**
-     * The existing Nimbox RTP depacketizer supplies one complete Annex-B
-     * access unit (including SPS/PPS before IDR). It is NOT raw RTP.
-     *
-     * The initial JNI transport will copy only the *compressed* bytes to a
-     * Java byte[]; texture-backed decoded output stays inside libwebrtc's
-     * EGL renderer without YUV CPU roundtrip.
-     */
-    public boolean submitH264(byte[] annexB, long captureTimeNs, boolean keyFrame) {
-        if (annexB == null || annexB.length == 0) return false;
-        synchronized (stateLock) {
-            if (closed || !playing || decoder == null) return false;
-            EncodedImage encoded = EncodedImage.builder()
-                    .setBuffer(ByteBuffer.wrap(annexB), null)
-                    .setEncodedWidth(width)
-                    .setEncodedHeight(height)
-                    .setCaptureTimeNs(captureTimeNs > 0 ? captureTimeNs : System.nanoTime())
-                    .setFrameType(keyFrame
-                            ? EncodedImage.FrameType.VideoFrameKey
-                            : EncodedImage.FrameType.VideoFrameDelta)
-                    .setRotation(0)
-                    .createEncodedImage();
-            try {
-                VideoCodecStatus status = decoder.decode(
-                        encoded, new VideoDecoder.DecodeInfo(false, 0));
-                if (status != VideoCodecStatus.OK && status != VideoCodecStatus.NO_OUTPUT) {
-                    Log.w(TAG, "WebRTC video decode result: " + status);
-                    return false;
-                }
-                submitted.incrementAndGet();
-                return true;
-            } finally {
-                encoded.release();
+    private static void putIntLE(byte[] data, int offset, int value) {
+        data[offset] = (byte) value;
+        data[offset + 1] = (byte) (value >>> 8);
+        data[offset + 2] = (byte) (value >>> 16);
+        data[offset + 3] = (byte) (value >>> 24);
+    }
+
+    private static void copyPlane(ByteBuffer src, int stride, byte[] dst,
+                                  int offset, int width, int rows) {
+        ByteBuffer data = src.duplicate();
+        for (int y = 0; y < rows; ++y) {
+            data.position(y * stride);
+            data.get(dst, offset + y * width, width);
+        }
+    }
+
+    private void enqueue(VideoFrame frame) {
+        final VideoFrame.I420Buffer i420 = frame.getBuffer().toI420();
+        try {
+            final int width = i420.getWidth(), height = i420.getHeight();
+            if (width < 16 || height < 16 || width > 4096 || height > 4096) return;
+            final int cw = (width + 1) / 2, ch = (height + 1) / 2;
+            final long payload = (long) width * height + 2L * cw * ch;
+            if (payload > 32L * 1024 * 1024) return;
+            // 16-byte LE header: RTP tag (low 32 bits), width, height, 0.
+            final byte[] packed = new byte[16 + (int) payload];
+            putIntLE(packed, 0, (int) frame.getTimestampNs());
+            putIntLE(packed, 4, width);
+            putIntLE(packed, 8, height);
+            putIntLE(packed, 12, 0);
+            int uvStart = 16 + width * height;
+            copyPlane(i420.getDataY(), i420.getStrideY(), packed, 16, width, height);
+            copyPlane(i420.getDataU(), i420.getStrideU(), packed, uvStart, cw, ch);
+            copyPlane(i420.getDataV(), i420.getStrideV(), packed, uvStart + cw * ch, cw, ch);
+            synchronized (lock) {
+                if (!active) return;
+                while (frames.size() >= MAX_QUEUED_FRAMES) frames.removeFirst();
+                frames.addLast(packed);
+                ++decoded;
             }
+        } finally {
+            i420.release();
         }
     }
 
     /**
-     * Optional Android surface attachment. Must be activated only after the
-     * SDL overlay/menu composition problem is solved; otherwise the video
-     * SurfaceView would cover Nimbox's UI and touch controls.
-     *
-     * Not invoked by MainActivity or StreamPlayer in this experimental PR.
+     * Feed one Annex-B access unit (NOT raw RTP) and return the newest
+     * completed I420 frame, possibly from an earlier packet.
+     * null = codec still decoding. Empty byte[] = decode failure.
      */
-    public void attachVideoSurface() {
-        activity.runOnUiThread(() -> {
-            synchronized (stateLock) {
-                if (closed || !playing || renderer != null) return;
-                ViewGroup root = activity.findViewById(android.R.id.content);
-                if (root == null) {
-                    Log.w(TAG, "Cannot find Android content root for video playback");
-                    return;
-                }
-                SurfaceViewRenderer view = new SurfaceViewRenderer(activity);
-                view.init(eglBase.getEglBaseContext(), null);
-                view.setScalingType(RendererCommon.ScalingType.SCALE_ASPECT_FIT);
-                view.setMirror(false);
-                view.setEnableHardwareScaler(true);
-                view.setZOrderMediaOverlay(true);
-                view.setClickable(false);
-                view.setFocusable(false);
-                view.setVisibility(View.VISIBLE);
-                root.addView(view, new FrameLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.MATCH_PARENT));
-                renderer = view;
+    public byte[] decode(byte[] annexB, long rtpTag, boolean keyFrame) {
+        if (annexB == null || annexB.length == 0) return new byte[0];
+        VideoDecoder current;
+        synchronized (lock) {
+            if (!active || decoder == null) return new byte[0];
+            current = decoder;
+        }
+        ByteBuffer encodedData = ByteBuffer.allocateDirect(annexB.length);
+        encodedData.put(annexB);
+        encodedData.flip();
+        EncodedImage encoded = EncodedImage.builder()
+            .setBuffer(encodedData, null)
+            .setEncodedWidth(1920).setEncodedHeight(1088)
+            .setCaptureTimeNs(rtpTag & 0xffffffffL)
+            .setFrameType(keyFrame ? EncodedImage.FrameType.VideoFrameKey
+                                  : EncodedImage.FrameType.VideoFrameDelta)
+            .setRotation(0).createEncodedImage();
+        try {
+            VideoCodecStatus status = current.decode(
+                encoded, new VideoDecoder.DecodeInfo(false, 0));
+            if (status != VideoCodecStatus.OK && status != VideoCodecStatus.NO_OUTPUT) {
+                Log.w(TAG, "H264 decoder status " + status);
+                return new byte[0];
             }
-        });
+            ++submitted;
+        } finally {
+            encoded.release();
+        }
+        synchronized (lock) {
+            if (frames.isEmpty()) return null;
+            // Never show a stale frame when the native presentation loop lags.
+            while (frames.size() > 1) frames.removeFirst();
+            return frames.removeFirst();
+        }
     }
 
-    public long submittedFrames() { return submitted.get(); }
-
-    public long renderedFrames() { return rendered.get(); }
-
-    /** Stop the codec; no network, input, audio or account state is modified. */
     public void stop() {
-        // Keep the decode callback lock-free: decoder.release() may wait for
-        // a callback running on another thread.
-        synchronized (stateLock) {
-            playing = false;
-            if (decoder != null) {
-                decoder.release();
-                decoder = null;
-            }
+        VideoDecoder old;
+        synchronized (lock) {
+            active = false;
+            old = decoder;
+            decoder = null;
+            frames.clear();
         }
-        activity.runOnUiThread(() -> {
-            SurfaceViewRenderer old = renderer;
-            renderer = null;
-            if (old != null) {
-                ViewGroup parent = (ViewGroup) old.getParent();
-                if (parent != null) parent.removeView(old);
-                old.release();
-            }
-        });
+        if (old != null) old.release();
+        Log.i(TAG, "Nimbox WebRTC video player stopped; packets=" + submitted + " frames=" + decoded);
     }
 
     @Override public void close() {
-        synchronized (stateLock) {
-            if (closed) return;
-            closed = true;
-        }
         stop();
-        // Renderer.release() is posted to the UI thread. eglBase.release()
-        // must happen after the view's renderer is finished with its context.
-        activity.runOnUiThread(eglBase::release);
+        eglBase.release();
     }
 }
