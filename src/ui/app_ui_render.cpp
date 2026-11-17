@@ -473,10 +473,10 @@ void AppUi::drawSignIn(Canvas& c, uint64_t nowMs) {
 
 void AppUi::drawTabs(Canvas& c) {
     // Centred pills in the top bar, between "L1" and "R1".
-    const char* labels[3] = {tr(Str::TabGamePass), tr(Str::YourGames), tr(Str::TabConsoles)};
+    const auto labels = topTabLabels();
     constexpr int kPx = 22, kPad = 26, kGap = 12, kH = 44, kY = 50;
-    int widths[3], total = 0;
-    for (int i = 0; i < 3; ++i) {
+    int widths[kTopTabCount], total = 0;
+    for (int i = 0; i < kTopTabCount; ++i) {
         widths[i] = fonts_.semibold.measure(labels[i], kPx) + 2 * kPad;
         total += widths[i] + (i ? kGap : 0);
     }
@@ -488,7 +488,7 @@ void AppUi::drawTabs(Canvas& c) {
         fonts_.bold.draw(c, name, cx - fonts_.bold.measure(name, 16) / 2, fonts_.bold.centeredY(r.y, r.h, 16), 16, kGray);
     };
     shoulder(g_keyboardHints ? "Q" : buttonName(g_glyphStyle, PadButton::L1), x - 40);
-    for (int i = 0; i < 3; ++i) {
+    for (int i = 0; i < kTopTabCount; ++i) {
         bool on = static_cast<int>(tab_) == i;
         Rect r{x, kY, widths[i], kH};
         if (on) c.fillRect(r, kWhite, kH / 2);
@@ -1002,10 +1002,78 @@ void AppUi::drawConsoles(Canvas& c, uint64_t nowMs) {
     drawToast(c, nowMs);
 }
 
+
+void AppUi::drawGenres(Canvas& c, uint64_t nowMs) {
+    c.clear(kBg);
+    drawBackground(c);
+    drawTopBar(c);
+    drawTabs(c);
+    fonts_.bold.draw(c, tr(Str::TabGenres), kMargin, 165, 38, kWhite);
+    const auto genres = genreOptions();
+    if (genres.empty()) {
+        fonts_.regular.draw(c, tr(Str::GenresEmpty), kMargin, 260, 24, kGray);
+    } else {
+        constexpr int kChipX = 140, kChipY = 235, kChipW = 530, kChipH = 58, kChipGap = 22;
+        for (size_t i = 0; i < genres.size(); ++i) {
+            Rect chip{kChipX + static_cast<int>(i % 3) * (kChipW + kChipGap),
+                      kChipY + static_cast<int>(i / 3) * (kChipH + kChipGap), kChipW, kChipH};
+            const bool active = static_cast<int>(i) == genreFocus_;
+            c.fillRect(chip, active ? rgba(44, 108, 129) : kPanel, 16);
+            if (active) c.strokeRect(chip, genreGameFocus_ < 0 ? kWhite : rgba(130, 210, 230), 3, 16);
+            const std::string label = genres[i].substr(0, 42);
+            fonts_.semibold.draw(c, label, chip.x + 22, fonts_.semibold.centeredY(chip.y, chip.h, 22), 22, kWhite);
+        }
+        const auto games = genreGames();
+        if (games.empty()) {
+            fonts_.regular.draw(c, tr(Str::NoGames), kMargin, 450, 24, kGray);
+        } else {
+            constexpr int kGridX = 180, kGridY = 465;
+            for (size_t i = 0; i < games.size(); ++i) {
+                int x = kGridX + static_cast<int>(i % 6) * kCardPitch;
+                int y = kGridY + static_cast<int>(i / 6) * 285;
+                drawCard(c, *games[i], x, y, static_cast<int>(i) == genreGameFocus_, true);
+            }
+        }
+    }
+    drawHints(c, {{kIconCross, tr(Str::Select)}, {kIconOptions, tr(Str::Settings)}});
+    drawPads(c);
+    drawToast(c, nowMs);
+}
+
+void AppUi::drawFriends(Canvas& c, uint64_t nowMs) {
+    c.clear(kBg);
+    drawBackground(c);
+    drawTopBar(c);
+    drawTabs(c);
+    fonts_.bold.draw(c, tr(Str::FriendsPlayingNow), kMargin, 165, 38, kWhite);
+    const auto games = friendGames();
+    if (games.empty()) {
+        fonts_.regular.draw(c, tr(Str::FriendsEmpty), kMargin, 260, 24, kGray);
+    } else {
+        constexpr int kGridX = 180, kGridY = 255;
+        for (size_t i = 0; i < games.size(); ++i) {
+            int x = kGridX + static_cast<int>(i % 6) * kCardPitch;
+            int y = kGridY + static_cast<int>(i / 6) * 350;
+            drawCard(c, *games[i], x, y, static_cast<int>(i) == friendGameFocus_, true);
+            const auto& friends = games[i]->friends;
+            if (!friends.empty()) {
+                std::string tag = friends.front().gamertag;
+                if (friends.size() > 1) tag += " +" + std::to_string(friends.size() - 1);
+                fonts_.semibold.draw(c, tag.substr(0, 26), x, y + kCard + 9, 18, kGray);
+            }
+        }
+    }
+    drawHints(c, {{kIconCross, tr(Str::Select)}, {kIconOptions, tr(Str::Settings)}});
+    drawPads(c);
+    drawToast(c, nowMs);
+}
+
 void AppUi::drawHome(Canvas& c, uint64_t nowMs) {
     if (searching_) return drawSearch(c, nowMs);
     if (tab_ == Tab::Library) return drawLibrary(c, nowMs);
     if (tab_ == Tab::Consoles) return drawConsoles(c, nowMs);
+    if (tab_ == Tab::Genres) return drawGenres(c, nowMs);
+    if (tab_ == Tab::Friends) return drawFriends(c, nowMs);
     const GameTile* focus = focusedTile();
     c.clear(kBg);
     std::string hero;
