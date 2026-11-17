@@ -1236,13 +1236,23 @@ void AppUi::drawSettings(Canvas& c) {
     // Nimbox native Settings: precise two-column information architecture
     // inspired by Preview 3.1, not copied from its static HTML controls.
     // Left: every REAL PSBox setting. Right: live appearance studio and QR.
-    c.clear(rgba(6, 13, 21));
-    c.gradientV({0, 0, kW, kH}, rgba(14, 31, 42), rgba(5, 15, 26));
-    c.gradientH({0, 130, kW, 790}, rgba(15, 40, 47, 78), rgba(20, 36, 50, 50));
-    c.fillRect({76, 181, 1180, 756}, rgba(10, 24, 33, 207), 19);
-    c.strokeRect({76, 181, 1180, 756}, rgba(163, 193, 194, 49), 1, 19);
-    c.fillRect({1287, 181, 570, 756}, rgba(12, 27, 35, 214), 19);
-    c.strokeRect({1287, 181, 570, 756}, rgba(157, 190, 189, 62), 1, 19);
+    // Console-grade native visual layer, without changing UI input geometry.
+    const Color cyan = rgba(108, 216, 238);
+    c.clear(rgba(5, 12, 23));
+    c.gradientV({0, 0, kW, kH}, rgba(11, 29, 49), rgba(4, 11, 22));
+    c.gradientH({0, 122, kW, 620}, rgba(19, 79, 106, 74), rgba(5, 18, 31, 4));
+    c.fillCircle(1645, 242, 330.0f, rgba(71, 174, 208, 22));
+    c.fillCircle(210, 410, 220.0f, rgba(47, 124, 161, 20));
+    c.fillRect({66, 189, 1196, 762}, rgba(0, 5, 12, 100), 25);
+    c.fillRect({1278, 189, 586, 762}, rgba(0, 5, 12, 105), 25);
+    c.fillRect({76, 181, 1180, 756}, rgba(11, 28, 43, 235), 22);
+    c.strokeRect({76, 181, 1180, 756}, rgba(124, 191, 210, 64), 1, 22);
+    c.fillRect({1287, 181, 570, 756}, rgba(10, 26, 40, 244), 22);
+    c.strokeRect({1287, 181, 570, 756}, rgba(135, 195, 210, 68), 1, 22);
+    c.gradientH({94, 184, 530, 2}, rgba(112, 224, 239, 148), rgba(112, 224, 239, 0));
+    c.gradientH({1306, 184, 320, 2}, rgba(112, 224, 239, 126), rgba(112, 224, 239, 0));
+    c.fillRect({95, 201, 3, 52}, rgba(102, 214, 237, 140), 2);
+    c.fillRect({1307, 201, 3, 52}, rgba(102, 214, 237, 130), 2);
     drawTopBar(c);
 
     // Back button next to Settings title for touch navigation
@@ -1253,14 +1263,13 @@ void AppUi::drawSettings(Canvas& c) {
     c.line(bx + 4.0f, by - 9.0f, bx - 4.0f, by, 3.0f, kWhite);
     c.line(bx - 4.0f, by, bx + 4.0f, by + 9.0f, 3.0f, kWhite);
 
-    // Settings page title sits BELOW the fixed Premium Preview navigation
-    // bar. The existing back button and every settings row stay in place.
-    fonts_.bold.draw(c, tr(Str::Settings), kMargin + 72, 131, 42, kWhite);
-    fonts_.semibold.draw(c, "NIMBOX  /  PREFERENCIAS", 1305, 134, 18,
-                         rgba(170, 203, 197));
-    fonts_.regular.draw(c, "Seu ambiente. Sua colecao.", 103, 206, 22, rgba(203, 221, 220));
-    fonts_.regular.draw(c, "Configuracoes do aplicativo e personalizacao visual", 103, 231,
-                        17, rgba(150, 176, 176));
+    // Editorial page header; the back and Settings targets remain intact.
+    fonts_.bold.draw(c, tr(Str::Settings), kMargin + 72, 127, 44, kWhite);
+    fonts_.semibold.draw(c, "NIMBOX  /  CONSOLE EXPERIENCE", 1306, 136, 16,
+                         rgba(142, 197, 214));
+    fonts_.bold.draw(c, "SEU ESPACO, SUAS REGRAS", 112, 203, 19, rgba(233, 247, 249));
+    fonts_.regular.draw(c, "Ajustes do sistema e experiencias personalizadas", 112, 229,
+                        17, rgba(145, 180, 191));
     if (loading_) {
         drawLoadingBar(c, kW - kMargin - 480, 100, 480, lastRender_);
     }
@@ -1280,13 +1289,34 @@ void AppUi::drawSettings(Canvas& c) {
     Rect rows[kSettingRows];  // by row id
     int y = kListTop - static_cast<int>(std::lround(settingsScrollY_));
     c.setClip({kMargin - 8, kClipTop, kRowW + 16, kSettingsListBottom - kClipTop});
-    for (const auto& [i, groupStart] : visibleSettingsRows(caps_)) {  // what caps_ rules out is hidden
+    // Draw each section as a single layered surface. Row IDs and hitboxes
+    // are unchanged; this only affects the software-rendered presentation.
+    const auto visibleRows = visibleSettingsRows(caps_);
+    int sectionY = y;
+    for (size_t first = 0; first < visibleRows.size();) {
+        if (visibleRows[first].groupStart) sectionY += kGroupGap;
+        size_t end = first + 1;
+        while (end < visibleRows.size() && !visibleRows[end].groupStart) ++end;
+        const int count = static_cast<int>(end - first);
+        Rect slab{kMargin + 3, sectionY - 4, kRowW - 6,
+                  count * (kRowH + kGap) - kGap + 8};
+        c.fillRect(slab, rgba(5, 19, 33, 156), 14);
+        c.strokeRect(slab, rgba(138, 181, 195, 40), 1, 14);
+        c.line(slab.x + 18.0f, slab.y + 1.0f, slab.x + slab.w - 18.0f,
+               slab.y + 1.0f, 1.0f, rgba(170, 220, 232, 23));
+        sectionY += count * (kRowH + kGap);
+        first = end;
+    }
+    for (const auto& [i, groupStart] : visibleRows) {  // what caps_ rules out is hidden
         if (groupStart) {
             const char* group = i == 1 ? "TRANSMISSAO E IMAGEM" :
                                 i == 14 ? "CONTROLES E ACESSIBILIDADE" :
                                 i == 19 ? "MANUTENCAO" :
                                 i == nimbox_theme::kAppearanceFirst ? "APARENCIA NIMBOX" : "PREFERENCIAS";
-            fonts_.bold.draw(c, group, kMargin + 18, y + 7, 17, rgba(156, 192, 178));
+            c.fillRect({kMargin + 5, y + 7, 4, 18}, cyan, 2);
+            fonts_.bold.draw(c, group, kMargin + 21, y + 7, 17, rgba(159, 212, 228));
+            c.line(kMargin + 360.0f, y + 16.0f, kMargin + kRowW - 18.0f,
+                   y + 16.0f, 1.0f, rgba(141, 196, 209, 30));
             y += kGroupGap;
         }
         Rect r{kMargin, y, kRowW, kRowH};
@@ -1296,9 +1326,11 @@ void AppUi::drawSettings(Canvas& c) {
 
         if (i == 23) {
             // Restore factory defaults button: red background
-            Color redBg = focused ? rgba(220, 38, 38, 255) : rgba(185, 28, 28, 220);
-            c.fillRect(r, redBg, 12);
-            if (focused && !dropdownOpen_) c.strokeRect({r.x - 4, r.y - 4, r.w + 8, r.h + 8}, kWhite, 3, 16);
+            Color redBg = focused ? rgba(137, 48, 58, 240) : rgba(76, 35, 44, 158);
+            c.fillRect({r.x + 5, r.y + 1, r.w - 10, r.h - 2}, redBg, 10);
+            c.strokeRect({r.x + 5, r.y + 1, r.w - 10, r.h - 2},
+                         focused ? rgba(251, 137, 147, 220) : rgba(208, 106, 117, 60),
+                         focused ? 2 : 1, 10);
 
             // Progress fill animation when holding Cross/accept
             if (focused && resetSettingsHoldStart_ > 0) {
@@ -1313,10 +1345,23 @@ void AppUi::drawSettings(Canvas& c) {
             int textX = r.x + (r.w - textW) / 2;
             fonts_.bold.draw(c, labels[i], textX, ty, kRowPx, kWhite);
         } else {
-            c.fillRect(r, focused ? rgba(38, 78, 67, 234) : rgba(23, 41, 49, 165), 10);
-            c.strokeRect(r, focused ? rgba(161, 221, 177, 196) : rgba(134, 172, 169, 40),
-                         focused && !dropdownOpen_ ? 2 : 1, 10);
-            fonts_.semibold.draw(c, labels[i], r.x + 32, ty, kRowPx, kWhite);
+            // Only the focused row becomes an illuminated card; resting
+            // rows share a subtle category surface instead of flat blocks.
+            c.fillRect({r.x + 5, r.y + 1, r.w - 10, r.h - 2},
+                       focused ? rgba(33, 85, 113, 226) : rgba(20, 43, 57, 35), 10);
+            if (focused) {
+                c.gradientH({r.x + 11, r.y + 4, 220, r.h - 8},
+                            rgba(96, 181, 213, 72), rgba(96, 181, 213, 0));
+                c.fillRect({r.x + 6, r.y + 5, 4, r.h - 10}, cyan, 2);
+                c.strokeRect({r.x + 5, r.y + 1, r.w - 10, r.h - 2},
+                             dropdownOpen_ ? rgba(104, 210, 235, 115) : rgba(143, 232, 248, 218),
+                             dropdownOpen_ ? 1 : 2, 10);
+            } else {
+                c.line(r.x + 31.0f, r.y + r.h, r.x + r.w - 31.0f,
+                       r.y + r.h, 1.0f, rgba(161, 196, 204, 25));
+            }
+            fonts_.semibold.draw(c, labels[i], r.x + 32, ty, kRowPx,
+                                 focused ? kWhite : rgba(217, 231, 237));
             float cx = static_cast<float>(r.x + r.w - 40), cy = static_cast<float>(r.y + r.h / 2);
             const bool isSubmenuRow = (i == 3 || i == 4 || i == 12 || i == 14 || i == 15);
             if (isSubmenuRow) {
@@ -1429,12 +1474,14 @@ void AppUi::drawSettings(Canvas& c) {
             : settingsRow_ == nimbox_theme::kAppearanceMotion
             ? "Reduz animacoes de capas e do disco."
             : tr(kSettingDescs[settingsRow_]);
-        auto lines = fonts_.regular.wrap(desc, 18, kRowW - 40, 2);
-        // Dedicated explanation area inside the left panel, not below it.
-        const int hintBaseline = 904;
+        c.fillRect({100, 869, 1132, 59}, rgba(5, 17, 30, 204), 13);
+        c.strokeRect({100, 869, 1132, 59}, rgba(126, 183, 204, 51), 1, 13);
+        c.fillRect({101, 883, 4, 30}, cyan, 2);
+        auto lines = fonts_.regular.wrap(desc, 18, kRowW - 66, 2);
+        const int hintBaseline = 902;
         int dy = (lines.size() > 1) ? (hintBaseline - 26) : hintBaseline;
         for (const auto& line : lines) {
-            fonts_.regular.draw(c, line, kMargin, dy, 22, kDim);
+            fonts_.regular.draw(c, line, kMargin + 25, dy, 21, rgba(172, 205, 219));
             dy += 26;
         }
     }
@@ -1443,24 +1490,32 @@ void AppUi::drawSettings(Canvas& c) {
     // Preserve the existing remote Web UI QR underneath — do not replace it
     // with demonstration features from the HTML prototype.
     if (tester_ == Tester::None && !pickerOpen_) {
-        fonts_.bold.draw(c, "Ambiente Nimbox", 1328, 207, 29, kWhite);
-        fonts_.regular.draw(c, "Personalize o fundo da sua colecao", 1328, 250,
-                            17, rgba(173, 200, 197));
+        fonts_.bold.draw(c, "Ambiente Nimbox", 1328, 204, 30, kWhite);
+        fonts_.regular.draw(c, "Escolha a atmosfera da sua colecao", 1328, 245,
+                            17, rgba(152, 189, 201));
+        c.fillRect({1310, 272, 524, 225}, rgba(4, 17, 31, 150), 16);
+        c.strokeRect({1310, 272, 524, 225}, rgba(138, 202, 217, 48), 1, 16);
+        fonts_.semibold.draw(c, "CENARIOS   /   05", 1328, 278, 13, rgba(127, 205, 226));
         for (int i = 0; i < nimbox_theme::kThemeCount; ++i) {
             const auto& theme = nimbox_theme::kPalettes[i];
             const Rect card = nimbox_theme::kThemeCards[i];
             const bool selected = i == settings_.nimboxTheme;
+            c.fillRect({card.x + 1, card.y + 3, card.w, card.h}, rgba(0, 0, 0, 80), 9);
             c.gradientV(card, theme.sky, theme.low);
-            // High contrast ink band ensures every swatch is readable,
-            // even Infinity Light's near-white upper area.
+            c.fillCircle(card.x + card.w - 51.0f, card.y + 8.0f, 31.0f,
+                         withAlpha(theme.accent, selected ? 142 : 78));
+            c.line(card.x + 12.0f, card.y + 28.0f, card.x + card.w - 13.0f,
+                   card.y + 28.0f, 1.0f, rgba(225, 250, 252, 68));
             c.fillRect({card.x, card.y + card.h - 31, card.w, 31},
-                       rgba(5, 21, 32, 198), 7);
-            c.strokeRect(card, selected ? rgba(208, 249, 216, 230) :
-                         rgba(160, 183, 186, 65), selected ? 3 : 1, 8);
+                       rgba(5, 18, 33, 205), 7);
+            c.strokeRect(card, selected ? rgba(172, 241, 249, 245) :
+                         rgba(147, 186, 200, 92), selected ? 3 : 1, 9);
+            if (selected) c.fillRect({card.x + 9, card.y + card.h - 4,
+                                      card.w - 18, 3}, rgba(118, 228, 239, 210), 1);
             fonts_.semibold.draw(c, theme.name, card.x + 13,
                                  card.y + card.h - 27, 17, kWhite);
             if (selected) c.fillCircle(card.x + card.w - 17, card.y + 13,
-                                       5.0f, rgba(217, 255, 221));
+                                       5.0f, rgba(225, 255, 255));
         }
         const std::string refl = std::to_string(settings_.nimboxReflection) + "%";
         fonts_.semibold.draw(c, "Reflexo do piso", 1330, 502, 19, kWhite);
@@ -1468,28 +1523,37 @@ void AppUi::drawSettings(Canvas& c) {
                              1800 - fonts_.semibold.measure(refl, 18), 502,
                              18, rgba(189, 220, 202));
         const Rect track = nimbox_theme::kReflectionTrack;
-        c.fillRect(track, rgba(64, 82, 89), 6);
-        c.fillRect({track.x, track.y,
+        c.fillRect({track.x, track.y + 2, track.w, track.h - 4}, rgba(55, 83, 101), 5);
+        c.fillRect({track.x, track.y + 2,
                     track.w * nimbox_theme::clampReflection(settings_.nimboxReflection) / 100,
-                    track.h}, rgba(130, 193, 155), 6);
+                    track.h - 4}, rgba(93, 204, 230), 5);
         const float thumbX = static_cast<float>(track.x) +
                              track.w * nimbox_theme::clampReflection(settings_.nimboxReflection) / 100.0f;
-        c.fillCircle(thumbX, track.y + track.h / 2.0f, 11.0f, rgba(219, 241, 224));
+        c.fillCircle(thumbX, track.y + track.h / 2.0f, 13.0f, rgba(69, 145, 173, 68));
+        c.fillCircle(thumbX, track.y + track.h / 2.0f, 8.0f, rgba(221, 249, 254));
         fonts_.semibold.draw(c, "Reduzir movimento", 1330, 599, 19, kWhite);
         const Rect motion = nimbox_theme::kReducedMotionButton;
-        c.fillRect(motion, settings_.nimboxReducedMotion ? rgba(44, 107, 69) :
-                   rgba(34, 61, 70), 10);
-        c.strokeRect(motion, rgba(165, 208, 180, 106), 1, 10);
+        c.fillRect(motion, settings_.nimboxReducedMotion ? rgba(24, 89, 108) :
+                   rgba(24, 53, 72), 22);
+        c.strokeRect(motion, settings_.nimboxReducedMotion ? rgba(123, 229, 243, 185) :
+                     rgba(124, 172, 191, 90), 1, 22);
         const char* motionLabel = settings_.nimboxReducedMotion ? "Ligado" : "Desligado";
+        const int knobX = settings_.nimboxReducedMotion ? motion.x + motion.w - 22 : motion.x + 22;
+        c.fillCircle(knobX, motion.y + motion.h / 2.0f, 15.0f,
+                     settings_.nimboxReducedMotion ? rgba(127, 235, 245) : rgba(123, 150, 169));
         fonts_.semibold.draw(c, motionLabel,
-                             motion.x + (motion.w - fonts_.semibold.measure(motionLabel, 18)) / 2,
+                             settings_.nimboxReducedMotion ? motion.x + 27 : motion.x + 49,
                              motion.y + 12, 18, kWhite);
 
         // Real, previously available web-control QR. Shrink only its layout;
         // the URL and service remain exactly as they were.
         Rect remotePanel{1310, 656, 523, 250};
-        c.fillRect(remotePanel, rgba(7, 22, 32, 180), 14);
-        c.strokeRect(remotePanel, rgba(164, 193, 189, 50), 1, 14);
+        c.fillRect({remotePanel.x + 3, remotePanel.y + 7, remotePanel.w,
+                    remotePanel.h}, rgba(0, 5, 13, 75), 16);
+        c.fillRect(remotePanel, rgba(6, 20, 34, 228), 16);
+        c.strokeRect(remotePanel, rgba(118, 181, 205, 75), 1, 16);
+        c.fillRect({remotePanel.x + 1, remotePanel.y + 25, 3, 61},
+                   rgba(102, 218, 238, 166), 2);
         fonts_.bold.draw(c, tr(Str::WebControlTitle), 1330, 672, 21, kWhite);
         std::string qrUrl = !webUrl_.empty() ? webUrl_ :
                             "http://" + platform::localIPv4() + ":8080";
