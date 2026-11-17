@@ -5,6 +5,7 @@
 #include "ui/app_ui_internal.h"
 #include "ui/cloud_time.h"
 #include "ui/box_carousel.h"
+#include "ui/collection_case_finish.h"
 
 #include <algorithm>
 
@@ -1122,77 +1123,77 @@ void AppUi::drawNimboxCarousel(Canvas& c, uint64_t nowMs) {
         // Only soft contact shadows. The dark bars in the earlier prototype
         // looked like dividers, unlike a continuous reflective collection floor.
         const int shadowW = static_cast<int>(g.w + 8);
-        c.fillRect({static_cast<int>(g.x) - 2, 712, shadowW, focused ? 8 : 5},
+        // Contact shadow follows the projected base rather than an arbitrary
+        // desktop-only trapezoid, while staying above the reflective floor.
+        const int shadowY = std::clamp(static_cast<int>(
+            std::max(g.front.bl.y, g.front.br.y) + 9.0f), 620, 732);
+        c.fillRect({static_cast<int>(g.x) - 2, shadowY, shadowW, focused ? 8 : 5},
                    rgba(0, 0, 0, focused ? 60 : 32), 8);
-        // The case has a translucent jewel-box spine, a rim and inset printed insert.
-        c.fillQuad(g.spine, rgba(47, 95, 108));
-        c.line(g.spine.tl.x, g.spine.tl.y, g.spine.bl.x, g.spine.bl.y, 2.0f, rgba(204, 245, 249, 125));
-        c.fillQuad(g.front, rgba(26, 48, 61));
-
-        const Quad strip = nimbox::verticalSlice(g.front, 0.012f, 0.105f);
-        // A real title's platform metadata takes priority; avoid inventing
-        // 'Xbox 360' packaging for games where the platform is unknown.
-        const bool xboxPlatform = tile.platform == "360" || tile.platform == "ONE" || tile.platform == "XS";
-        c.fillQuad(strip, xboxPlatform ? rgba(226, 240, 233) : rgba(185, 227, 232));
-        const Quad art = nimbox::verticalSlice(g.front, 0.11f, 0.78f);
-        // Catalog thumbnails are square; preserve their full composition in a
-        // square-ish printed insert, rather than cutting off the game's title.
-        // Ask for a larger cached decode on the selected case. This helps
-        // texture detail when the catalog provides a high-resolution source;
-        // it cannot recover detail absent from the remote artwork itself.
+        // Keep the rigid projected 3D cuboid and camera from PR #10. Only
+        // its material layers change: matte/translucent Xbox-green plastic.
+        nimbox::finish::drawShell(c, g, focused);
+        const Quad art = nimbox::finish::imageSlot(g);
+        // The xCloud catalogue remains the exclusive source of cover art.
+        // No static LEGO Worlds image or bundled game-cover placeholder.
         const int artSize = focused ? 512 : (d <= 2 ? 256 : 128);
         auto coverImage = images_.get(tile.tileUrl, artSize, artSize);
         if (coverImage) {
             c.drawImageQuad(*coverImage, art,
                             focused ? 255 : static_cast<uint8_t>(std::max(138, 246 - d * 17)));
         } else {
-            c.fillQuad(art, rgba(49, 78, 91));
+            c.fillQuad(art, rgba(26, 55, 43));
         }
-        const Quad footer = nimbox::verticalSlice(g.front, 0.78f, 0.985f);
-        c.fillQuad(footer, rgba(16, 34, 45));
-        c.line(g.front.tl.x, g.front.tl.y, g.front.tr.x, g.front.tr.y, 2.0f,
-               rgba(233, 251, 251, 110));
-        c.line(g.front.tl.x, g.front.tl.y, g.front.bl.x, g.front.bl.y, 2.0f,
-               rgba(232, 250, 252, focused ? 210 : 110));
-        c.line(g.front.tr.x, g.front.tr.y, g.front.br.x, g.front.br.y, 2.0f,
-               rgba(26, 33, 38, 240));
-        c.line(g.front.bl.x, g.front.bl.y, g.front.br.x, g.front.br.y, 2.0f,
-               rgba(4, 11, 16, 220));
+        nimbox::finish::drawGlaze(c, g, focused);
 
-        // Even a mostly side-facing case retains a readable book-style spine.
-        if (offset != 0 && std::fabs(nimboxSlide_.value) < 800.0f) {
-            const float spineX = offset < 0 ? g.spine.tl.x : g.front.tr.x;
-            const int labelX = static_cast<int>(spineX) + 8;
-            int labelY = static_cast<int>(g.y) + 67;
-            for (char ch : tile.name) {
-                if (labelY > g.y + g.h - 45) break;
-                if (static_cast<unsigned char>(ch) < 32 ||
-                    static_cast<unsigned char>(ch) > 126) continue;
-                if (ch == ' ') { labelY += 9; continue; }
-                fonts_.semibold.draw(c, std::string(1, ch), labelX, labelY, 13,
-                                     rgba(225, 245, 242, 210));
-                labelY += 16;
-            }
+        // Official-style Xbox packaging banner, not the Nimbox app logo.
+        // When the platform generation is absent we say XBOX, never guess ONE.
+        if (d <= 1 && g.w >= 116.0f) {
+            const char* generation = tile.platform == "360" ? "XBOX 360" :
+                                     tile.platform == "ONE" ? "XBOX ONE" :
+                                     tile.platform == "XS" ? "XBOX SERIES" : "XBOX";
+            const int px = focused ? 23 : 15;
+            const float r = focused ? 15.0f : 9.0f;
+            const int labelW = fonts_.bold.measure(generation, px);
+            const float groupW = r * 2.0f + 9.0f + static_cast<float>(labelW);
+            const Point topMid = nimbox::between(g.front.tl, g.front.tr, 0.5f);
+            const Point botMid = nimbox::between(g.front.bl, g.front.br, 0.5f);
+            const Point bannerMid = nimbox::between(topMid, botMid, 0.075f);
+            const float cx = bannerMid.x - groupW * 0.5f + r;
+            const float cy = bannerMid.y;
+            nimbox::finish::drawXboxOrb(c, cx, cy, r);
+            fonts_.bold.draw(c, generation, static_cast<int>(cx + r + 9.0f),
+                             static_cast<int>(cy - px * 0.55f), px,
+                             nimbox::finish::kPrintWhite);
         }
-        if (d <= 1) {
-            const int textX = static_cast<int>(g.x) + (focused ? 17 : 12);
-            const int bandY = static_cast<int>(g.y + (offset < 0 ? (focused ? 0 : 18) : 2));
-            // Nimbox is the case identity. Only show an Xbox generation when
-            // it is present in the real catalog metadata.
-            c.fillCircle(textX + 9, bandY + 21, focused ? 11 : 8, rgba(18, 91, 119));
-            fonts_.semibold.draw(c, "N", textX + (focused ? 3 : 5),
-                                 bandY + (focused ? 10 : 12), focused ? 16 : 12, kWhite);
-            const char* platformName = tile.platform == "360" ? "XBOX 360" :
-                                       tile.platform == "ONE" ? "XBOX ONE" :
-                                       tile.platform == "XS" ? "XBOX SERIES" : "NIMBOX";
-            fonts_.bold.draw(c, platformName, textX + (focused ? 26 : 22), bandY + 11,
-                             focused ? 20 : 14, rgba(17, 53, 51));
-            const auto lines = fonts_.bold.wrap(tile.name, focused ? 24 : 16,
-                                                 static_cast<int>(g.w) - 30, 2);
-            for (size_t line = 0; line < lines.size(); ++line) {
-                fonts_.bold.draw(c, lines[line], textX, static_cast<int>(g.y + g.h * 0.80f) +
-                                 9 + static_cast<int>(line) * (focused ? 31 : 21),
-                                 focused ? 24 : 16, kWhite);
+
+        // Minimal printed title below the inset artwork; the rest of the
+        // front is occupied by the game's actual artwork, not fake retail art.
+        if (d <= 1 && g.w > 130.0f) {
+            const int px = focused ? 20 : 15;
+            const Point titleBase = nimbox::between(g.front.tl, g.front.bl, 0.910f);
+            const std::string name = fonts_.semibold.fit(tile.name, px,
+                                                          std::max(80, static_cast<int>(g.w) - 32));
+            fonts_.semibold.draw(c, name, static_cast<int>(titleBase.x + 15.0f),
+                                 static_cast<int>(titleBase.y - px * 0.57f), px,
+                                 nimbox::finish::kPrintWhite);
+        }
+
+        // White vertical title printing on the visible green spine.
+        // Derive its horizontal centre from the projected side face.
+        if (offset != 0 && d <= 3 && std::fabs(nimboxSlide_.value) < 800.0f) {
+            const float sx = (g.spine.tl.x + g.spine.tr.x +
+                              g.spine.br.x + g.spine.bl.x) * 0.25f;
+            int sy = static_cast<int>(std::min(g.spine.tl.y, g.spine.tr.y) + 42.0f);
+            const int bottomY = static_cast<int>(std::max(g.spine.bl.y, g.spine.br.y) - 22.0f);
+            for (const unsigned char ch : tile.name) {
+                if (sy + 15 > bottomY) break;
+                if (ch == ' ') { sy += 9; continue; }
+                if (ch < 33 || ch > 126) continue;
+                const std::string glyph(1, static_cast<char>(ch));
+                const int width = fonts_.semibold.measure(glyph, 12);
+                fonts_.semibold.draw(c, glyph, static_cast<int>(sx - width * 0.5f),
+                                     sy, 12, rgba(235, 255, 226));
+                sy += 15;
             }
         }
         // Subtle inverted game-art reflection below the cases. Images are
@@ -1213,11 +1214,11 @@ void AppUi::drawNimboxCarousel(Canvas& c, uint64_t nowMs) {
         // belongs to the original catalog, with no made-up physical covers.
         if (d > 1) c.fillQuad(g.front, rgba(6, 15, 24, static_cast<uint8_t>(std::min(110, d * 14))));
         if (focused) {
-            const Color edge = rgba(146, 226, 234, 170);
+            const Color edge = rgba(184, 252, 156, 166);
             c.line(g.front.tl.x, g.front.tl.y, g.front.tr.x, g.front.tr.y, 2.0f, edge);
             c.line(g.front.tl.x, g.front.tl.y, g.front.bl.x, g.front.bl.y, 2.0f, edge);
             c.line(g.front.tr.x, g.front.tr.y, g.front.br.x, g.front.br.y, 2.0f, edge);
-            if (!tile.playable) drawLock(c, static_cast<int>(g.x + g.w - 34), static_cast<int>(g.y + 80));
+            if (!tile.playable) drawLock(c, static_cast<int>(g.x + g.w - 34), static_cast<int>(g.y + g.h * 0.23f));
         }
     };
 
@@ -1546,32 +1547,43 @@ void AppUi::drawDetails(Canvas& c, uint64_t nowMs) {
     if (nimboxCarousel_ && tab_ == Tab::GamePass && !g->purchasable) {
         fonts_.semibold.draw(c, "NIMBOX  /  COLECAO VIVA", kMargin, 201, 20,
                              rgba(92, 226, 246));
+        // Details screen inherits the SAME matte-green material library as
+        // the carousel. Existing details geometry, Play and hit targets remain.
         const Quad spine{{1212.0f, 244.0f}, {1245.0f, 227.0f},
                          {1245.0f, 631.0f}, {1212.0f, 615.0f}};
         const Quad front{{1245.0f, 227.0f}, {1502.0f, 235.0f},
                          {1502.0f, 622.0f}, {1245.0f, 631.0f}};
+        const Point backRight{front.tr.x + (spine.tl.x - front.tl.x),
+                              front.tr.y + (spine.tl.y - front.tl.y)};
+        nimbox::CaseGeometry caseFace;
+        caseFace.front = front;
+        caseFace.spine = spine;
+        caseFace.top = {spine.tl, backRight, front.tr, front.tl};
         c.fillRect({1223, 635, 292, 15}, rgba(2, 8, 18, 112), 8);
-        c.fillQuad(spine, rgba(37, 91, 114));
-        c.fillQuad(front, rgba(10, 32, 52));
-        const Quad label = nimbox::verticalSlice(front, 0.014f, 0.11f);
-        c.fillQuad(label, rgba(14, 68, 93));
-        fonts_.bold.draw(c, "NIMBOX", 1281, 248, 23, rgba(240, 254, 255));
-        const Quad picture = nimbox::verticalSlice(front, 0.116f, 0.79f);
+        nimbox::finish::drawShell(c, caseFace, true);
         if (auto art = images_.get(g->tileUrl, 384, 384)) {
-            c.drawImageQuad(*art, picture);
+            c.drawImageQuad(*art, nimbox::finish::imageSlot(caseFace));
         } else {
-            c.fillQuad(picture, rgba(31, 75, 104));
+            c.fillQuad(nimbox::finish::imageSlot(caseFace), rgba(26, 55, 43));
         }
-        const Quad footer = nimbox::verticalSlice(front, 0.79f, 0.986f);
-        c.fillQuad(footer, rgba(9, 26, 44));
-        const std::string caseName = fonts_.semibold.fit(g->name, 19, 229);
-        fonts_.semibold.draw(c, caseName, 1260, 561, 19, kWhite);
-        c.line(1245.0f, 227.0f, 1245.0f, 631.0f, 3.0f,
-               rgba(137, 229, 246, 205));
-        c.line(1245.0f, 227.0f, 1502.0f, 235.0f, 3.0f,
-               rgba(154, 236, 250, 210));
-        c.line(1502.0f, 235.0f, 1502.0f, 622.0f, 2.0f,
-               rgba(101, 214, 236, 132));
+        nimbox::finish::drawGlaze(c, caseFace, true);
+        const char* generation = g->platform == "360" ? "XBOX 360" :
+                                 g->platform == "ONE" ? "XBOX ONE" :
+                                 g->platform == "XS" ? "XBOX SERIES" : "XBOX";
+        const int brandPx = 20;
+        constexpr float orbR = 13.0f;
+        const int totalW = static_cast<int>(orbR * 2.0f + 8.0f) +
+                           fonts_.bold.measure(generation, brandPx);
+        const float brandCx = (front.tl.x + front.tr.x) * 0.5f;
+        const int badgeX = static_cast<int>(brandCx - totalW * 0.5f);
+        const float badgeY = 252.0f;
+        nimbox::finish::drawXboxOrb(c, badgeX + orbR, badgeY, orbR);
+        fonts_.bold.draw(c, generation, badgeX + static_cast<int>(orbR * 2.0f + 8.0f),
+                         static_cast<int>(badgeY - 12.0f), brandPx,
+                         nimbox::finish::kPrintWhite);
+        const std::string caseName = fonts_.semibold.fit(g->name, 19, 226);
+        fonts_.semibold.draw(c, caseName, 1262, 579, 19,
+                             nimbox::finish::kPrintWhite);
         drawNimboxDisc(c, *g, nowMs);
     }
     int y = 260;

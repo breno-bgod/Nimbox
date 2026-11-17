@@ -338,7 +338,7 @@ int desktopSelftest(const std::string& dir) {
         ui.handle(back);
     }
 
-    // Colecao Viva: render the native 2.5D view with synthetic local
+    // Colecao Viva: render the native projected 3D cases with synthetic local
     // catalog data. No network, account or xCloud stream is used by this
     // visual regression capture; real game art is validated separately.
     {
@@ -352,6 +352,9 @@ int desktopSelftest(const std::string& dir) {
             tile.titleId = "cv-title-" + std::to_string(i);
             tile.name = names[i];
             tile.publisher = "Nimbox visual selftest";
+            // Exercise branded packaging by generation, not by guessing it
+            // in the production catalog when metadata is missing.
+            tile.platform = i == 0 ? "ONE" : (i == 1 ? "XS" : (i == 2 ? "360" : ""));
             tile.playable = true;
             showcase.tiles.push_back(std::move(tile));
         }
