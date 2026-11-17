@@ -7292,9 +7292,11 @@ static void testDesktopMouseNav() {
         CHECK(evWheel.action == ui::Action::None);
     }
 
-    // 7. Avatar / profile click opens Settings screen
+    // 7. The account avatar opens Profile; Settings uses the separate gear.
     {
-        auto evClick = uiApp.onMouseDown(1920 - 96 - 20, 60.0f, 1);
+        uiApp.onMouseDown(1765.0f, 60.0f, 1);
+        CHECK(uiApp.screen() == ui::Screen::Profile);
+        uiApp.onMouseDown(1850.0f, 60.0f, 1);
         CHECK(uiApp.screen() == ui::Screen::Settings);
     }
 
@@ -11502,11 +11504,16 @@ static void testWorkerMobileM4Features() {
 
         // Touch drag in Settings
         ui.showHome();
-        // Tap settings touch button at Rect{kW - kMargin - 52, 46, 52, 52} -> (1772, 46)
-        app::shell::TouchEvent evSettingsTapDown{app::shell::TouchEvent::Kind::Down, 1, 1780.0f, 60.0f};
-        ui.onTouch(evSettingsTapDown);
-        app::shell::TouchEvent evSettingsTapUp{app::shell::TouchEvent::Kind::Up, 1, 1780.0f, 60.0f};
-        ui.onTouch(evSettingsTapUp);
+        // The avatar is a separate Profile target; the gear stays Settings.
+        app::shell::TouchEvent evProfileDown{app::shell::TouchEvent::Kind::Down, 1, 1780.0f, 60.0f};
+        ui.onTouch(evProfileDown);
+        app::shell::TouchEvent evProfileUp{app::shell::TouchEvent::Kind::Up, 1, 1780.0f, 60.0f};
+        ui.onTouch(evProfileUp);
+        CHECK(ui.screen() == xc::ui::Screen::Profile);
+        app::shell::TouchEvent evSettingsDown{app::shell::TouchEvent::Kind::Down, 2, 1850.0f, 60.0f};
+        ui.onTouch(evSettingsDown);
+        app::shell::TouchEvent evSettingsUp{app::shell::TouchEvent::Kind::Up, 2, 1850.0f, 60.0f};
+        ui.onTouch(evSettingsUp);
         CHECK(ui.screen() == xc::ui::Screen::Settings);
 
         // Touch drag downwards inside Settings
