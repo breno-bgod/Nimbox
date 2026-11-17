@@ -250,11 +250,16 @@ void AppUi::handleHome(const NavInput& in, UiEvent& ev) {
             if (genres.empty()) break;
             const int count = static_cast<int>(genres.size());
             if (genreGameFocus_ < 0) {
-                int previous = genreFocus_;
+                const int previous = genreFocus_;
                 if (in.left && genreFocus_ > 0) --genreFocus_;
                 if (in.right && genreFocus_ + 1 < count) ++genreFocus_;
+                if (in.up && genreFocus_ >= 3) genreFocus_ -= 3;
+                // Genres are presented in two rows of three. Down moves
+                // between genre rows before entering the selected game's grid.
+                if (in.down && genreFocus_ + 3 < count) genreFocus_ += 3;
                 if (previous != genreFocus_) dirty_ = true;
-                if ((in.down || in.accept) && !genreGames().empty()) {
+                const bool bottomRow = genreFocus_ + 3 >= count;
+                if ((in.accept || (in.down && bottomRow && previous == genreFocus_)) && !genreGames().empty()) {
                     genreGameFocus_ = 0;
                     dirty_ = true;
                 }
