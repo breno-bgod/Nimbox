@@ -23,19 +23,20 @@ constexpr int kFooterTop = 1018;
 constexpr int kFocusNameY = 711;
 constexpr int kFocusMetaY = 765;
 constexpr int kPageMargin = 96;
-// Existing CTA and its pointer hitbox share this coordinate. Only move
-// together; never draw an inert button elsewhere.
-constexpr Rect kDetailsCta{756, 806, 408, 52};
+// Deprecated redundant Home CTA: an empty rectangle intentionally disables
+// its legacy pointer hitbox without touching input handlers. The projected
+// physical case is the ONLY Details entry point from the carousel.
+constexpr Rect kDetailsCta{0, 0, 0, 0};
 
 constexpr Color kSky = rgba(15, 48, 72);
 constexpr Color kStudioLow = rgba(8, 32, 53);
 constexpr Color kShelfBg = rgba(9, 30, 48);
 constexpr Color kGlass = rgba(11, 37, 56, 194);
-constexpr Color kGlassLine = rgba(159, 220, 238, 66);
+constexpr Color kGlassLine = rgba(156, 186, 194, 60);
 constexpr Color kText = rgba(238, 249, 255);
 constexpr Color kMuted = rgba(180, 205, 220);
-constexpr Color kAccent = rgba(125, 226, 249);
-constexpr Color kSelect = rgba(177, 251, 243);
+constexpr Color kAccent = rgba(171, 199, 207);
+constexpr Color kSelect = rgba(219, 235, 232);
 
 inline void glassPanel(Canvas& c, Rect r, int radius = 18) {
     c.fillRect(r, kGlass, radius);
