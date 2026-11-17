@@ -5,6 +5,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <utility>
 #include <vector>
 
@@ -15,6 +16,8 @@ struct AVPacket;
 #include "media/hw_decoder.h"
 
 namespace xc::media {
+
+class AndroidWebRtcDecoder;
 
 // A decoded picture in planar YUV 4:2:0 or semi-planar NV12; the planes stay
 // valid until the next call to VideoDecoder::decode.
@@ -104,7 +107,7 @@ public:
     // frame of latency per thread).
     // `preferHw` enables hardware video decoding (libSceVideodec2 on PS5,
     // FFmpeg HWAccel on Desktop) with automatic software CPU fallback.
-    bool init(int threads = 1, bool preferHw = true);
+    bool init(int threads = 1, bool preferHw = true, bool androidWebRtcVideo = false);
     // One Annex-B access unit in; true with `out` filled when a picture is
     // ready. A false return without a picture is normal at stream start.
     // `tag` travels with the access unit and comes back on its picture
@@ -120,6 +123,7 @@ public:
     double lastQp() const { return lastQp_; }
     // Whether hardware acceleration is currently active.
     bool isHardware() const { return isHw_; }
+    bool isAndroidWebRtc() const { return androidWebRtcActive_; }
     // The hardware path's last decode() (measurements only): the decoder's
     // own decode and flush calls, and the QP parse before them (-1 when the
     // frame was not parsed).
@@ -140,6 +144,13 @@ private:
     void* hwDeviceCtx_ = nullptr;  // AVBufferRef*
     int hwPixFmt_ = -1;           // enum AVPixelFormat
     HwDecoder hw_;
+#if defined(__ANDROID__)
+    std::unique_ptr<AndroidWebRtcDecoder> androidWebRtc_;
+#endif
+    bool androidWebRtcActive_ = false;
+    int androidWebRtcPending_ = 0;
+    int androidWebRtcErrors_ = 0;
+    int initThreads_ = 1;
     H264BitstreamParser h264Parser_;
     bool preferHw_ = true;
     bool isHw_ = false;
