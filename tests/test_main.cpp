@@ -7478,7 +7478,7 @@ static void testDesktopMouseNav() {
     {
         // Language row (row 0) starts at kSettingsListTop, currently 258.
         // The header above it is not a selectable setting.
-        const float languageY = static_cast<float>(xc::ui::kSettingsListTop + 14);
+        const float languageY = 272.0f;  // Settings visual row 0: top 258 + 14
         auto evClick = uiApp.onMouseDown(200.0f, languageY, 1);
         // First right click closes the dropdown
         auto evClose = uiApp.onMouseDown(200.0f, languageY, 3);
