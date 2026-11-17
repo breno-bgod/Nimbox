@@ -1489,9 +1489,11 @@ void AppUi::drawHome(Canvas& c, uint64_t nowMs) {
 void AppUi::drawNimboxDisc(Canvas& c, const GameTile& tile, uint64_t nowMs) {
     const float t = std::clamp(nimboxDetailIntro_.value / 1000.0f, 0.0f, 1.0f);
     const float ease = t * t * (3.0f - 2.0f * t);
-    const float cx = 960.0f + 527.0f * ease;
-    constexpr float cy = 463.0f;
-    const float radius = 148.0f + 59.0f * ease;
+    // Disc slides partly out of the game's physical case. Remain inside
+    // the safe area even when a 1080p canvas is letterboxed on mobile.
+    const float cx = 1435.0f + 113.0f * ease;
+    constexpr float cy = 499.0f;
+    const float radius = 138.0f + 28.0f * ease;
     const float rotation = nimboxReducedMotion_ ? 0.0f :
                            static_cast<float>(nowMs % 60000ull) * 0.00115f;
     // A restrained halo keeps the circular artwork readable over hero images.
@@ -1537,10 +1539,40 @@ void AppUi::drawDetails(Canvas& c, uint64_t nowMs) {
         }
     }
     drawTopBar(c);
-    // Preserve the entire original left-side details, Play button and menu.
-    // The new media display is strictly the unused right-hand visual area.
-    if (nimboxCarousel_ && tab_ == Tab::GamePass && !g->purchasable)
+    // The complete original title, descriptions, availability and Play
+    // handling below remain intact. Render physical media only in the
+    // unused right-hand visual area.
+    if (nimboxCarousel_ && tab_ == Tab::GamePass && !g->purchasable) {
+        fonts_.semibold.draw(c, "NIMBOX  /  COLECAO VIVA", kMargin, 201, 20,
+                             rgba(92, 226, 246));
+        const Quad spine{{1212.0f, 244.0f}, {1245.0f, 227.0f},
+                         {1245.0f, 631.0f}, {1212.0f, 615.0f}};
+        const Quad front{{1245.0f, 227.0f}, {1502.0f, 235.0f},
+                         {1502.0f, 622.0f}, {1245.0f, 631.0f}};
+        c.fillRect({1223, 635, 292, 15}, rgba(2, 8, 18, 112), 8);
+        c.fillQuad(spine, rgba(37, 91, 114));
+        c.fillQuad(front, rgba(10, 32, 52));
+        const Quad label = nimbox::verticalSlice(front, 0.014f, 0.11f);
+        c.fillQuad(label, rgba(14, 68, 93));
+        fonts_.bold.draw(c, "NIMBOX", 1281, 248, 23, rgba(240, 254, 255));
+        const Quad picture = nimbox::verticalSlice(front, 0.116f, 0.79f);
+        if (auto art = images_.get(g->tileUrl, 384, 384)) {
+            c.drawImageQuad(*art, picture);
+        } else {
+            c.fillQuad(picture, rgba(31, 75, 104));
+        }
+        const Quad footer = nimbox::verticalSlice(front, 0.79f, 0.986f);
+        c.fillQuad(footer, rgba(9, 26, 44));
+        const std::string caseName = fonts_.semibold.fit(g->name, 19, 229);
+        fonts_.semibold.draw(c, caseName, 1260, 561, 19, kWhite);
+        c.line(1245.0f, 227.0f, 1245.0f, 631.0f, 3.0f,
+               rgba(137, 229, 246, 205));
+        c.line(1245.0f, 227.0f, 1502.0f, 235.0f, 3.0f,
+               rgba(154, 236, 250, 210));
+        c.line(1502.0f, 235.0f, 1502.0f, 622.0f, 2.0f,
+               rgba(101, 214, 236, 132));
         drawNimboxDisc(c, *g, nowMs);
+    }
     int y = 260;
     for (const auto& line : fonts_.bold.wrap(g->name, 68, 960, 2)) {
         fonts_.bold.draw(c, line, kMargin, y, 68, kWhite);
@@ -1737,11 +1769,15 @@ void AppUi::drawDetails(Canvas& c, uint64_t nowMs) {
     // Play button
     Rect play{kMargin, std::max(y + 48, 620), 300, 76};
     playRect_ = play;
+    const bool livingCollection = nimboxCarousel_ && tab_ == Tab::GamePass;
+    const Color playAccent = livingCollection ? rgba(40, 191, 225) : kGreen;
     if (playFocused) {
-        c.strokeRect({play.x - 7, play.y - 7, play.w + 14, play.h + 14}, kWhite, 4, 45);
-        c.fillRect(play, kGreen, 38);
+        c.strokeRect({play.x - 7, play.y - 7, play.w + 14, play.h + 14},
+                     livingCollection ? rgba(143, 244, 255) : kWhite, 4, 45);
+        c.fillRect(play, playAccent, 38);
     } else {
-        c.fillRect(play, rgba(16, 124, 65, 140), 38);
+        c.fillRect(play, livingCollection ? rgba(35, 143, 184, 155)
+                                         : rgba(16, 124, 65, 140), 38);
     }
     float tx = play.x + 70, ty = play.y + play.h / 2.0f;
     c.line(tx - 8, ty - 13, tx - 8, ty + 13, 4, kWhite);
