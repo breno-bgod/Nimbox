@@ -21,13 +21,12 @@ bool AppUi::needsRedraw(uint64_t nowMs) const {
     std::lock_guard<std::mutex> lock(mutex_);
     if (screen_ == Screen::Streaming) return false;
     if (dirty_ || animating_) return true;
-    // Limit decorative disc animation to 12 fps in the collection and 24
-    // fps in details: this is still a CPU Canvas on some platforms.
+    // A spinning disc exists only inside Details (24 fps cap for software
+    // Canvas). Home is a closed-case shelf with no continuous idle animation.
     if (nimboxCarousel_ && tab_ == Tab::GamePass && !nimboxReducedMotion_ &&
-        ((screen_ == Screen::Home && !searching_ && nowMs - lastRender_ >= 84) ||
-         (screen_ == Screen::Details && !detail_.purchasable &&
-          !gameSettingsOpen_ && !achievementsOpen_ &&
-          nowMs - lastRender_ >= 42))) return true;
+        screen_ == Screen::Details && !detail_.purchasable &&
+        !gameSettingsOpen_ && !achievementsOpen_ &&
+        nowMs - lastRender_ >= 42) return true;
     if (mouseCursorVisible_ && nowMs >= mouseCursorVisibleUntil_) return true;
     // A desktop's toast came or went (the PS5 sends system notifications).
     if (platform::toastsEnabled() && platform::toasts().version(nowMs) != toastsDrawn_) return true;
@@ -1591,7 +1590,7 @@ void AppUi::drawDetails(Canvas& c, uint64_t nowMs) {
     }
     drawTopBar(c);
     // Preview 3.0 detail page: cinematic art in the background and a
-    // readable smoked-glass text column opposite the physical Xbox case.
+    // readable smoked-glass text column opposite the unveiled game disc.
     // All Play, achievements, queue and gamedata controls remain unchanged.
     if (nimboxCarousel_ && tab_ == Tab::GamePass && !g->purchasable) {
         c.fillRect({76, 182, 1080, 766}, rgba(3, 17, 30, 107), 20);
@@ -1600,11 +1599,11 @@ void AppUi::drawDetails(Canvas& c, uint64_t nowMs) {
                     rgba(9, 37, 52, 0));
     }
     // The complete original title, descriptions, availability and Play
-    // handling below remain intact. Render physical media only in the
+    // handling below remain intact. Render the opened disc only in the
     // unused right-hand visual area.
     if (nimboxCarousel_ && tab_ == Tab::GamePass && !g->purchasable) {
         fonts_.semibold.draw(c, "NIMBOX  /  COLECAO VIVA", kMargin, 201, 20,
-                             rgba(92, 226, 246));
+                             rgba(171, 199, 207));
         // The media is revealed only after opening a case from the Home
         // carousel: no duplicate green DVD box on this page.
         // Real game artwork is printed on the rotating disc below.
@@ -1807,13 +1806,13 @@ void AppUi::drawDetails(Canvas& c, uint64_t nowMs) {
     Rect play{kMargin, std::max(y + 48, 620), 300, 76};
     playRect_ = play;
     const bool livingCollection = nimboxCarousel_ && tab_ == Tab::GamePass;
-    const Color playAccent = livingCollection ? rgba(40, 191, 225) : kGreen;
+    const Color playAccent = livingCollection ? rgba(44, 155, 75) : kGreen;
     if (playFocused) {
         c.strokeRect({play.x - 7, play.y - 7, play.w + 14, play.h + 14},
-                     livingCollection ? rgba(143, 244, 255) : kWhite, 4, 45);
+                     livingCollection ? rgba(207, 244, 205) : kWhite, 4, 45);
         c.fillRect(play, playAccent, 38);
     } else {
-        c.fillRect(play, livingCollection ? rgba(35, 143, 184, 155)
+        c.fillRect(play, livingCollection ? rgba(35, 121, 70, 172)
                                          : rgba(16, 124, 65, 140), 38);
     }
     float tx = play.x + 70, ty = play.y + play.h / 2.0f;
