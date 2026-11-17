@@ -110,7 +110,10 @@ public final class AndroidWebRtcVideoPlayer implements AutoCloseable {
             if (payload > 32L * 1024 * 1024) return;
             // 16-byte LE header: RTP tag (low 32 bits), width, height, 0.
             final byte[] packed = new byte[16 + (int) payload];
-            putIntLE(packed, 0, (int) frame.getTimestampNs());
+            // Hardware codecs may quantize timestamps to microseconds.
+            // Encode the original 32-bit RTP tag as whole microseconds, then
+            // reconstruct it exactly when the YUV frame returns to C++.
+            putIntLE(packed, 0, (int) (frame.getTimestampNs() / 1000L));
             putIntLE(packed, 4, width);
             putIntLE(packed, 8, height);
             putIntLE(packed, 12, 0);
@@ -147,7 +150,7 @@ public final class AndroidWebRtcVideoPlayer implements AutoCloseable {
         EncodedImage encoded = EncodedImage.builder()
             .setBuffer(encodedData, null)
             .setEncodedWidth(1920).setEncodedHeight(1088)
-            .setCaptureTimeNs(rtpTag & 0xffffffffL)
+            .setCaptureTimeNs((rtpTag & 0xffffffffL) * 1000L)
             .setFrameType(keyFrame ? EncodedImage.FrameType.VideoFrameKey
                                   : EncodedImage.FrameType.VideoFrameDelta)
             .setRotation(0).createEncodedImage();
