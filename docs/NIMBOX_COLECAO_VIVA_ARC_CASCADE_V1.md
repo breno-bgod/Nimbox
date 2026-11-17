@@ -8,8 +8,8 @@ A composição mantém **duas camadas**: (1) caixa física Xbox verde translúci
 
 - Oito vértices tridimensionais e a projeção de perspectiva original continuam em `box_carousel.h`; espessura, largura e altura da caixa não foram modificadas.
 - As poses de `nimbox_pose_core.h` foram refinadas: 0° frontal, ~24° adjacentes, ~50° intermediárias, ~79° penúltimas e ~87° no perfil externo.
-- Estes valores são **yaw aparente em relação à direção da câmera** (ponto de fuga). Como as caixas externas estão deslocadas em X, o yaw *global* da malha recebe compensação para que a frente realmente fique quase de perfil. Por isso os ângulos de rotação global usados no código são `0/36/67/98/107` graus; o ângulo projetado percebido é menor.
-- Posições laterais em estágio `1600×900`: `0/275/420/490/548` px, espelhadas por lado. A compressão progressiva gera **sobreposição física em cascata**, mantendo partes distinguíveis das lombadas externas.
+- Estes valores são **yaw aparente em relação à direção da câmera** (ponto de fuga). Como as caixas externas estão deslocadas em X, o yaw *global* da malha recebe compensação para que a frente realmente fique quase de perfil. Por isso os ângulos de rotação global usados no código são `0/36/67/99/108` graus; o ângulo projetado percebido é menor.
+- Posições laterais em estágio `1600×900`: `0/275/420/520/580` px, espelhadas por lado. A compressão progressiva gera **sobreposição física em cascata**, mantendo partes distinguíveis das lombadas externas. O espaçamento das duas últimas posições foi refinado após os testes CI identificarem que a caixa da terceira lateral podia ficar totalmente encoberta; agora cada nível conserva uma faixa visível.
 - Mantemos a interpolação de pose 3D entre seleções. Não transformamos caixas em simples trapézios nem alteramos as artes.
 
 ### Leitura de embalagem
