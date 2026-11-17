@@ -10,7 +10,8 @@ struct PreviewPose {
     int zIndex;
 };
 
-// Values measured from the approved HTML (1600x900 logical stage).
+// Stage/case dimensions are from approved Preview 3.1 (1600x900).
+// Position/yaw poses below are the user's revised arc-cascade layout.
 constexpr int kMaxVisibleOffset = 4;
 constexpr float kStageWidth = 1600.0f;
 constexpr float kStageHeight = 900.0f;
