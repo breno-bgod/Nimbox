@@ -38,6 +38,7 @@
 #include "ui/nimbox_pose_core.h"
 #include "ui/box_carousel.h"
 #include "ui/preview_visual_layout.h"
+#include "ui/nimbox_visual_theme.h"
 #include "ui/collection_case_finish.h"
 #include "app/shell.h"
 #include "ui/touch_pad_overlay.h"
@@ -1209,7 +1210,7 @@ static void testNimboxAppearanceStudio() {
     CHECK(std::string(palette(4).name) == "Cinema Dark");
     CHECK(std::string(palette(99).name) == "Cinema Dark");
     for (int i = 0; i < kThemeCount; ++i) {
-        const Rect r = kThemeCards[i];
+        const xc::ui::Rect r = kThemeCards[i];
         CHECK(r.w >= 200 && r.h >= 50);
         CHECK(contains(r, r.x + r.w / 2, r.y + r.h / 2));
         CHECK(!contains(r, -1, -1));
