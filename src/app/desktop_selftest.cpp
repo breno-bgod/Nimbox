@@ -377,18 +377,16 @@ int desktopSelftest(const std::string& dir) {
                   screenshot(dir, "6-colecao-viva-home.png", shot) && varied(shot),
               "Colecao Viva native carousel (6-colecao-viva-home.png)");
 
-        // The visible "VER DETALHES" CTA must work with pointer/touch, not
-        // only with the controller's Select command.
-        // The visible CTA now sits above the restored horizontal shelf.
-        // Input implementation was NOT changed; render/hitbox share one rect.
-        ui.onMouseDown(960.0f, 830.0f, 1);
+        // The centred physical cover is the ONLY pointer entry to Details:
+        // no redundant "VER DETALHES" button remains on Home.
+        ui.onMouseDown(960.0f, 418.0f, 1);
         check(ui.screen() == ui::Screen::Details,
-              "Colecao Viva CTA opens selected game's real details");
+              "Colecao Viva centre-case tap opens the game's real details");
         ui.render(canvas, platform::nowMs());
         drawCanvas(canvas);
         check(ui.screen() == ui::Screen::Details &&
                   screenshot(dir, "6b-colecao-viva-details.png", shot) && varied(shot),
-              "Colecao Viva native physical details (6b-colecao-viva-details.png)");
+              "Colecao Viva disc-only details (6b-colecao-viva-details.png)");
         ui.setRows({});
         ui.setSettings(savedLayoutSettings);
         ui.showHome();
