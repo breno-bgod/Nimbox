@@ -1506,7 +1506,11 @@ void AppUi::drawSettings(Canvas& c) {
             : settingsRow_ == nimbox_theme::kAppearanceMotion
             ? "Reduz animacoes de capas e do disco."
             : settingsRow_ == 20
+#if defined(__ANDROID__)
             ? "H.264 (AVC): GPU = MediaCodec; CPU = FFmpeg. Escolha antes de jogar; pode haver fallback."
+#else
+            ? "Codec do streaming: H.264 (AVC). Escolha hardware ou software; nao troca o codec."
+#endif
             : settingsRow_ == 31
             ? "Melhora a escala da imagem; depende do processamento grafico disponivel."
             : settingsRow_ == 32
