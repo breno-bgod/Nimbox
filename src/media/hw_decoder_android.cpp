@@ -5,18 +5,62 @@
 #include <cstdint>
 #include <cstring>
 #include <chrono>
+#include <string>
 #include "media/hw_decoder.h"
 #include "util/log.h"
 
 #if defined(__ANDROID__)
 #include <media/NdkMediaCodec.h>
 #include <media/NdkMediaFormat.h>
+#include <jni.h>
 #include <dlfcn.h>
 #endif
 
 namespace xc::media {
 
 #if defined(__ANDROID__)
+// AOSP MediaImage2 descriptor passed via "image-data" in MediaFormat (Android 6.0+)
+// SDL owns the Android Activity and JVM. Resolve its JNI functions dynamically
+// so this source remains buildable only for Android, without touching PS5,
+// desktop or Linux backends.
+static std::string preferredAndroidAvcDecoder() {
+    using GetEnvFn = void* (*)();
+    using GetActivityFn = void* (*)();
+    auto* getEnv = reinterpret_cast<GetEnvFn>(dlsym(RTLD_DEFAULT, "SDL_GetAndroidJNIEnv"));
+    auto* getActivity = reinterpret_cast<GetActivityFn>(dlsym(RTLD_DEFAULT, "SDL_GetAndroidActivity"));
+    if (!getEnv || !getActivity) return {};
+
+    auto* env = static_cast<JNIEnv*>(getEnv());
+    auto activity = static_cast<jobject>(getActivity());
+    if (!env || !activity) return {};
+
+    std::string preferred;
+    jclass activityClass = env->GetObjectClass(activity);
+    if (activityClass) {
+        jmethodID method = env->GetStaticMethodID(
+            activityClass, "preferredAvcDecoder", "()Ljava/lang/String;");
+        if (method && !env->ExceptionCheck()) {
+            auto value = static_cast<jstring>(env->CallStaticObjectMethod(activityClass, method));
+            if (!env->ExceptionCheck() && value) {
+                const char* utf8 = env->GetStringUTFChars(value, nullptr);
+                if (utf8) {
+                    preferred.assign(utf8);
+                    env->ReleaseStringUTFChars(value, utf8);
+                }
+            }
+            if (value) env->DeleteLocalRef(value);
+        }
+        env->DeleteLocalRef(activityClass);
+    }
+    if (env->ExceptionCheck()) {
+        env->ExceptionClear();
+        preferred.clear();
+        XC_LOGW("hw_decoder_android: decoder capability lookup failed, using default");
+    }
+    env->DeleteLocalRef(activity);
+    return preferred;
+}
+
 // AOSP MediaImage2 descriptor passed via "image-data" in MediaFormat (Android 6.0+)
 struct AndroidMediaImage2 {
     uint32_t type = 0;
@@ -78,13 +122,25 @@ bool HwDecoder::init(int maxWidth, int maxHeight) {
     s->stride = s->width;
     s->sliceHeight = s->height;
 
-    // 1. Create AMediaCodec for H.264
-    s->codec = AMediaCodec_createDecoderByType("video/avc");
+    // 1. Prefer the hardware implementation that advertises low latency.
+    // The Java side enumerates available AVC decoders. If its recommendation
+    // fails, retain the previously shipped system-decoder fallback unchanged.
+    const std::string preferredCodecName = preferredAndroidAvcDecoder();
+    if (!preferredCodecName.empty()) {
+        s->codec = AMediaCodec_createCodecByName(preferredCodecName.c_str());
+        if (!s->codec) {
+            XC_LOGW("hw_decoder_android: preferred codec %s unavailable; using system default",
+                    preferredCodecName.c_str());
+        }
+    }
+    if (!s->codec) s->codec = AMediaCodec_createDecoderByType("video/avc");
     if (!s->codec) {
-        XC_LOGE("hw_decoder_android: AMediaCodec_createDecoderByType(video/avc) failed");
+        XC_LOGE("hw_decoder_android: no usable MediaCodec video/avc decoder");
         delete s;
         return false;
     }
+    XC_LOGI("hw_decoder_android: requesting decoder=%s",
+            preferredCodecName.empty() ? "system-default" : preferredCodecName.c_str());
 
     // 2. Configure format with low-latency flags and COLOR_FormatYUV420Flexible
     AMediaFormat* format = AMediaFormat_new();
@@ -162,8 +218,22 @@ bool HwDecoder::init(int maxWidth, int maxHeight) {
     }
 
     decoder_ = s;
-    XC_LOGI("hw_decoder_android: AMediaCodec ByteBuffer mode initialized (%dx%d, low-latency)",
-            s->width, s->height);
+    // AMediaCodec_getName is public since API 28 (minSdk=26), so resolve
+    // dynamically. This reports the *actual* component after all fallbacks.
+    using GetCodecNameFn = media_status_t (*)(AMediaCodec*, char**);
+    using ReleaseCodecNameFn = void (*)(AMediaCodec*, char*);
+    auto* getName = reinterpret_cast<GetCodecNameFn>(dlsym(RTLD_DEFAULT, "AMediaCodec_getName"));
+    auto* releaseName = reinterpret_cast<ReleaseCodecNameFn>(dlsym(RTLD_DEFAULT, "AMediaCodec_releaseName"));
+    if (getName && releaseName) {
+        char* componentName = nullptr;
+        if (getName(s->codec, &componentName) == AMEDIA_OK && componentName) {
+            XC_LOGI("hw_decoder_android: active video/avc component: %s", componentName);
+            releaseName(s->codec, componentName);
+        }
+    }
+    XC_LOGI("hw_decoder_android: MediaCodec ByteBuffer initialized (%dx%d, requested=%s)",
+            s->width, s->height, preferredCodecName.empty() ? "system-default" :
+            preferredCodecName.c_str());
     return true;
 #else
     (void)maxWidth;
@@ -215,9 +285,20 @@ bool HwDecoder::decode(const uint8_t* data, size_t len, uint64_t pts, Picture& o
         ssize_t outIdx = AMediaCodec_dequeueOutputBuffer(s->codec, &info, waitUs);
         waitUs = 0;
         if (outIdx >= 0) {
+            if (info.size <= 0) {
+                // Empty codec config/EOS buffers are not displayable video frames.
+                AMediaCodec_releaseOutputBuffer(s->codec, static_cast<size_t>(outIdx), false);
+                continue;
+            }
             if (latestIdx >= 0) {
-                // Drop older queued frame immediately for lowest display latency
+                // Keep the most recent frame, but track backlog explicitly so
+                // jitter/decoder pressure can be distinguished in Android logs.
                 AMediaCodec_releaseOutputBuffer(s->codec, static_cast<size_t>(latestIdx), false);
+                static uint64_t backlogDrops = 0;
+                if (++backlogDrops % 120 == 1) {
+                    XC_LOGW("hw_decoder_android: stale decoded output discarded (%llu total)",
+                            static_cast<unsigned long long>(backlogDrops));
+                }
             }
             latestIdx = outIdx;
             latestInfo = info;
@@ -282,8 +363,10 @@ bool HwDecoder::decode(const uint8_t* data, size_t len, uint64_t pts, Picture& o
     s->currentOutIdx = latestIdx;
     size_t bufSize = 0;
     uint8_t* buf = AMediaCodec_getOutputBuffer(s->codec, static_cast<size_t>(latestIdx), &bufSize);
-    if (!buf || bufSize == 0) {
-        XC_LOGE("hw_decoder_android: getOutputBuffer failed or size 0");
+    // On Android through API 35, AMediaCodec_getOutputBuffer's out_size
+    // is not guaranteed accurate. Use the dequeued BufferInfo.size instead.
+    if (!buf || latestInfo.size <= 0) {
+        XC_LOGE("hw_decoder_android: getOutputBuffer failed or invalid BufferInfo size");
         AMediaCodec_releaseOutputBuffer(s->codec, static_cast<size_t>(latestIdx), false);
         s->currentOutIdx = -1;
         out.error = true;
