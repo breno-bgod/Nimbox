@@ -84,6 +84,10 @@ struct Settings {
     std::string language = "en";     // ui::languageCode()
     std::string resolution = "1080p";  // "1080p", "720p" or "1440p" (experimental)
     std::string region;                // gssv region name; empty = automatic
+    // Nimbox display-only preferences. Never sent to the streaming service.
+    int nimboxTheme = 0;               // Aurora, Infinity, Blue, Emerald, Cinema
+    int nimboxReflection = 44;         // local collection-floor reflection, 0-100
+    bool nimboxReducedMotion = false;  // local UI animation only
     // "Sign in as another country" (xcloud::loginCountryAddress): "" off.
     std::string loginCountry;
     std::string storeCountry;  // catalog/store only; never changes the streaming datacenter
