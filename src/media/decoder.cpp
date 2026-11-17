@@ -586,8 +586,6 @@ bool VideoDecoder::init(int threads, bool preferHw) {
             isHw_ = true;
 #if defined(__ANDROID__)
             XC_LOGI("h264 decoder: Android MediaCodec path active (see component name above)");
-#elif defined(__ORBIS__) || defined(__PROSPERO__)
-            XC_LOGI("h264 decoder: native PlayStation hardware decoder active");
 #else
             XC_LOGI("h264 decoder: native hardware decoder active");
 #endif
