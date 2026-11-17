@@ -235,6 +235,7 @@ int desktopSelftest(const std::string& dir) {
         ui::NavInput back;
         back.back = true;
         ui.handle(back);
+        ui.handle(next);  // Friends -> GamePass; restore normal selftest state
         ui.setProfile("", "", "");
         ui.setRows({});
     }
