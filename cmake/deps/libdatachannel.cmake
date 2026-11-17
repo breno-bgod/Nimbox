@@ -26,3 +26,14 @@ if(XC_TARGET_PS4)
 endif()
 
 add_subdirectory(deps/libdatachannel ${CMAKE_BINARY_DIR}/libdatachannel EXCLUDE_FROM_ALL)
+
+// The vendored libdatachannel configuration.cpp uses std::transform without
+// including <algorithm>. LLVM-MinGW/Clang does not get that declaration
+// transitively, unlike some other toolchains. Keep the compatibility flag
+// scoped to this dependency's C++ sources on Windows, rather than modifying
+// the pinned git submodule or the application/Android compiler flags.
+if(MINGW AND CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+    target_compile_options(datachannel-static PRIVATE
+        $<$<COMPILE_LANGUAGE:CXX>:-include>
+        $<$<COMPILE_LANGUAGE:CXX>:algorithm>)
+endif()
