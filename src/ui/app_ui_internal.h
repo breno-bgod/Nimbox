@@ -49,7 +49,8 @@ constexpr int kCardPitch = kCard + kCardGap;
 constexpr int kRowPitch = 340;
 constexpr int kRowTop = 470;  // y of the focused row's title
 constexpr uint64_t kHeroFadeMs = 300;
-// Shared draw + pointer hit box: the Colecao Viva CTA is a real action.
+// Legacy CTA hit box remains empty; touching the projected cover opens
+// Details via the existing input path (no control logic changes).
 constexpr Rect kCollectionDetailsCta = preview31::kDetailsCta;
 
 constexpr Color kBg = rgba(8, 17, 31);
