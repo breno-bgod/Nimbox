@@ -363,7 +363,11 @@ int desktopSelftest(const std::string& dir) {
                   screenshot(dir, "6-colecao-viva-home.png", shot) && varied(shot),
               "Colecao Viva native carousel (6-colecao-viva-home.png)");
 
-        ui.showDetails(showcase.tiles.front());
+        // The visible "VER DETALHES" CTA must work with pointer/touch, not
+        // only with the controller's Select command.
+        ui.onMouseDown(960.0f, 915.0f, 1);
+        check(ui.screen() == ui::Screen::Details,
+              "Colecao Viva CTA opens selected game's real details");
         ui.render(canvas, platform::nowMs());
         drawCanvas(canvas);
         check(ui.screen() == ui::Screen::Details &&
