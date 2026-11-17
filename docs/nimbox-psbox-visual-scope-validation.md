@@ -1,22 +1,34 @@
-# Escopo visual Nimbox — referência PSBox
+# Nimbox — PSBox apenas como referência técnica
 
-Referência fornecida pelo proprietário: `psbox-cloud-gaming-main.zip` (CMake 1.7.1). Base do Nimbox: `feature/nimbox-3d-library` (CMake 1.7.6).
+## Decisão do proprietário
 
-## Limite da correção
+**A aparência e a experiência visual são exclusivamente do Nimbox.**
+O arquivo fornecido `psbox-cloud-gaming-main.zip` é referência de código para investigar e corrigir erros específicos do aplicativo; NÃO é modelo visual, de organização das páginas ou da quantidade de menus.
 
-As interfaces do ZIP de referência possuem três abas (Game Pass, Meus jogos, Consoles), navegação por L1/R1, botão de configurações, pesquisa e abertura de detalhes. A base 3D do Nimbox conserva esses fluxos. **A versão antiga 1.7.1 não deve substituir arquivos posteriores 1.7.6**; apenas orienta a preservação funcional.
+- Fonte de verdade do produto: projeto Nimbox e seus layouts próprios, incluindo a proposta visual premium e o carrossel.
+- Fonte técnica auxiliar: ZIP PSBox 1.7.1 (versão indicada por `CMakeLists.txt` do arquivo).
+- Base técnica corrente: Nimbox `feature/nimbox-3d-library` em 1.7.6. Não substituir componentes atuais em massa pelos componentes do ZIP antigo.
 
-Nesta correção, o PR #7 volta a usar exatamente o código C++ de `feature/nimbox-3d-library` para todos os fluxos de navegação, autenticação, catálogo, controles, streaming e testes, removendo as páginas e rotas funcionais adicionadas sem aprovação. Somente o desenho (fundo/borda/contraste) das três abas nativas foi modificado, mantendo a geometria e os alvos de toque originais.
+## Fluxo obrigatório para qualquer correção baseada no ZIP
 
-## Checklist para lançamento
+1. Identificar o defeito **reproduzível** no Nimbox (plataforma, passos e resultado esperado/observado).
+2. Comparar apenas a implementação responsável no Nimbox com a implementação equivalente do PSBox, sem copiar a interface do PSBox.
+3. Explicar a causa e propor uma correção **mínima e isolada**. Obter aprovação específica antes de modificar lógica de autenticação, controles, navegação, catálogo, abertura de jogos, streaming ou serviços.
+4. Preservar integralmente o layout e os recursos visuais Nimbox; testes de regressão devem cobrir selecionar jogo, abrir detalhes, iniciar jogo, retornar ao menu e troca de abas conforme a implementação Nimbox aprovada.
+5. Validar CI das plataformas, compilar e testar no PS5 físico quando aplicável; nunca alegar homologação do console sem captura e evidência real.
+6. Publicar/mesclar apenas após aprovação do proprietário.
 
-- [x] Código funcional recolocado conforme a base 3D atual, sem copiar módulos antigos do ZIP
-- [x] Os nomes e a quantidade de abas continuam os originais
-- [x] Nenhuma mudança em streaming, autenticação, controle, compra ou associação de jogos
-- [ ] CI da revisão de escopo visual aprovado
-- [ ] Compilação específica do PS5 com SDK do projeto
-- [ ] Capturas reais da tela do PS5 analisadas (safe-area, bordas, foco, legibilidade)
-- [ ] Teste físico de abertura de jogos e retorno à biblioteca
-- [ ] Aprovação do usuário antes de integrar/publicar
+## Situação do PR #7
 
-**Não é homologação PS5.** O CI comum não compila o alvo final do console.
+Após a reversão das alterações funcionais indevidas, o diff do PR em relação à branch 3D contém **somente** uma pequena personalização de cores e bordas das abas nativas em `src/ui/app_ui_render.cpp`, além deste documento. Ela não copia o layout do ZIP PSBox.
+
+**Nenhuma correção funcional específica derivada do ZIP foi aplicada neste PR.** A utilidade do ZIP é investigar falhas concretas quando forem identificadas; não justificar mudanças de design.
+
+## Critérios de aceite
+
+- [x] Distinção entre referência técnica PSBox e design próprio do Nimbox documentada
+- [x] Mudanças funcionais experimentais anteriores removidas do diff do PR #7
+- [ ] Problemas específicos reproduzidos e classificados antes de correção
+- [ ] CI aprovado para qualquer alteração técnica futura
+- [ ] Homologação visual e funcional no PS5 real quando necessária
+- [ ] Aprovação expressa para merge ou release
