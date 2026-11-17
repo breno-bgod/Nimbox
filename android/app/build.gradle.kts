@@ -119,3 +119,12 @@ android {
 tasks.named("preBuild") {
     dependsOn("generateAssetList")
 }
+
+
+dependencies {
+    // Alternative Android-native WebRTC transport prototype. This is a
+    // separate PeerConnection implementation, NOT an alternate H.264 codec.
+    // It is not attached to Nimbox gameplay until the full xCloud session,
+    // controller and video renderer bridge is verified.
+    implementation("io.github.webrtc-sdk:android:150.7871.04")
+}
