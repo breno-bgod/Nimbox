@@ -1,56 +1,44 @@
-# Nimbox — motor WebRTC Android adicional (fase 0, **não jogável**)
+# Nimbox Android — WebRTC como reprodutor de vídeo (fase 0)
 
-## Objetivo explicitamente solicitado
-O usuário quer **mais um motor de streaming no Android**, sem substituir MediaCodec (GPU) ou FFmpeg (CPU), e sem tocar nas implementações PS5/desktop/Linux.
+## Direção corrigida
 
-## Descoberta essencial
-O Nimbox **já usa WebRTC**, via libdatachannel em `src/stream/stream_session.cpp`:
-- `rtc::PeerConnection`, negociação SDP/ICE com `GssvClient`;
-- canais `chat`, `control`, `input`, `message`;
-- H.264 RTP com `H264Receiver`, NACK/keyframes, Opus e retornos de input.
+O usuário já possui um Nimbox funcional. **Não reconstruir** autenticação, sessão GSSV, WebRTC de transporte, SDP/ICE, áudio, microfone, entrada, controle ou reconexão.
 
-A escolha `videoDecoder` é de codec **dentro desse mesmo stream**:
-- MediaCodec/Hardware (Android) e
-- FFmpeg/Software.
-Ela não seleciona implementações WebRTC.
+O Nimbox já recebe unidades de acesso **H.264 Annex-B** completas e com timestamps no fluxo existente:
+`src/stream/stream_session.cpp` → `stream::StreamCallbacks::video` → `src/app/stream_player.cpp` → `videoLoop()`.
 
-## Nova arquitetura (exclusivamente Android)
-Seletor futuro **Motor de transmissão**, independente de decodificador:
-1. `Nimbox WebRTC (libdatachannel)` — existente e default.
-2. `WebRTC Android Native (libwebrtc)` — novo, opcional e experimental.
+As duas rotas atuais são `MediaCodec` e `FFmpeg` dentro de `media::VideoDecoder`. A nova rota é um **terceiro reprodutor Android**, e não outra conexão WebRTC.
 
-No futuro o motor alternativo precisa fazer a sessão **inteira**: SDP/ICE/GSSV, canais de input, áudio, vídeo, reconexão e apresentação de quadros numa superfície Android com o mínimo possível de cópias de CPU. Inicialmente continuará oculto e não será oferecido como opção funcional.
+## Implementado nesta fase
 
-## O que foi de fato implementado na fase 0
-- Dependência de WebRTC Android distribuída em Maven Central: `io.github.webrtc-sdk:android:150.7871.04`. Esta dependência é diferente de libdatachannel. Distribuição do SDK possui licenciamento e NOTICE próprios; verificar dependências/redistribuição antes do merge.
-- Classe isolada `AndroidNativeWebRtcEngine` para:
-  - Inicializar `PeerConnectionFactory` e componentes de áudio/vídeo;
-  - Criar `PeerConnection`, transceivers de mídia e os quatro data channels;
-  - Gerar uma oferta SDP local, receber resposta SDP e candidatos ICE;
-  - Expor eventos de conexão, canais binários e vídeo decodificado por callback.
-- Nenhum código foi copiado dos arquivos do XStreaming. A implementação é nova, baseada nas APIs públicas WebRTC.
-- Não há alteração no `StreamPlayer`, `StreamSession`, `Settings`, menus, PS5, Windows ou Linux; o motor atual permanece o único selecionável.
-- O novo código **não tem a ponte GSSV**, handshake completo dos canais, envio de controle/gamepad para xCloud, controle de áudio, renderer nem reconexão — **não deve ser descrito como motor jogável**.
+1. Removeu-se `AndroidNativeWebRtcEngine.java`, que criava indevidamente `PeerConnection`, transceivers, canais e SDP/ICE duplicados;
+2. Criou-se `android/app/src/main/java/com/rafaelngp/psbox/streaming/AndroidWebRtcVideoPlayer.java`:
+   - usa a API `org.webrtc.HardwareVideoDecoderFactory` para H.264;
+   - recebe unidades de acesso H.264 já desfragmentadas em `submitH264(byte[], captureTimeNs, keyFrame)`;
+   - decodifica com `org.webrtc.VideoDecoder` e usa `org.webrtc.SurfaceViewRenderer` como saída de vídeo;
+   - roda exclusivamente no Android; preserva os drivers C++ existentes em outras plataformas;
+   - expõe contadores de quadros entregues e apresentados e faz limpeza do decodificador;
+   - não gera `PeerConnection`, não negocia SDP nem faz login.
+3. O SDK Android WebRTC permanece como dependência Gradle exclusiva do aplicativo Android.
 
-## Trabalho pendente antes da opção de seleção aparecer
-**Fase 1 — protocolo:** implementar bridge C++/JNI que reutilize autenticação e `GssvClient` Nimbox (sem duplicar logins), adapte oferta/resposta/candidatos SDP/ICE e Handshake/Transaction dos canais. Validar data channels e primeiro pacote de vídeo em stream real.
+**Não utilizamos código fonte do XStreaming.** A implementação é nova e usa API pública do WebRTC Android.
 
-**Fase 2 — áudio/vídeo:** renderizar `VideoTrack` por superfície Android sem copiar quadro YUV para memória CPU; integrar composição SDL/Nimbox e gerenciamento de foco/rotação/resume; áudio Opus e microfone sem rota duplicada.
+## Limitações e requisitos para tornar jogável
 
-**Fase 3 — experiência:** conduzir input de controles do Nimbox, vibração, touch, teclado virtual, microfone, conexão/queda/reconexão; só habilitar opção de motor quando tudo funcionar e houver fallback para o existente.
+- **JNI ainda não ligado:** o `StreamPlayer::videoLoop()` C++ precisa encaminhar as unidades H.264 ao `AndroidWebRtcVideoPlayer`, sem iniciar outro transporte. Necessário lidar com SPS/PPS, IDR, mudanças de resolução, timestamps, reconexão e retorno de falhas.
+- **Composição visual ainda pendente:** `SurfaceViewRenderer` adiciona uma superfície Android sobre o SDL/Vulkan, que pode **cobrir o painel, menu e controles touch do Nimbox**. O método `attachVideoSurface()` permanece sem chamada por esse motivo. É obrigatório projetar e testar a composição dos dois elementos antes de habilitar o modo.
+- **Sem seletor funcional ainda:** não mostrar `WebRTC` ao usuário antes que a troca preserve áudio, controles, UI e vídeo real.
+- **Baixa latência não garantida:** o caminho copia bytes H.264 comprimidos para Java, mas pretende manter o output decodificado em textura/EGL, sem YUV readback. Confirmar em Android real.
+- **Recomenda-se manter FSR e demais filtros SDL desativados inicialmente nesse modo**, porque a saída de vídeo usará outra superfície; validar visual e integração posteriormente.
 
-**Fase 4 — comparação:** com a mesma rede/jogo/bitrate/resolução, comparar 60 s ou mais de RTT, jitter, pacotes perdidos, FPS, tempo de decode/render, drops, input-lag, CPU, memória e temperatura. Um motor é melhor quando dados mostram isso, não apenas porque usa WebRTC.
+## Critérios
 
-## Regras de segurança de integração
-- Não mexer em `videoDecoder` (GPU/CPU) para codificar esse terceiro motor.
-- Não adicionar botão `WebRTC Native` enquanto o motor não for operacional.
-- Não migrar PS5/Windows/Linux para libwebrtc.
-- Não copiar código AGPL-3.0 do XStreaming sem avaliar obrigações de licença.
-- Manter a branch experimental e impedir merge na main até validação do usuário e CI completo, incluindo alinhamento 16 KB no APK.
+- [ ] CI compila Android com a nova classe e dependência WebRTC, sem alterações no resto;
+- [ ] JNI recebe o H.264 do `StreamPlayer` existente;
+- [ ] Primeiro quadro é mostrado dentro do Nimbox, sem ocultar controles/menu;
+- [ ] Toque, gamepad, áudio e microfone preservados;
+- [ ] H.264 keyframe, tamanho variável, reconnect e fallback exercitados;
+- [ ] Somente depois: modo `Reprodutor Android: atual / WebRTC` no menu, **independente** de `Decodificador: GPU / CPU`;
+- [ ] A/B de fps, tempo de render, latência e perdas no mesmo aparelho.
 
-## Testes
-- [ ] Dependência resolvida em Gradle Android e compilação do APK;
-- [ ] Verificar alinhamento 16 KB de **todas** bibliotecas nativas, inclusive libwebrtc;
-- [ ] Confirmar que a versão Nimbox Alpha e suas opções de MediaCodec/FFmpeg continuam presentes;
-- [ ] Confirmar PS5/Windows/Linux não alterados;
-- [ ] Só depois realizar as fases 1–4.
+**Essa fase prepara o reprodutor, mas ainda não é um modo selecionável e funcional.**
