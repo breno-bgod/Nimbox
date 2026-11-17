@@ -1150,6 +1150,12 @@ static void testNimboxCascadeArc() {
     CHECK(moving.size() == 9);
     CHECK(moving.back() == -1 || moving.back() == 0);
     CHECK(caseDrawOrder(0, 0, 0.0f).empty());
+    // Touch can select a deep-profile case in one tap: stacking must still
+    // agree with rendering for +/-3 and +/-4 transitions.
+    const auto deepTap = caseDrawOrder(0, 9, 3.0f);
+    CHECK(deepTap.size() == 9 && deepTap.back() == -3);
+    const auto deepOtherSide = caseDrawOrder(0, 9, -4.0f);
+    CHECK(deepOtherSide.size() == 9 && deepOtherSide.back() == 4);
 
     // All 3D coordinates stay finite throughout left/right interpolation.
     for (int step = -4; step <= 4; ++step) {
