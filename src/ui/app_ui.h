@@ -93,7 +93,7 @@ struct GameRow {
 enum class Screen { Splash, SignIn, Home, Details, Launching, Streaming, Error, Settings, Updating };
 
 // The home screen's tabs (L1 / R1). Triangle searches the current one.
-enum class Tab { GamePass, Library, Consoles };
+enum class Tab { GamePass, Library, Consoles, Genres, Friends };
 
 struct NavInput {
     bool up = false, down = false, left = false, right = false;
@@ -564,6 +564,11 @@ private:
     void drawTabs(Canvas& c);
     void drawConsoles(Canvas& c, uint64_t nowMs);
     void drawLibrary(Canvas& c, uint64_t nowMs);
+    void drawGenres(Canvas& c, uint64_t nowMs);
+    void drawFriends(Canvas& c, uint64_t nowMs);
+    std::vector<std::string> genreOptions() const;
+    std::vector<const GameTile*> genreGames() const;
+    std::vector<const GameTile*> friendGames() const;
     void drawSearch(Canvas& c, uint64_t nowMs);
     void drawCard(Canvas& c, const GameTile& t, int x, int y, bool focused, bool gamePassBadge);
     // A grid of cards with names below; `focus` < 0: none highlighted.
@@ -688,6 +693,9 @@ private:
     std::vector<Anim> rowScroll_;
     Anim rowY_;
     Tab tab_ = Tab::GamePass;
+    int genreFocus_ = 0;
+    int genreGameFocus_ = -1;
+    int friendGameFocus_ = 0;
     std::vector<ConsoleTile> consoles_;
     bool allow1440_ = false;
     bool consolesKnown_ = false;
