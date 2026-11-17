@@ -115,6 +115,64 @@ bool AppUi::Anim::step(float dt) {
 
 AppUi::AppUi(const Fonts& fonts, ImageCache& images) : fonts_(fonts), images_(images) {}
 AppUi::~AppUi() = default;
+std::vector<std::string> AppUi::genreOptions() const {
+    // Categories are derived from the live catalog; no invented titles.
+    std::map<std::string, int> counts;
+    std::set<std::string> seen;
+    auto collect = [&](const GameTile& game) {
+        std::string id = !game.productId.empty() ? game.productId
+                       : !game.titleId.empty() ? game.titleId : game.name;
+        if (!seen.insert(id).second) return;
+        for (const auto& category : game.categories)
+            if (!category.empty()) ++counts[category];
+    };
+    for (const auto& row : rows_) for (const auto& game : row.tiles) collect(game);
+    for (const auto& game : owned_) collect(game);
+    std::vector<std::pair<std::string, int>> ranked(counts.begin(), counts.end());
+    std::sort(ranked.begin(), ranked.end(), [](const auto& a, const auto& b) {
+        return a.second != b.second ? a.second > b.second : a.first < b.first;
+    });
+    std::vector<std::string> result;
+    for (const auto& entry : ranked) {
+        if (result.size() == 6) break;
+        result.push_back(entry.first);
+    }
+    return result;
+}
+
+std::vector<const GameTile*> AppUi::genreGames() const {
+    const auto genres = genreOptions();
+    if (genres.empty()) return {};
+    const std::string& selected = genres[static_cast<size_t>(
+        std::clamp(genreFocus_, 0, static_cast<int>(genres.size()) - 1))];
+    std::set<std::string> seen;
+    std::vector<const GameTile*> result;
+    auto collect = [&](const GameTile& game) {
+        if (std::find(game.categories.begin(), game.categories.end(), selected) == game.categories.end()) return;
+        std::string id = !game.productId.empty() ? game.productId
+                       : !game.titleId.empty() ? game.titleId : game.name;
+        if (seen.insert(id).second && result.size() < 12) result.push_back(&game);
+    };
+    for (const auto& row : rows_) for (const auto& game : row.tiles) collect(game);
+    for (const auto& game : owned_) collect(game);
+    return result;
+}
+
+std::vector<const GameTile*> AppUi::friendGames() const {
+    // Show the real active friends attached to the loaded titles, not a mock friends list.
+    std::set<std::string> seen;
+    std::vector<const GameTile*> result;
+    auto collect = [&](const GameTile& game) {
+        if (game.friends.empty()) return;
+        std::string id = !game.productId.empty() ? game.productId
+                       : !game.titleId.empty() ? game.titleId : game.name;
+        if (seen.insert(id).second && result.size() < 12) result.push_back(&game);
+    };
+    for (const auto& row : rows_) for (const auto& game : row.tiles) collect(game);
+    for (const auto& game : owned_) collect(game);
+    return result;
+}
+
 
 // --- Model ---------------------------------------------------------------------
 
