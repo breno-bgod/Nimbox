@@ -622,6 +622,12 @@ std::vector<std::string> AppUi::settingOptions(int row) const {
     };
     if (row == 0) {
         for (int i = 0; i < static_cast<int>(Language::Count); ++i) out.push_back(languageName(static_cast<Language>(i)));
+    } else if (row == nimbox_theme::kAppearanceFirst) {
+        for (const auto& theme : nimbox_theme::kPalettes) out.push_back(theme.name);
+    } else if (row == nimbox_theme::kAppearanceReflection) {
+        for (int v = 0; v <= 100; v += 10) out.push_back(std::to_string(v) + " %");
+    } else if (row == nimbox_theme::kAppearanceMotion) {
+        out = {tr(Str::Deactivated), tr(Str::Activated)};
     } else if (row == 1) {
         out = {tr(Str::Res720), tr(Str::Res1080), tr(Str::ResBest)};  // kResolutionOrder
     } else if (row == 3) {
@@ -702,6 +708,9 @@ std::vector<std::string> AppUi::settingOptions(int row) const {
 int AppUi::settingSelected(int row) const {
     // Caller holds mutex_.
     if (row == 0) return settings_.language;
+    if (row == nimbox_theme::kAppearanceFirst) return std::clamp(settings_.nimboxTheme, 0, 4);
+    if (row == nimbox_theme::kAppearanceReflection) return nimbox_theme::clampReflection(settings_.nimboxReflection) / 10;
+    if (row == nimbox_theme::kAppearanceMotion) return settings_.nimboxReducedMotion ? 1 : 0;
     if (row == 1) {
         for (int i = 0; i < 3; ++i)
             if (kResolutionOrder[i] == settings_.resolution) return i;
@@ -758,7 +767,15 @@ int AppUi::settingSelected(int row) const {
 
 void AppUi::applySetting(int row, int index) {
     // Caller holds mutex_.
-    if (row == 0) {
+    if (row == nimbox_theme::kAppearanceFirst) {
+        settings_.nimboxTheme = std::clamp(index, 0, nimbox_theme::kThemeCount - 1);
+    } else if (row == nimbox_theme::kAppearanceReflection) {
+        settings_.nimboxReflection = nimbox_theme::clampReflection(index * 10);
+    } else if (row == nimbox_theme::kAppearanceMotion) {
+        settings_.nimboxReducedMotion = (index == 1);
+        nimboxReducedMotion_ = settings_.nimboxReducedMotion;
+        if (nimboxReducedMotion_) nimboxSlide_.value = nimboxSlide_.target;
+    } else if (row == 0) {
         settings_.language = index;
         setLanguage(static_cast<Language>(index));  // the UI switches right away
     } else if (row == 1) {
@@ -860,6 +877,11 @@ void AppUi::changeSetting(int delta) {
     if (settingsRow_ == 15) {
         int cur = std::clamp(settings_.gyroMode, 0, 4);
         applySetting(15, (cur + delta + 5) % 5);
+        return;
+    }
+    if (settingsRow_ == nimbox_theme::kAppearanceReflection) {
+        applySetting(settingsRow_,
+                     std::clamp(settingSelected(settingsRow_) + delta, 0, 10));
         return;
     }
     if (settingsRow_ == 10) {
