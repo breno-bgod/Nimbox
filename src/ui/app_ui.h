@@ -90,7 +90,7 @@ struct GameRow {
     bool isGrid = false;
 };
 
-enum class Screen { Splash, SignIn, Home, Details, Launching, Streaming, Error, Settings, Updating };
+enum class Screen { Splash, SignIn, Home, Details, Launching, Streaming, Error, Settings, Updating, Profile };
 
 // The home screen's tabs (L1 / R1). Triangle searches the current one.
 enum class Tab { GamePass, Library, Consoles, Genres, Friends };
@@ -568,6 +568,7 @@ private:
     void drawLibrary(Canvas& c, uint64_t nowMs);
     void drawGenres(Canvas& c, uint64_t nowMs);
     void drawFriends(Canvas& c, uint64_t nowMs);
+    void drawProfile(Canvas& c, uint64_t nowMs);
     std::vector<std::string> genreOptions() const;
     std::vector<const GameTile*> genreGames() const;
     std::vector<const GameTile*> friendGames() const;
