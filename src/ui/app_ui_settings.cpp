@@ -622,6 +622,12 @@ std::vector<std::string> AppUi::settingOptions(int row) const {
     };
     if (row == 0) {
         for (int i = 0; i < static_cast<int>(Language::Count); ++i) out.push_back(languageName(static_cast<Language>(i)));
+    } else if (row == nimbox_theme::kAppearanceFirst) {
+        for (const auto& theme : nimbox_theme::kPalettes) out.push_back(theme.name);
+    } else if (row == nimbox_theme::kAppearanceReflection) {
+        for (int v = 0; v <= 100; v += 10) out.push_back(std::to_string(v) + " %");
+    } else if (row == nimbox_theme::kAppearanceMotion) {
+        out = {tr(Str::Deactivated), tr(Str::Activated)};
     } else if (row == 1) {
         out = {tr(Str::Res720), tr(Str::Res1080), tr(Str::ResBest)};  // kResolutionOrder
     } else if (row == 3) {
@@ -702,6 +708,9 @@ std::vector<std::string> AppUi::settingOptions(int row) const {
 int AppUi::settingSelected(int row) const {
     // Caller holds mutex_.
     if (row == 0) return settings_.language;
+    if (row == nimbox_theme::kAppearanceFirst) return std::clamp(settings_.nimboxTheme, 0, 4);
+    if (row == nimbox_theme::kAppearanceReflection) return nimbox_theme::clampReflection(settings_.nimboxReflection) / 10;
+    if (row == nimbox_theme::kAppearanceMotion) return settings_.nimboxReducedMotion ? 1 : 0;
     if (row == 1) {
         for (int i = 0; i < 3; ++i)
             if (kResolutionOrder[i] == settings_.resolution) return i;
@@ -758,7 +767,15 @@ int AppUi::settingSelected(int row) const {
 
 void AppUi::applySetting(int row, int index) {
     // Caller holds mutex_.
-    if (row == 0) {
+    if (row == nimbox_theme::kAppearanceFirst) {
+        settings_.nimboxTheme = std::clamp(index, 0, nimbox_theme::kThemeCount - 1);
+    } else if (row == nimbox_theme::kAppearanceReflection) {
+        settings_.nimboxReflection = nimbox_theme::clampReflection(index * 10);
+    } else if (row == nimbox_theme::kAppearanceMotion) {
+        settings_.nimboxReducedMotion = (index == 1);
+        nimboxReducedMotion_ = settings_.nimboxReducedMotion;
+        if (nimboxReducedMotion_) nimboxSlide_.value = nimboxSlide_.target;
+    } else if (row == 0) {
         settings_.language = index;
         setLanguage(static_cast<Language>(index));  // the UI switches right away
     } else if (row == 1) {
@@ -860,6 +877,11 @@ void AppUi::changeSetting(int delta) {
     if (settingsRow_ == 15) {
         int cur = std::clamp(settings_.gyroMode, 0, 4);
         applySetting(15, (cur + delta + 5) % 5);
+        return;
+    }
+    if (settingsRow_ == nimbox_theme::kAppearanceReflection) {
+        applySetting(settingsRow_,
+                     std::clamp(settingSelected(settingsRow_) + delta, 0, 10));
         return;
     }
     if (settingsRow_ == 10) {
@@ -1211,35 +1233,34 @@ void AppUi::handleGameSettings(const NavInput& in, UiEvent& ev) {
 }
 
 void AppUi::drawSettings(Canvas& c) {
-    // Nimbox Visual Studio: layered smoked-glass panels on a low-contrast
-    // gradient. The settings, their identifiers, hit testing and values
-    // remain EXACTLY the original functional implementation.
-    c.clear(rgba(6, 15, 24));
-    c.gradientV({0, 0, kW, kH}, rgba(16, 45, 59), rgba(5, 11, 22));
-    c.gradientH({0, 140, kW, 780}, rgba(12, 68, 82, 110), rgba(9, 32, 49, 65));
-    for (int i = 0; i < 9; ++i) {
-        const float y = 175.0f + 95.0f * i;
-        c.line(0.0f, y + 35.0f, static_cast<float>(kW), y - 75.0f,
-               1.0f, rgba(110, 196, 213, static_cast<uint8_t>(8 + (i % 3) * 3)));
-    }
-    c.fillRect({207, 178, 1068, 755}, rgba(9, 23, 35, 145), 24);
-    c.strokeRect({207, 178, 1068, 755}, rgba(125, 205, 222, 36), 1, 24);
-    c.fillRect({1298, 178, 563, 749}, rgba(9, 23, 35, 120), 24);
-    c.strokeRect({1298, 178, 563, 749}, rgba(125, 205, 222, 32), 1, 24);
+    // Nimbox native Settings: precise two-column information architecture
+    // inspired by Preview 3.1, not copied from its static HTML controls.
+    // Left: every REAL PSBox setting. Right: live appearance studio and QR.
+    c.clear(rgba(6, 13, 21));
+    c.gradientV({0, 0, kW, kH}, rgba(14, 31, 42), rgba(5, 15, 26));
+    c.gradientH({0, 130, kW, 790}, rgba(15, 40, 47, 78), rgba(20, 36, 50, 50));
+    c.fillRect({76, 181, 1180, 756}, rgba(10, 24, 33, 207), 19);
+    c.strokeRect({76, 181, 1180, 756}, rgba(163, 193, 194, 49), 1, 19);
+    c.fillRect({1287, 181, 570, 756}, rgba(12, 27, 35, 214), 19);
+    c.strokeRect({1287, 181, 570, 756}, rgba(157, 190, 189, 62), 1, 19);
     drawTopBar(c);
 
     // Back button next to Settings title for touch navigation
     Rect backBtn{kMargin, 94, 52, 52};
-    c.fillRect(backBtn, rgba(38, 90, 106, 172), 16);
-    c.strokeRect(backBtn, rgba(130, 220, 232, 92), 1, 16);
+    c.fillRect(backBtn, rgba(39, 64, 67, 180), 16);
+    c.strokeRect(backBtn, rgba(157, 189, 191, 95), 1, 16);
     float bx = backBtn.x + backBtn.w / 2.0f, by = backBtn.y + backBtn.h / 2.0f;
     c.line(bx + 4.0f, by - 9.0f, bx - 4.0f, by, 3.0f, kWhite);
     c.line(bx - 4.0f, by, bx + 4.0f, by + 9.0f, 3.0f, kWhite);
 
     // Settings page title sits BELOW the fixed Premium Preview navigation
     // bar. The existing back button and every settings row stay in place.
-    fonts_.bold.draw(c, tr(Str::Settings), kMargin + 72, 137, 42, kWhite);
-    fonts_.semibold.draw(c, "NIMBOX  /  SISTEMA", 1310, 140, 19, rgba(137, 211, 225));
+    fonts_.bold.draw(c, tr(Str::Settings), kMargin + 72, 131, 42, kWhite);
+    fonts_.semibold.draw(c, "NIMBOX  /  PREFERENCIAS", 1305, 134, 18,
+                         rgba(170, 203, 197));
+    fonts_.regular.draw(c, "Seu ambiente. Sua colecao.", 103, 206, 22, rgba(203, 221, 220));
+    fonts_.regular.draw(c, "Configuracoes do aplicativo e personalizacao visual", 103, 231,
+                        17, rgba(150, 176, 176));
     if (loading_) {
         drawLoadingBar(c, kW - kMargin - 480, 100, 480, lastRender_);
     }
@@ -1252,14 +1273,22 @@ void AppUi::drawSettings(Canvas& c) {
                                         tr(Str::CheckSignIn),   tr(Str::NetworkTest),   tr(Str::SupportProject),
                                         tr(Str::VideoDecoder),  tr(Str::AudioHaptics),  tr(Str::PreviewFeatures),
                                         tr(Str::ResetSettings), tr(Str::SyncTrophies),  tr(Str::RemoveTrophies),
-                                        tr(Str::FpsLimit), tr(Str::StoreCountry)};
+                                        tr(Str::FpsLimit), tr(Str::StoreCountry),
+                                        "Ambiente Nimbox", "Reflexo do piso", "Movimento reduzido"};
     constexpr int kRowW = kSettingsRowW, kRowH = kSettingsRowH, kGap = kSettingsGap, kGroupGap = kSettingsGroupGap, kRowPx = kSettingsRowPx;
     constexpr int kListTop = kSettingsListTop, kClipTop = kSettingsClipTop;
     Rect rows[kSettingRows];  // by row id
     int y = kListTop - static_cast<int>(std::lround(settingsScrollY_));
-    c.setClip({kMargin - 8, kClipTop, kRowW + 16, kH - kClipTop - 80});
+    c.setClip({kMargin - 8, kClipTop, kRowW + 16, kSettingsListBottom - kClipTop});
     for (const auto& [i, groupStart] : visibleSettingsRows(caps_)) {  // what caps_ rules out is hidden
-        if (groupStart) y += kGroupGap;
+        if (groupStart) {
+            const char* group = i == 1 ? "TRANSMISSAO E IMAGEM" :
+                                i == 14 ? "CONTROLES E ACESSIBILIDADE" :
+                                i == 19 ? "MANUTENCAO" :
+                                i == nimbox_theme::kAppearanceFirst ? "APARENCIA NIMBOX" : "PREFERENCIAS";
+            fonts_.bold.draw(c, group, kMargin + 18, y + 7, 17, rgba(156, 192, 178));
+            y += kGroupGap;
+        }
         Rect r{kMargin, y, kRowW, kRowH};
         rows[i] = r;
         bool focused = i == settingsRow_;
@@ -1284,9 +1313,9 @@ void AppUi::drawSettings(Canvas& c) {
             int textX = r.x + (r.w - textW) / 2;
             fonts_.bold.draw(c, labels[i], textX, ty, kRowPx, kWhite);
         } else {
-            c.fillRect(r, focused ? rgba(31, 86, 103, 221) : rgba(24, 46, 58, 157), 14);
-            c.strokeRect(r, focused ? rgba(132, 220, 230, 227) : rgba(139, 186, 202, 40),
-                         focused && !dropdownOpen_ ? 2 : 1, 14);
+            c.fillRect(r, focused ? rgba(38, 78, 67, 234) : rgba(23, 41, 49, 165), 10);
+            c.strokeRect(r, focused ? rgba(161, 221, 177, 196) : rgba(134, 172, 169, 40),
+                         focused && !dropdownOpen_ ? 2 : 1, 10);
             fonts_.semibold.draw(c, labels[i], r.x + 32, ty, kRowPx, kWhite);
             float cx = static_cast<float>(r.x + r.w - 40), cy = static_cast<float>(r.y + r.h / 2);
             const bool isSubmenuRow = (i == 3 || i == 4 || i == 12 || i == 14 || i == 15);
@@ -1349,6 +1378,8 @@ void AppUi::drawSettings(Canvas& c) {
                 auto options = settingOptions(i);
                 int sel = settingSelected(i);
                 std::string value = sel < static_cast<int>(options.size()) ? options[static_cast<size_t>(sel)] : "";
+                if (i == nimbox_theme::kAppearanceReflection)
+                    value = std::to_string(settings_.nimboxReflection) + " %";
                 int w = fonts_.regular.measure(value, kRowPx);
                 fonts_.regular.draw(c, value, vx - w, fonts_.regular.centeredY(r.y, r.h, kRowPx), kRowPx, focused ? kWhite : kGray);
                 if (i == 6 && settings_.lightBarMode == 1) {  // the colour chosen
@@ -1360,7 +1391,7 @@ void AppUi::drawSettings(Canvas& c) {
         y += kRowH + kGap;
     }
     c.resetClip();
-    static constexpr Str kSettingDescs[kSettingRows] = {
+    static constexpr Str kSettingDescs[28] = {
         Str::SettingDescLanguage,
         Str::SettingDescResolution,
         Str::SettingDescRegion,
@@ -1391,9 +1422,16 @@ void AppUi::drawSettings(Canvas& c) {
         Str::SettingDescStoreCountry,
     };
     if (settingsRow_ >= 0 && settingsRow_ < kSettingRows) {
-        const char* desc = tr(kSettingDescs[settingsRow_]);
-        auto lines = fonts_.regular.wrap(desc, 22, kRowW - 40, 2);
-        const int hintBaseline = kH - 64;
+        const char* desc = settingsRow_ == nimbox_theme::kAppearanceFirst
+            ? "Altera o ambiente atras das caixas. O streaming nao muda."
+            : settingsRow_ == nimbox_theme::kAppearanceReflection
+            ? "Intensidade dos reflexos no piso da colecao."
+            : settingsRow_ == nimbox_theme::kAppearanceMotion
+            ? "Reduz animacoes de capas e do disco."
+            : tr(kSettingDescs[settingsRow_]);
+        auto lines = fonts_.regular.wrap(desc, 18, kRowW - 40, 2);
+        // Dedicated explanation area inside the left panel, not below it.
+        const int hintBaseline = 904;
         int dy = (lines.size() > 1) ? (hintBaseline - 26) : hintBaseline;
         for (const auto& line : lines) {
             fonts_.regular.draw(c, line, kMargin, dy, 22, kDim);
@@ -1401,49 +1439,66 @@ void AppUi::drawSettings(Canvas& c) {
         }
     }
 
-    // Web UI / Remote QR panel on the right side (x = 1310..1850)
+    // The right column now exposes REAL, persisted appearance controls.
+    // Preserve the existing remote Web UI QR underneath — do not replace it
+    // with demonstration features from the HTML prototype.
     if (tester_ == Tester::None && !pickerOpen_) {
-        std::string qrUrl = !webUrl_.empty() ? webUrl_ : "http://" + platform::localIPv4() + ":8080";
-        Rect panel{1310, 184, 540, 724};
-        c.fillRect(panel, rgba(21, 47, 61, 224), 22);
-        c.strokeRect(panel, rgba(135, 210, 224, 107), 1, 22);
-        c.fillRect({panel.x + 24, panel.y + 10, panel.w - 48, 3},
-                   rgba(116, 219, 232, 120), 2);
-
-        int py = panel.y + 30;
-        int titleW = fonts_.bold.measure(tr(Str::WebControlTitle), 28);
-        fonts_.bold.draw(c, tr(Str::WebControlTitle), panel.x + (panel.w - titleW) / 2, py, 28, kWhite);
-        py += 40;
-
-        auto descLines = fonts_.regular.wrap(tr(Str::WebControlDesc), 17, panel.w - 56, 5);
-        for (const auto& l : descLines) {
-            int lw = fonts_.regular.measure(l, 17);
-            fonts_.regular.draw(c, l, panel.x + (panel.w - lw) / 2, py, 17, kGray);
-            py += 22;
+        fonts_.bold.draw(c, "Ambiente Nimbox", 1328, 207, 29, kWhite);
+        fonts_.regular.draw(c, "Personalize o fundo da sua colecao", 1328, 250,
+                            17, rgba(173, 200, 197));
+        for (int i = 0; i < nimbox_theme::kThemeCount; ++i) {
+            const auto& theme = nimbox_theme::kPalettes[i];
+            const Rect card = nimbox_theme::kThemeCards[i];
+            const bool selected = i == settings_.nimboxTheme;
+            c.gradientV(card, theme.sky, theme.low);
+            // High contrast ink band ensures every swatch is readable,
+            // even Infinity Light's near-white upper area.
+            c.fillRect({card.x, card.y + card.h - 31, card.w, 31},
+                       rgba(5, 21, 32, 198), 7);
+            c.strokeRect(card, selected ? rgba(208, 249, 216, 230) :
+                         rgba(160, 183, 186, 65), selected ? 3 : 1, 8);
+            fonts_.semibold.draw(c, theme.name, card.x + 13,
+                                 card.y + card.h - 27, 17, kWhite);
+            if (selected) c.fillCircle(card.x + card.w - 17, card.y + 13,
+                                       5.0f, rgba(217, 255, 221));
         }
+        const std::string refl = std::to_string(settings_.nimboxReflection) + "%";
+        fonts_.semibold.draw(c, "Reflexo do piso", 1330, 502, 19, kWhite);
+        fonts_.semibold.draw(c, refl,
+                             1800 - fonts_.semibold.measure(refl, 18), 502,
+                             18, rgba(189, 220, 202));
+        const Rect track = nimbox_theme::kReflectionTrack;
+        c.fillRect(track, rgba(64, 82, 89), 6);
+        c.fillRect({track.x, track.y,
+                    track.w * nimbox_theme::clampReflection(settings_.nimboxReflection) / 100,
+                    track.h}, rgba(130, 193, 155), 6);
+        const float thumbX = static_cast<float>(track.x) +
+                             track.w * nimbox_theme::clampReflection(settings_.nimboxReflection) / 100.0f;
+        c.fillCircle(thumbX, track.y + track.h / 2.0f, 11.0f, rgba(219, 241, 224));
+        fonts_.semibold.draw(c, "Reduzir movimento", 1330, 599, 19, kWhite);
+        const Rect motion = nimbox_theme::kReducedMotionButton;
+        c.fillRect(motion, settings_.nimboxReducedMotion ? rgba(44, 107, 69) :
+                   rgba(34, 61, 70), 10);
+        c.strokeRect(motion, rgba(165, 208, 180, 106), 1, 10);
+        const char* motionLabel = settings_.nimboxReducedMotion ? "Ligado" : "Desligado";
+        fonts_.semibold.draw(c, motionLabel,
+                             motion.x + (motion.w - fonts_.semibold.measure(motionLabel, 18)) / 2,
+                             motion.y + 12, 18, kWhite);
 
-        uint8_t qrBuf[qrcodegen_BUFFER_LEN_MAX], tmpBuf[qrcodegen_BUFFER_LEN_MAX];
-        int qrTarget = 260;
-        int qrCardW = 300;
-        if (qrcodegen_encodeText(qrUrl.c_str(), tmpBuf, qrBuf, qrcodegen_Ecc_LOW, qrcodegen_VERSION_MIN, qrcodegen_VERSION_MAX, qrcodegen_Mask_AUTO, true)) {
-            int n = qrcodegen_getSize(qrBuf);
-            int mod = qrTarget / (n + 2);
-            qrCardW = mod * (n + 2) + 40;
-        }
-        int qrRight = panel.x + (panel.w + qrCardW) / 2;
-
-        Rect pill{panel.x + 36, panel.y + panel.h - 42 - 18, panel.w - 72, 42};
-
-        // Center QR vertically in available space between py and pill.y
-        int availH = pill.y - py;
-        int qrTop = py + (availH - qrCardW) / 2;
-        drawQr(c, qrUrl, qrRight, qrTop, qrTarget, qrcodegen_Ecc_LOW);
-
-        c.fillRect(pill, rgba(5, 21, 30, 204), 12);
-        c.strokeRect(pill, rgba(116, 219, 232, 72), 1, 12);
-
-        int urlW = fonts_.semibold.measure(qrUrl, 20);
-        fonts_.semibold.draw(c, qrUrl, pill.x + (pill.w - urlW) / 2, fonts_.semibold.centeredY(pill.y, pill.h, 20), 20, rgba(140, 230, 160));
+        // Real, previously available web-control QR. Shrink only its layout;
+        // the URL and service remain exactly as they were.
+        Rect remotePanel{1310, 656, 523, 250};
+        c.fillRect(remotePanel, rgba(7, 22, 32, 180), 14);
+        c.strokeRect(remotePanel, rgba(164, 193, 189, 50), 1, 14);
+        fonts_.bold.draw(c, tr(Str::WebControlTitle), 1330, 672, 21, kWhite);
+        std::string qrUrl = !webUrl_.empty() ? webUrl_ :
+                            "http://" + platform::localIPv4() + ":8080";
+        drawQr(c, qrUrl, 1517, 713, 142, qrcodegen_Ecc_LOW);
+        fonts_.regular.draw(c, "Acesse o painel remoto", 1530, 754, 17, rgba(194, 220, 211));
+        const std::string urlText = fonts_.semibold.fit(qrUrl, 16, 272);
+        fonts_.semibold.draw(c, urlText, 1530, 787, 16, rgba(181, 224, 193));
+        fonts_.regular.draw(c, "Mesmas funcoes, novo visual", 1530, 814, 15,
+                            rgba(145, 175, 174));
     }
 
     if (s_gyroCalModalOpen) {

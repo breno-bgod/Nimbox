@@ -122,6 +122,9 @@ struct SettingsChoice {
     int language = 0;      // ui::Language
     int resolution = 0;    // 0 = 1080p, 1 = 720p, 2 = 1440p (experimental)
     std::string region;    // gssv region name; empty = automatic
+    int nimboxTheme = 0;          // visual-only studio theme
+    int nimboxReflection = 44;    // local virtual floor reflection (0..100)
+    bool nimboxReducedMotion = false; // visual animation preference
     std::string storeCountry;  // store offers; empty = the cloud session’s market
     std::string loginCountry;  // "Sign in as another country" (kLoginCountries); empty = off
     int deadzone[2] = {15, 15};  // left, right stick: percent of the travel, 0..kMaxDeadzone
@@ -211,7 +214,7 @@ std::vector<SettingsRowPos> visibleGameSettingsRows(const UiCaps& caps, bool cus
 
 // The largest stick dead zone Settings offers, in percent of the travel.
 constexpr int kMaxDeadzone = 30;
-constexpr int kSettingRows = 28;  // language, resolution, region, dead zone, triggers, confirm, light bar, updates,
+constexpr int kSettingRows = 31;  // 28 existing system rows + 3 visual-only Nimbox choices  // language, resolution, region, dead zone, triggers, confirm, light bar, updates,
                                   // sign-in country, 120 Hz output, bitrate cap, game volume, keyboard keys,
                                   // display mode (a desktop's window), controller buttons, gyro aiming, queue chime,
                                   // check sign-in, network test, support project, video decoder, audio-to-haptics,

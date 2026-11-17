@@ -1054,7 +1054,8 @@ void AppUi::drawConsoles(Canvas& c, uint64_t nowMs) {
 // projected into trapezoids. No change to GameTile data or streaming actions.
 void AppUi::drawNimboxCarousel(Canvas& c, uint64_t nowMs) {
     const Color deep = rgba(8, 17, 31);
-    const Color aqua = rgba(159, 195, 201);
+    const auto& environment = nimbox_theme::palette(settings_.nimboxTheme);
+    const Color aqua = environment.accent;
     // Follow the selected game's dominant artwork colour, cached by title URL.
     // Clamp luminance to keep the interface and headings readable.
     Color topShade = rgba(66, 112, 136);
@@ -1074,12 +1075,12 @@ void AppUi::drawNimboxCarousel(Canvas& c, uint64_t nowMs) {
         }
     }
     c.clear(deep);
-    // Preview Aurora studio fallback: a continuous blue sky/floor even
-    // before hero art is downloaded. Real art, when present, paints over it.
+    // User-selected environment is the real backdrop behind the 3D cases.
+    // Five grounded palettes from the HTML preview. No separate images/files.
     c.gradientV({0, 122, kW, preview31::kHeroShelfBoundary - 122},
-                rgba(82, 153, 187), rgba(16, 60, 87));
-    c.gradientH({0, 122, kW, 650}, rgba(12, 43, 72, 82),
-                rgba(113, 195, 218, 17));
+                environment.sky, environment.low);
+    c.gradientH({0, 122, kW, 650}, rgba(12, 32, 44, 76),
+                withAlpha(environment.horizon, 50));
     // Keep receiving the game's actual hero art from the PSBox/xCloud data.
     // The visual layer never invents a new title or modifies the session.
     const GameTile* artworkTile = focusedTile();
@@ -1092,12 +1093,14 @@ void AppUi::drawNimboxCarousel(Canvas& c, uint64_t nowMs) {
     // The Preview 3.0 hero is a luminous continuous studio above catalog rails.
     // Real xCloud hero art remains visible underneath.
     c.fillRect({0, 140, kW, preview31::kHeroShelfBoundary - 140}, rgba(3, 13, 27, 49));
+    // The catalogue art always wins; theme adds only a restrained tint.
     c.gradientV({0, 135, kW, preview31::kHeroShelfBoundary - 135},
-                withAlpha(topShade, 105), rgba(10, 37, 57, 165));
+                withAlpha(environment.horizon, 65), withAlpha(environment.low, 143));
+    c.gradientV({0, 135, kW, 360}, withAlpha(topShade, 48), rgba(8, 22, 35, 0));
     c.gradientH({0, 140, 560, 660}, rgba(6, 21, 39, 173),
                 rgba(6, 21, 39, 0));
     // Ambient floor is drawn beneath the physical closed-case collection.
-    c.gradientV({0, 645, kW, 224}, rgba(50, 128, 160, 63), deep);
+    c.gradientV({0, 645, kW, 224}, withAlpha(environment.mid, 72), deep);
     c.line(220.0f, 715.0f, 1680.0f, 715.0f, 1.0f,
            rgba(147, 214, 235, 29));
     drawTopBar(c);
@@ -1229,9 +1232,12 @@ void AppUi::drawNimboxCarousel(Canvas& c, uint64_t nowMs) {
                               {g.front.br.x, floorY + reflectH},
                               {g.front.br.x, floorY},
                               {g.front.bl.x, floorY}};
-            if (coverImage) {
-                c.drawImageQuad(*coverImage, mirror,
-                                focused ? 77 : static_cast<uint8_t>(d == 1 ? 41 : 18));
+            if (coverImage && settings_.nimboxReflection > 0) {
+                const int baseAlpha = focused ? 77 : (d == 1 ? 41 : 18);
+                const int alpha = std::clamp(baseAlpha *
+                    settings_.nimboxReflection / 44, 0, 184);
+                if (alpha > 0) c.drawImageQuad(*coverImage, mirror,
+                                              static_cast<uint8_t>(alpha));
             }
         }
         // The further-away boxes are visibly dimmer; their artwork still

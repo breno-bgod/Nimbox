@@ -38,6 +38,7 @@
 #include "ui/nimbox_pose_core.h"
 #include "ui/box_carousel.h"
 #include "ui/preview_visual_layout.h"
+#include "ui/nimbox_visual_theme.h"
 #include "ui/collection_case_finish.h"
 #include "app/shell.h"
 #include "ui/touch_pad_overlay.h"
@@ -405,6 +406,7 @@ static void testSettingsMigration() {
     };
     auto old = loadFrom(R"({"deband":1,"upscaler":0})");
     CHECK(old.deband == 3 && old.upscaler == 2);
+    CHECK(old.nimboxTheme == 0 && old.nimboxReflection == 44 && !old.nimboxReducedMotion);
     auto chosen = loadFrom(R"({"deband":2,"upscaler":1})");
     CHECK(chosen.deband == 2 && chosen.upscaler == 1);
     auto current = loadFrom(R"({"deband":1,"upscaler":0,"settingsVersion":2})");
@@ -425,11 +427,17 @@ static void testSettingsMigration() {
     xc::app::Settings custom;
     custom.lightBarMode = 1;
     custom.lightBarColour = xc::ui::rgba(0x12, 0x34, 0x56);
+    custom.nimboxTheme = 3;
+    custom.nimboxReflection = 67;
+    custom.nimboxReducedMotion = true;
     CHECK(custom.save(path));
     std::string text;
     CHECK(xc::platform::readFile(path, text) && text.find("\"#123456\"") != std::string::npos);
     xc::app::Settings back;
     CHECK(back.load(path) && back.lightBarMode == 1 && back.lightBarColour == xc::ui::rgba(0x12, 0x34, 0x56));
+    CHECK(back.nimboxTheme == 3 && back.nimboxReflection == 67 && back.nimboxReducedMotion);
+    CHECK(loadFrom(R"({"nimboxTheme":99,"nimboxReflection":-15})").nimboxTheme == 4);
+    CHECK(loadFrom(R"({"nimboxTheme":-2,"nimboxReflection":188})").nimboxReflection == 100);
     std::remove(path.c_str());
 }
 
@@ -443,6 +451,9 @@ static void testSettingsChoiceRoundTrip() {
     s.language = "pt-BR";
     s.resolution = "720p";
     s.region = "Brazil South";
+    s.nimboxTheme = 4;
+    s.nimboxReflection = 73;
+    s.nimboxReducedMotion = true;
     s.loginCountry = "jp";
     s.deadzoneLeft = 7, s.deadzoneRight = 21;
     s.triggerStrength = 4, s.triggerHz = 2, s.triggerResistance = 3, s.triggerPulses = true, s.triggerProfile = 2;
@@ -471,6 +482,7 @@ static void testSettingsChoiceRoundTrip() {
     CHECK(c.resolution == 1 && c.triggerProfile == 2 && c.lightBarColour == 0xFF112233u && !c.fullscreen);
     CHECK(c.videoDecoder == 1);
     CHECK(c.fpsLimit == 60);
+    CHECK(c.nimboxTheme == 4 && c.nimboxReflection == 73 && c.nimboxReducedMotion);
     CHECK(!c.queueReadyAlert && c.titlePlaytime.at("game1") == 3600);
 
     xc::app::Settings back;  // defaults, then what the screen carries
@@ -481,6 +493,7 @@ static void testSettingsChoiceRoundTrip() {
     CHECK(back.language == s.language);
     CHECK(back.resolution == s.resolution);
     CHECK(back.region == s.region && back.loginCountry == s.loginCountry);
+    CHECK(back.nimboxTheme == 4 && back.nimboxReflection == 73 && back.nimboxReducedMotion);
     CHECK(back.deadzoneLeft == s.deadzoneLeft && back.deadzoneRight == s.deadzoneRight);
     CHECK(back.triggerStrength == s.triggerStrength && back.triggerHz == s.triggerHz &&
           back.triggerResistance == s.triggerResistance && back.triggerPulses == s.triggerPulses &&
@@ -1187,6 +1200,24 @@ static void testNimboxPreview3PageStructure() {
     // The shelf and footer remain dark, unlike the brighter hero.
     CHECK(pixels[static_cast<size_t>(kShelfHeaderY) * 1920u + 5u] !=
           pixels[static_cast<size_t>(kFooterTop + 8) * 1920u + 5u]);
+}
+
+static void testNimboxAppearanceStudio() {
+    using namespace xc::ui::nimbox_theme;
+    CHECK(kThemeCount == 5);
+    CHECK(std::string(palette(0).name) == "Aurora");
+    CHECK(std::string(palette(3).name) == "Emerald");
+    CHECK(std::string(palette(4).name) == "Cinema Dark");
+    CHECK(std::string(palette(99).name) == "Cinema Dark");
+    for (int i = 0; i < kThemeCount; ++i) {
+        const xc::ui::Rect r = kThemeCards[i];
+        CHECK(r.w >= 200 && r.h >= 50);
+        CHECK(contains(r, r.x + r.w / 2, r.y + r.h / 2));
+        CHECK(!contains(r, -1, -1));
+    }
+    CHECK(reflectionFromX(static_cast<float>(kReflectionTrack.x)) == 0);
+    CHECK(reflectionFromX(static_cast<float>(kReflectionTrack.x + kReflectionTrack.w)) == 100);
+    CHECK(reflectionFromX(-300) == 0 && reflectionFromX(3000) == 100);
 }
 
 static void testNimboxXboxCaseFinish() {
@@ -4807,21 +4838,21 @@ static void testVisibleSettingsRows() {
     };
     const ui::UiCaps ps5;
     auto all = ui::visibleSettingsRows(ps5);
-    CHECK((ids(all) == std::vector<int>{0, 2, 8, 27, 17, 18, 24, 25, 1, 20, 9, 26, 10, 14, 12, 3, 15, 4, 21, 5, 6, 16, 22, 19, 7, 23}));
-    CHECK((groups(all) == std::vector<bool>{false, false, false, false, false, false, false, false, true, false, false, false, false, true, false, false, false, false, false, false, false, false, false, true, false, true}));
+    CHECK((ids(all) == std::vector<int>{0, 2, 8, 27, 17, 18, 24, 25, 1, 20, 9, 26, 10, 14, 12, 3, 15, 4, 21, 5, 6, 16, 22, 19, 7, 23, 28, 29, 30}));
+    CHECK((groups(all) == std::vector<bool>{false, false, false, false, false, false, false, false, true, false, false, false, false, true, false, false, false, false, false, false, false, false, false, true, false, true, true, false, false}));
     ui::UiCaps pc;
     pc.lightBar = pc.triggerRumble = pc.adaptiveTriggers = pc.gyro = pc.touchpad = false;
     pc.upscalers = pc.sharpen = pc.deband = pc.highRefresh = pc.console = pc.selfUpdate = pc.trophies = false;
     pc.openUrl = true;
     auto desk = ui::visibleSettingsRows(pc);
-    CHECK((ids(desk) == std::vector<int>{0, 2, 8, 27, 17, 18, 1, 20, 26, 10, 14, 12, 3, 5, 16, 22, 19, 7, 23}));
-    CHECK((groups(desk) == std::vector<bool>{false, false, false, false, false, false, true, false, false, false, true, false, false, false, false, false, true, false, true}));
+    CHECK((ids(desk) == std::vector<int>{0, 2, 8, 27, 17, 18, 1, 20, 26, 10, 14, 12, 3, 5, 16, 22, 19, 7, 23, 28, 29, 30}));
+    CHECK((groups(desk) == std::vector<bool>{false, false, false, false, false, false, true, false, false, false, true, false, false, false, false, false, true, false, true, true, false, false}));
     // The desktop app's window: Display mode after the resolution, in the stream's group.
     ui::UiCaps win = pc;
     win.desktopWindow = true;
     auto w = ui::visibleSettingsRows(win);
-    CHECK((ids(w) == std::vector<int>{0, 2, 8, 27, 17, 18, 1, 20, 13, 26, 10, 14, 12, 3, 5, 16, 22, 19, 7, 23}));
-    CHECK((groups(w) == std::vector<bool>{false, false, false, false, false, false, true, false, false, false, false, true, false, false, false, false, false, true, false, true}));
+    CHECK((ids(w) == std::vector<int>{0, 2, 8, 27, 17, 18, 1, 20, 13, 26, 10, 14, 12, 3, 5, 16, 22, 19, 7, 23, 28, 29, 30}));
+    CHECK((groups(w) == std::vector<bool>{false, false, false, false, false, false, true, false, false, false, false, true, false, false, false, false, false, true, false, true, true, false, false}));
     auto deskIds = ids(desk);
     CHECK(std::find(deskIds.begin(), deskIds.end(), 24) == deskIds.end());
     CHECK(std::find(deskIds.begin(), deskIds.end(), 25) == deskIds.end());
@@ -7445,13 +7476,15 @@ static void testDesktopMouseNav() {
 
     // 8. In Settings, clicking a dropdown setting opens the dropdown
     {
-        // Language row (row 0) at y = 190
-        auto evClick = uiApp.onMouseDown(200.0f, 200.0f, 1);
+        // Language row (row 0) starts at kSettingsListTop, currently 258.
+        // The header above it is not a selectable setting.
+        const float languageY = 272.0f;  // Settings visual row 0: top 258 + 14
+        auto evClick = uiApp.onMouseDown(200.0f, languageY, 1);
         // First right click closes the dropdown
-        auto evClose = uiApp.onMouseDown(200.0f, 200.0f, 3);
+        auto evClose = uiApp.onMouseDown(200.0f, languageY, 3);
         CHECK(uiApp.screen() == ui::Screen::Settings);
         // Second right click exits back to Home
-        auto evBack = uiApp.onMouseDown(200.0f, 200.0f, 3);
+        auto evBack = uiApp.onMouseDown(200.0f, languageY, 3);
         CHECK(uiApp.screen() == ui::Screen::Home);
     }
 }
@@ -11793,6 +11826,7 @@ int main() {
     testNimboxProjected3DCase();
     testNimboxCascadeArc();
     testNimboxPreview3PageStructure();
+    testNimboxAppearanceStudio();
     testNimboxXboxCaseFinish();
     testNimboxDefaultCarouselNavigation();
     testDetailsHydrationAndPlaytimeBadge();
