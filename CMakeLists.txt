@@ -126,6 +126,9 @@ include(cmake/deps/ffmpeg.cmake)
 add_library(xcloud_media STATIC src/media/decoder.cpp src/media/audio_queue.cpp src/media/audio_in_common.cpp
                                 src/media/audio_encoder.cpp)
 target_link_libraries(xcloud_media PUBLIC xcloud_core PRIVATE xc_ffmpeg)
+if(ANDROID)
+    target_sources(xcloud_media PRIVATE src/media/android_webrtc_decoder.cpp)
+endif()
 
 # --- Menus: software-rendered UI, Game Pass library ---------------------------
 # The fonts inside the binary too: used when assets/fonts can't be read (the app's folder out of

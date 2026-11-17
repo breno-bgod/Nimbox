@@ -104,6 +104,10 @@ public:
     // Measurements only (autoplay "abcycle"): the hardware or the software
     // decoder from the next frame on, while streaming.
     void switchDecoder(bool hardware);
+    // Android-only third video player. 0 MediaCodec, 1 FFmpeg, 2 WebRTC video.
+    // Outside Android the integer is normalized to the existing HW/SW modes.
+    void switchVideoBackend(int mode);
+    void setVideoBackend(int mode);
     // Measurements only (autoplay "bench", the file mark.req): logs the
     // window since the last mark (every frame's decode, draw and on-screen
     // times as percentiles; the counters' increase) and starts a new one.

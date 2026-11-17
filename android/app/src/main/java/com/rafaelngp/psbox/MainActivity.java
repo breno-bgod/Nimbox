@@ -103,6 +103,43 @@ public class MainActivity extends SDLActivity {
         return selected;
     }
 
+    // Android-only video player, fed by the existing Nimbox C++ H.264 stream.
+    // This is NOT a second connection or a second xCloud authentication flow.
+    private com.rafaelngp.psbox.streaming.AndroidWebRtcVideoPlayer webRtcVideo;
+
+    public synchronized boolean startWebRtcVideo(int width, int height) {
+        stopWebRtcVideo();
+        try {
+            webRtcVideo = new com.rafaelngp.psbox.streaming.AndroidWebRtcVideoPlayer(this);
+            if (webRtcVideo.start(width, height)) return true;
+        } catch (RuntimeException | LinkageError ex) {
+            Log.w(TAG, "WebRTC H264 video decoder startup failed; retain legacy decoder", ex);
+        }
+        stopWebRtcVideo();
+        return false;
+    }
+
+    public synchronized byte[] decodeWebRtcVideo(byte[] annexB, long rtpTag, boolean keyFrame) {
+        if (webRtcVideo == null) return new byte[0];
+        try {
+            return webRtcVideo.decode(annexB, rtpTag, keyFrame);
+        } catch (RuntimeException | LinkageError ex) {
+            Log.w(TAG, "WebRTC H264 decode call failed; fallback required", ex);
+            return new byte[0];
+        }
+    }
+
+    public synchronized void stopWebRtcVideo() {
+        if (webRtcVideo == null) return;
+        try {
+            webRtcVideo.close();
+        } catch (RuntimeException ex) {
+            Log.w(TAG, "WebRTC video close", ex);
+        } finally {
+            webRtcVideo = null;
+        }
+    }
+
     private static final int PERMISSION_REQUEST_BT = 1001;
     private static final int PERMISSION_REQUEST_AUDIO = 1002;
 

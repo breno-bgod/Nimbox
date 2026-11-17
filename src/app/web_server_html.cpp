@@ -1027,6 +1027,7 @@ body:has(#tab-gamepad.active) .remote-hero { display:none; }
         <select id="selectVideoDecoder" onchange="markSettingsChanged()">
           <option value="0" id="optVideoHw">GPU (Hardware)</option>
           <option value="1">CPU (Software)</option>
+          <option value="2">WebRTC Video (apenas Android)</option>
         </select>
       </div>
 

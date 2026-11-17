@@ -608,7 +608,11 @@ void StreamScreen::update(const input::ControllerState& pad, ui::NavInput nav, b
                     snapshot = g_settings;
                 }
                 app::SettingsManager::instance().syncFrom(snapshot);
+#if defined(__ANDROID__)
+                if (g_player) g_player->switchVideoBackend(dec);
+#else
                 if (g_player) g_player->switchDecoder(dec == 0);
+#endif
                 break;
             }
             case ui::MenuAction::FpsLimiter: {

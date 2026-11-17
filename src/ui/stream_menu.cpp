@@ -450,7 +450,11 @@ MenuAction StreamMenu::handle(const NavInput& navIn) {
         resolution_ = kResolutionOrder[pos];
     }
     if (selected_ == VideoDecoderItem && (in.left || in.right || in.accept)) {
+#if defined(__ANDROID__)
+        videoDecoder_ = (videoDecoder_ + (in.left ? 2 : 1)) % 3;
+#else
         videoDecoder_ = (videoDecoder_ == 0) ? 1 : 0;
+#endif
         return MenuAction::VideoDecoder;
     }
     if (selected_ == FpsLimiterItem && (in.left || in.right)) {
@@ -703,7 +707,7 @@ const char* StreamMenu::itemDescription(int item) const {
         case Resolution: return tr(Str::SettingDescResolution);
         case VideoDecoderItem:
 #if defined(__ANDROID__)
-            return "H.264 AVC: GPU usa MediaCodec; CPU usa FFmpeg. Troca o motor ao vivo; pode haver breve pausa.";
+            return "H.264 AVC: MediaCodec, FFmpeg ou video WebRTC Android. Usa a conexao atual; fallback automatico.";
 #else
             return tr(Str::SettingDescVideoDecoder);
 #endif
@@ -1063,7 +1067,8 @@ Canvas StreamMenu::renderMenu(const StreamInfo& info) const {
         }
         if (i == VideoDecoderItem) {
 #if defined(__ANDROID__)
-            value = (videoDecoder_ == 1) ? "CPU / FFmpeg" : "GPU / MediaCodec";
+            value = videoDecoder_ == 2 ? "WebRTC Video (Android)" :
+                    videoDecoder_ == 1 ? "CPU / FFmpeg" : "GPU / MediaCodec";
 #else
             value = (videoDecoder_ == 1) ? tr(Str::VideoDecoderSw) : tr(Str::VideoDecoderHw);
 #endif

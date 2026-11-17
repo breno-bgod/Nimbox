@@ -266,6 +266,8 @@ struct StreamPlayer::Impl {
     int maxBitrateMbps = 0;
     bool hwProbe = false;
     bool preferHwDecode = true;
+    int initialVideoBackend = 0; // 0 native HW, 1 FFmpeg, 2 libwebrtc video (Android)
+
     std::string tierSequence;  // setTierSequence() (measurements)
     std::atomic<bool> isHwDecode{false};
 
@@ -778,7 +780,13 @@ struct StreamPlayer::Impl {
             }
         }
         auto decoder = std::make_unique<media::VideoDecoder>();
-        if (!decoder->init(decodeThreads, preferHwDecode)) {
+        if (!decoder->init(decodeThreads, preferHwDecode,
+#if defined(__ANDROID__)
+                           initialVideoBackend == 2
+#else
+                           false
+#endif
+                           )) {
             end("could not start the H.264 decoder");
             return;
         }
@@ -934,17 +942,30 @@ struct StreamPlayer::Impl {
                 requestKeyframeIfWanted();
                 XC_LOGI("stream: decoder made again: %s", decoder->isHardware() ? "hardware" : "software (hardware failed)");
             }
-            if (int want = decoderSwitch.exchange(-1); want == 1 && decoder->isHardware()) {
-                // Already the hardware one: a second one made beside it would
-                // need memory of its own (the kept memory is this one's).
-                XC_LOGI("stream: decoder already hardware");
-            } else if (want >= 0) {
-                auto next = std::make_unique<media::VideoDecoder>();
-                if (next->init(decodeThreads, want == 1)) {
+            // Select only the VIDEO backend. This does not reconnect
+            // WebRTC, alter SDP/ICE, audio or the Xbox input channels.
+            if (int want = decoderSwitch.exchange(-1); want >= 0) {
+                const bool same = (want == 2 && decoder->isAndroidWebRtc()) ||
+                    (want == 1 && !decoder->isHardware()) ||
+                    (want == 0 && decoder->isHardware() && !decoder->isAndroidWebRtc());
+                if (!same) {
+                    // Release first to allow Android hardware codec reuse.
+                    decoder.reset();
+                    auto next = std::make_unique<media::VideoDecoder>();
+                    if (!next->init(decodeThreads, want != 1, want == 2)) {
+                        XC_LOGW("stream: requested video backend %d failed; restoring MediaCodec", want);
+                        next = std::make_unique<media::VideoDecoder>();
+                        if (!next->init(decodeThreads, true)) {
+                            end("could not restore video decoder");
+                            return;
+                        }
+                    }
                     decoder = std::move(next);
+                    inFlight.clear();
                     keyframeWanted = true;
                     requestKeyframeIfWanted();
-                    XC_LOGI("stream: decoder switched to %s", decoder->isHardware() ? "hardware" : "software");
+                    XC_LOGI("stream: video backend=%s", decoder->isAndroidWebRtc()
+                        ? "WebRTC video" : (decoder->isHardware() ? "MediaCodec/HW" : "FFmpeg/SW"));
                 }
             }
             uint64_t t0 = platform::nowUs();
@@ -991,7 +1012,10 @@ struct StreamPlayer::Impl {
                     latestPic.pic = pic;
                     latestPic.meta = meta;
                     latestPic.known = known;
-                    latestPic.isHw = decoder->isHardware();
+                    // WebRTC outputs an owned I420 vector whose lifetime is
+                    // only until the next decode. Unlike PS5 zero-copy slots,
+                    // async present must keep a private copy of these planes.
+                    latestPic.isHw = decoder->isHardware() && !decoder->isAndroidWebRtc();
                     latestPic.arrivalUs = frame.arrivalUs;
                     ++latestPic.seq;
                     if (!latestPic.isHw) {
@@ -1816,6 +1840,22 @@ StreamPlayer::Stats StreamPlayer::stats() const {
 }
 
 void StreamPlayer::switchDecoder(bool hardware) { impl_->decoderSwitch = hardware ? 1 : 0; }
+void StreamPlayer::setVideoBackend(int mode) {
+#if defined(__ANDROID__)
+    impl_->initialVideoBackend = std::clamp(mode, 0, 2);
+#else
+    impl_->initialVideoBackend = std::clamp(mode, 0, 1);
+#endif
+    impl_->preferHwDecode = impl_->initialVideoBackend != 1;
+}
+void StreamPlayer::switchVideoBackend(int mode) {
+#if defined(__ANDROID__)
+    impl_->decoderSwitch = std::clamp(mode, 0, 2);
+#else
+    impl_->decoderSwitch = mode == 1 ? 0 : 1;
+#endif
+}
+
 
 void StreamPlayer::recreateHwDecoder() { impl_->hwRecreate = true; }
 

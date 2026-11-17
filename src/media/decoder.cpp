@@ -2,6 +2,9 @@
 // Copyright (C) 2026 RafaelNGP
 #include <cstdint>
 #include "media/decoder.h"
+#if defined(__ANDROID__)
+#include "media/android_webrtc_decoder.h"
+#endif
 
 #include "util/log.h"
 
@@ -560,7 +563,12 @@ static enum AVPixelFormat getHwFormat(AVCodecContext* ctx, const enum AVPixelFor
     return AV_PIX_FMT_NONE;
 }
 
+VideoDecoder::VideoDecoder() = default;
+
 VideoDecoder::~VideoDecoder() {
+#if defined(__ANDROID__)
+    androidWebRtc_.reset();
+#endif
     freeAll(ctx_, frame_, packet_);
     if (swFrame_) av_frame_free(&swFrame_);
     if (hwDeviceCtx_) {
@@ -570,7 +578,29 @@ VideoDecoder::~VideoDecoder() {
     }
 }
 
-bool VideoDecoder::init(int threads, bool preferHw) {
+bool VideoDecoder::init(int threads, bool preferHw, bool androidWebRtcVideo) {
+    initThreads_ = threads;
+    androidWebRtcActive_ = false;
+    androidWebRtcPending_ = 0;
+    androidWebRtcErrors_ = 0;
+#if defined(__ANDROID__)
+    androidWebRtc_.reset();
+    if (androidWebRtcVideo) {
+        androidWebRtc_ = std::make_unique<AndroidWebRtcDecoder>();
+        if (androidWebRtc_->init(1920, 1088)) {
+            androidWebRtcActive_ = true;
+            isHw_ = true;
+            needsKeyframe_ = false;
+            pending_ = false;
+            XC_LOGI("h264 decoder: Android WebRTC video-only backend active");
+            return true;
+        }
+        androidWebRtc_.reset();
+        XC_LOGW("h264 decoder: Android WebRTC unavailable, falling back to native MediaCodec");
+    }
+#else
+    (void)androidWebRtcVideo;
+#endif
     installLogCallback();
     preferHw_ = preferHw;
     isHw_ = false;
@@ -677,6 +707,32 @@ bool VideoDecoder::init(int threads, bool preferHw) {
 
 bool VideoDecoder::decode(const uint8_t* data, size_t len, Picture& out, uint32_t tag) {
     pending_ = false;
+#if defined(__ANDROID__)
+    if (androidWebRtcActive_ && androidWebRtc_) {
+        if (androidWebRtc_->decode(data, len, tag, out)) {
+            androidWebRtcPending_ = androidWebRtcErrors_ = 0;
+            needsKeyframe_ = false;
+            return true;
+        }
+        pending_ = androidWebRtc_->pending();
+        if (pending_) ++androidWebRtcPending_;
+        else ++androidWebRtcErrors_;
+        // The alternative player must never make a formerly playable session
+        // unusable. Switch back to the existing MediaCodec automatically if
+        // no frame is returned for long enough, or Java keeps failing.
+        if (androidWebRtcPending_ >= 180 || androidWebRtcErrors_ >= 15) {
+            XC_LOGW("h264 decoder: WebRTC video stalled; falling back to MediaCodec");
+            androidWebRtc_.reset();
+            androidWebRtcActive_ = false;
+            init(initThreads_, true, false);
+            pending_ = false;
+            needsKeyframe_ = true;
+            return false;
+        }
+        needsKeyframe_ = !pending_;
+        return false;
+    }
+#endif
     if (!data || len == 0) return false;
 
     // --- Path 1: PS5 Hardware Decoder (libSceVideodec2) ---

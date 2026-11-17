@@ -119,3 +119,12 @@ android {
 tasks.named("preBuild") {
     dependsOn("generateAssetList")
 }
+
+
+dependencies {
+    // Android video playback only: libwebrtc's H.264 hardware decoder and
+    // EGL SurfaceViewRenderer. Nimbox's existing C++ GSSV/WebRTC transport,
+    // authentication, audio and input remain the only stream infrastructure.
+    // The opt-in JNI video handoff/display composition is still pending.
+    implementation("io.github.webrtc-sdk:android:150.7871.04")
+}
