@@ -569,6 +569,11 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
             ev.settings = settings_;
             return ev;
         }
+        if (screen_ == Screen::Profile) {
+            screen_ = Screen::Home;
+            dirty_ = true;
+            return ev;
+        }
         if (screen_ == Screen::Details) {
             if (!nimboxReturningHome_) {
                 syncHeroToRowsLocked(detail_.productId, detail_.titleId, detail_.heroUrl,
