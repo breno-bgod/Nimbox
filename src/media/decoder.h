@@ -98,7 +98,7 @@ private:
 
 class VideoDecoder {
 public:
-    VideoDecoder() = default;
+    VideoDecoder();
     ~VideoDecoder();
     VideoDecoder(const VideoDecoder&) = delete;
     VideoDecoder& operator=(const VideoDecoder&) = delete;
