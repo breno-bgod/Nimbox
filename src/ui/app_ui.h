@@ -90,10 +90,10 @@ struct GameRow {
     bool isGrid = false;
 };
 
-enum class Screen { Splash, SignIn, Home, Details, Launching, Streaming, Error, Settings, Updating, Profile };
+enum class Screen { Splash, SignIn, Home, Details, Launching, Streaming, Error, Settings, Updating };
 
 // The home screen's tabs (L1 / R1). Triangle searches the current one.
-enum class Tab { GamePass, Library, Consoles, Genres, Friends };
+enum class Tab { GamePass, Library, Consoles };
 
 struct NavInput {
     bool up = false, down = false, left = false, right = false;
@@ -566,12 +566,6 @@ private:
     void drawTabs(Canvas& c);
     void drawConsoles(Canvas& c, uint64_t nowMs);
     void drawLibrary(Canvas& c, uint64_t nowMs);
-    void drawGenres(Canvas& c, uint64_t nowMs);
-    void drawFriends(Canvas& c, uint64_t nowMs);
-    void drawProfile(Canvas& c, uint64_t nowMs);
-    std::vector<std::string> genreOptions() const;
-    std::vector<const GameTile*> genreGames() const;
-    std::vector<const GameTile*> friendGames() const;
     void drawSearch(Canvas& c, uint64_t nowMs);
     void drawCard(Canvas& c, const GameTile& t, int x, int y, bool focused, bool gamePassBadge);
     // A grid of cards with names below; `focus` < 0: none highlighted.
@@ -703,9 +697,6 @@ private:
     Anim nimboxDetailIntro_;  // cinematic library-to-details transition
     bool nimboxReturningHome_ = false; // finish exit before switching screens
     Tab tab_ = Tab::GamePass;
-    int genreFocus_ = 0;
-    int genreGameFocus_ = -1;
-    int friendGameFocus_ = 0;
     // Experimental, opt-in, session-only visual mode. R3 toggles in Game Pass home.
     bool nimboxCarousel_ = true; // approved Nimbox Home; R3 restores original UI
     std::vector<ConsoleTile> consoles_;

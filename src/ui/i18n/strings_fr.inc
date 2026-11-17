@@ -589,8 +589,4 @@ constexpr Column kFrench = {
     "Enregistrer",                                                                    // Save
     "Ouvrir le navigateur pour se connecter",                                         // SignInOpenBrowser
     "Touchez ici ou appuyez sur A pour ouvrir dans le navigateur",                    // SignInOpenBrowserHint
-    "Genres", // TabGenres
-    "Amis", // TabFriends
-    "Aucun genre dans le catalogue chargé.", // GenresEmpty
-    "Aucun ami ne joue aux titres du catalogue chargé.", // FriendsEmpty
 };

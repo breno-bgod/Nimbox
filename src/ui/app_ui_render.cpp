@@ -482,10 +482,10 @@ void AppUi::drawSignIn(Canvas& c, uint64_t nowMs) {
 
 void AppUi::drawTabs(Canvas& c) {
     // Centred pills in the top bar, between "L1" and "R1".
-    const auto labels = topTabLabels();
+    const char* labels[3] = {tr(Str::TabGamePass), tr(Str::YourGames), tr(Str::TabConsoles)};
     constexpr int kPx = 22, kPad = 26, kGap = 12, kH = 44, kY = 50;
-    int widths[kTopTabCount], total = 0;
-    for (int i = 0; i < kTopTabCount; ++i) {
+    int widths[3], total = 0;
+    for (int i = 0; i < 3; ++i) {
         widths[i] = fonts_.semibold.measure(labels[i], kPx) + 2 * kPad;
         total += widths[i] + (i ? kGap : 0);
     }
@@ -497,11 +497,16 @@ void AppUi::drawTabs(Canvas& c) {
         fonts_.bold.draw(c, name, cx - fonts_.bold.measure(name, 16) / 2, fonts_.bold.centeredY(r.y, r.h, 16), 16, kGray);
     };
     shoulder(g_keyboardHints ? "Q" : buttonName(g_glyphStyle, PadButton::L1), x - 40);
-    for (int i = 0; i < kTopTabCount; ++i) {
+    for (int i = 0; i < 3; ++i) {
         bool on = static_cast<int>(tab_) == i;
         Rect r{x, kY, widths[i], kH};
-        if (on) c.fillRect(r, kWhite, kH / 2);
-        fonts_.semibold.draw(c, labels[i], x + kPad, fonts_.semibold.centeredY(kY, kH, kPx), kPx, on ? kBg : kGray);
+        // Presentation-only Nimbox skin: preserve the original tab sizes,
+        // order, input hitboxes and L1/R1 behaviour from PSBox.
+        c.fillRect(r, on ? rgba(36, 83, 106, 236) : rgba(255, 255, 255, 18), kH / 2);
+        c.strokeRect(r, on ? rgba(146, 221, 244, 212) : rgba(255, 255, 255, 40),
+                     on ? 2 : 1, kH / 2);
+        fonts_.semibold.draw(c, labels[i], x + kPad, fonts_.semibold.centeredY(kY, kH, kPx),
+                             kPx, on ? kWhite : kGray);
         x += widths[i] + kGap;
     }
     shoulder(g_keyboardHints ? "E" : buttonName(g_glyphStyle, PadButton::R1), x - kGap + 40);
@@ -1216,114 +1221,10 @@ void AppUi::drawNimboxCarousel(Canvas& c, uint64_t nowMs) {
     drawToast(c, nowMs);
 }
 
-void AppUi::drawGenres(Canvas& c, uint64_t nowMs) {
-    c.clear(kBg);
-    drawBackground(c);
-    drawTopBar(c);
-    drawTabs(c);
-    fonts_.bold.draw(c, tr(Str::TabGenres), kMargin, 165, 38, kWhite);
-    const auto genres = genreOptions();
-    if (genres.empty()) {
-        fonts_.regular.draw(c, tr(Str::GenresEmpty), kMargin, 260, 24, kGray);
-    } else {
-        constexpr int kChipX = 140, kChipY = 235, kChipW = 530, kChipH = 58, kChipGap = 22;
-        for (size_t i = 0; i < genres.size(); ++i) {
-            Rect chip{kChipX + static_cast<int>(i % 3) * (kChipW + kChipGap),
-                      kChipY + static_cast<int>(i / 3) * (kChipH + kChipGap), kChipW, kChipH};
-            const bool active = static_cast<int>(i) == genreFocus_;
-            c.fillRect(chip, active ? rgba(44, 108, 129) : kPanel, 16);
-            if (active) c.strokeRect(chip, genreGameFocus_ < 0 ? kWhite : rgba(130, 210, 230), 3, 16);
-            const std::string label = genres[i].substr(0, 42);
-            fonts_.semibold.draw(c, label, chip.x + 22, fonts_.semibold.centeredY(chip.y, chip.h, 22), 22, kWhite);
-        }
-        const auto games = genreGames();
-        if (games.empty()) {
-            fonts_.regular.draw(c, tr(Str::NoGames), kMargin, 450, 24, kGray);
-        } else {
-            constexpr int kGridX = 180, kGridY = 465;
-            for (size_t i = 0; i < games.size(); ++i) {
-                int x = kGridX + static_cast<int>(i % 6) * kCardPitch;
-                int y = kGridY + static_cast<int>(i / 6) * 285;
-                drawCard(c, *games[i], x, y, static_cast<int>(i) == genreGameFocus_, true);
-            }
-        }
-    }
-    drawHints(c, {{kIconCross, tr(Str::Select)}, {kIconOptions, tr(Str::Settings)}});
-    drawPads(c);
-    drawToast(c, nowMs);
-}
-
-
-void AppUi::drawProfile(Canvas& c, uint64_t nowMs) {
-    // Native account view: show only values provided by Xbox authentication.
-    c.clear(kBg);
-    drawBackground(c);
-    drawTopBar(c);
-    const Rect panel{310, 230, 1300, 650};
-    c.fillRect(panel, rgba(27, 45, 56, 245), 24);
-    c.strokeRect(panel, rgba(143, 221, 239, 100), 2, 24);
-    fonts_.bold.draw(c, tr(Str::Profile), panel.x + 60, panel.y + 55, 48, kWhite);
-    Rect backButton{kMargin, 165, 180, 52};
-    c.fillRect(backButton, rgba(255, 255, 255, 22), 14);
-    fonts_.semibold.draw(c, tr(Str::Back), backButton.x + 26,
-                         fonts_.semibold.centeredY(backButton.y, backButton.h, 22), 22, kWhite);
-
-    const int imageX = panel.x + 62, imageY = panel.y + 160, imageSize = 190;
-    if (auto pic = images_.get(gamerpicUrl_, imageSize, imageSize))
-        c.drawImage(*pic, imageX, imageY, 255, 24);
-    else
-        c.fillCircle(imageX + imageSize / 2.0f, imageY + imageSize / 2.0f, imageSize / 2.0f, kPanel);
-
-    const int dataX = imageX + imageSize + 56;
-    fonts_.bold.draw(c, gamertag_.empty() ? "-" : gamertag_, dataX, imageY + 28, 40, kWhite);
-    if (!gamerscore_.empty()) {
-        drawGamerscoreBadge(c, dataX + 18, imageY + 121, 18);
-        fonts_.semibold.draw(c, gamerscore_, dataX + 55, imageY + 105, 28, kGray);
-    }
-    if (!subscription_.empty()) {
-        fonts_.semibold.draw(c, tr(Str::TabGamePass), dataX, imageY + 180, 24, kGray);
-        fonts_.bold.draw(c, subscription_, dataX, imageY + 220, 26, kWhite);
-    }
-    drawHints(c, {{kIconCircle, tr(Str::Back)}, {kIconOptions, tr(Str::Settings)}});
-    drawPads(c);
-    drawToast(c, nowMs);
-}
-
-void AppUi::drawFriends(Canvas& c, uint64_t nowMs) {
-    c.clear(kBg);
-    drawBackground(c);
-    drawTopBar(c);
-    drawTabs(c);
-    fonts_.bold.draw(c, tr(Str::FriendsPlayingNow), kMargin, 165, 38, kWhite);
-    const auto games = friendGames();
-    if (games.empty()) {
-        fonts_.regular.draw(c, tr(Str::FriendsEmpty), kMargin, 260, 24, kGray);
-    } else {
-        constexpr int kGridX = 180, kGridY = 255;
-        for (size_t i = 0; i < games.size(); ++i) {
-            int x = kGridX + static_cast<int>(i % 6) * kCardPitch;
-            int y = kGridY + static_cast<int>(i / 6) * 350;
-            drawCard(c, *games[i], x, y, static_cast<int>(i) == friendGameFocus_, true);
-            const auto& friends = games[i]->friends;
-            if (!friends.empty()) {
-                std::string tag = friends.front().gamertag;
-                if (friends.size() > 1) tag += " +" + std::to_string(friends.size() - 1);
-                fonts_.semibold.draw(c, tag.substr(0, 26), x, y + kCard + 9, 18, kGray);
-            }
-        }
-    }
-    drawHints(c, {{kIconCross, tr(Str::Select)}, {kIconSquare, tr(Str::Profile)},
-                  {kIconOptions, tr(Str::Settings)}});
-    drawPads(c);
-    drawToast(c, nowMs);
-}
-
 void AppUi::drawHome(Canvas& c, uint64_t nowMs) {
     if (searching_) return drawSearch(c, nowMs);
     if (tab_ == Tab::Library) return drawLibrary(c, nowMs);
     if (tab_ == Tab::Consoles) return drawConsoles(c, nowMs);
-    if (tab_ == Tab::Genres) return drawGenres(c, nowMs);
-    if (tab_ == Tab::Friends) return drawFriends(c, nowMs);
     if (nimboxCarousel_) return drawNimboxCarousel(c, nowMs);
     const GameTile* focus = focusedTile();
     c.clear(kBg);
@@ -2319,7 +2220,6 @@ void AppUi::render(Canvas& c, uint64_t nowMs) {
         case Screen::Error: drawError(c); break;
         case Screen::Settings: drawSettings(c); break;
         case Screen::Updating: drawUpdating(c, nowMs); break;
-        case Screen::Profile: drawProfile(c, nowMs); break;
         case Screen::Streaming: break;
     }
     if (screen_ == Screen::Home && updatePrompt_) {

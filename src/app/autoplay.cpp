@@ -224,7 +224,6 @@ void loadAutoplay() {
         if (opt == "gamegyrotest") g_autoplay.gameSettingsTest = g_autoplay.gameGyroTest = true;
         if (opt == "publishertest") g_autoplay.publisherTest = true;
         if (opt == "friendstest") g_autoplay.friendsTest = true;
-        if (opt == "nativemenustest") g_autoplay.nativeMenusTest = true;
         if (opt == "mw4test") g_autoplay.mw4Test = true;
         if (opt == "v150test") g_autoplay.v150Test = true;
         if (opt == "claimtest") g_autoplay.claimTest = true;
@@ -1394,9 +1393,8 @@ void autoplayScreens(const ui::Canvas& canvas, uint64_t now) {
             ppm += static_cast<char>((p >> 8) & 0xFF);
             ppm += static_cast<char>((p >> 16) & 0xFF);
         }
-        bool ok = platform::writeFileAtomic(platform::dataDir() + "/" + name, ppm);
-        XC_LOGI("ui snapshot %s: %s", name, ok ? "ok" : "failed");
-        return ok;
+        XC_LOGI("ui snapshot %s: %s", name,
+                platform::writeFileAtomic(platform::dataDir() + "/" + name, ppm) ? "ok" : "failed");
     };
     // A capture of the menus asked for from outside (the file ui.req appears), in any mode: what
     // the screen shows now, without restarting the app (ui_now.ppm).
@@ -1427,80 +1425,6 @@ void autoplayScreens(const ui::Canvas& canvas, uint64_t now) {
             saveCanvas("splash.ppm");
         }
     }
-    // Focused PS5 homologation: real console renderer, four native pages.
-    // AUTOTEST avoids cloud streaming, purchases, account edits and keymap changes.
-    if (g_autoplay.nativeMenusTest && uiSaved) {
-        static uint64_t started = 0;
-        static int step = 0;
-        if (!started) started = now;
-        auto fail = [&](const char* reason) {
-            XC_LOGE("AUTOPLAY FAIL: native menus %s", reason);
-            XC_LOGI("AUTOPLAY END: native menus failed");
-            g_autoplay.nativeMenusTest = false;
-        };
-        const uint64_t elapsed = now - started;
-        if (step == 0) {
-            if (g_ui->screen() != ui::Screen::Home) {
-                fail("home not shown");
-            } else {
-                g_ui->showTab(ui::Tab::GamePass);
-                ui::NavInput right;
-                right.r1 = true;
-                for (int n = 0; n < 3; ++n) g_ui->handle(right);
-                step = 1;
-            }
-        } else if (step == 1 && elapsed >= 900) {
-            if (g_ui->screen() != ui::Screen::Home || g_ui->tab() != ui::Tab::Genres)
-                fail("Genres navigation");
-            else if (!saveCanvas("native_genres.ppm")) fail("Genres capture");
-            else {
-                ui::NavInput right;
-                right.r1 = true;
-                g_ui->handle(right);
-                step = 2;
-            }
-        } else if (step == 2 && elapsed >= 1800) {
-            if (g_ui->screen() != ui::Screen::Home || g_ui->tab() != ui::Tab::Friends)
-                fail("Friends navigation");
-            else if (!saveCanvas("native_friends.ppm")) fail("Friends capture");
-            else {
-                ui::NavInput profile;
-                profile.square = true;
-                g_ui->handle(profile);
-                step = 3;
-            }
-        } else if (step == 3 && elapsed >= 2700) {
-            if (g_ui->screen() != ui::Screen::Profile)
-                fail("Profile shortcut");
-            else if (!saveCanvas("native_profile.ppm")) fail("Profile capture");
-            else {
-                ui::NavInput back;
-                back.back = true;
-                g_ui->handle(back);
-                if (g_ui->screen() != ui::Screen::Home) fail("Profile back");
-                else {
-                    g_ui->onMouseDown(1850.0f, 72.0f, 1);
-                    step = 4;
-                }
-            }
-        } else if (step == 4 && elapsed >= 3600) {
-            if (g_ui->screen() != ui::Screen::Settings)
-                fail("Settings gear");
-            else if (!saveCanvas("native_settings.ppm")) fail("Settings capture");
-            else {
-                ui::NavInput back;
-                back.back = true;
-                g_ui->handle(back);
-                if (g_ui->screen() != ui::Screen::Home) fail("Settings back");
-                else {
-                    g_ui->showTab(ui::Tab::GamePass);
-                    g_autoplay.nativeMenusTest = false;
-                    XC_LOGI("AUTOPLAY END: native menus passed");
-                }
-            }
-        }
-    }
-
     if (g_autoplay.libraryTest && uiSaved) {
         static uint64_t openedAt = 0;
         static int saved = 0;

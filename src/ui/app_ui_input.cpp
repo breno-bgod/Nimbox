@@ -30,9 +30,9 @@ void AppUi::handleHome(const NavInput& in, UiEvent& ev) {
         return;
     }
     if (in.l1 || in.r1) {
-        // Cycle the native menu pages; keep existing data and selection.
-        int n = static_cast<int>(tab_) + (in.r1 ? 1 : kTopTabCount - 1);
-        tab_ = static_cast<Tab>(n % kTopTabCount);
+        // Game Pass, Your games, My consoles, round.
+        int n = static_cast<int>(tab_) + (in.r1 ? 1 : 2);
+        tab_ = static_cast<Tab>(n % 3);
         searching_ = false;
         dirty_ = true;
         if (tab_ == Tab::Consoles) ev.action = Action::ConsolesShown;
@@ -64,7 +64,7 @@ void AppUi::handleHome(const NavInput& in, UiEvent& ev) {
         dirty_ = true;
         return;
     }
-    if (in.triangle && !searching_ && (tab_ == Tab::GamePass || tab_ == Tab::Library)) {  // search catalog only
+    if (in.triangle && !searching_ && tab_ != Tab::Consoles) {  // search this tab
         searching_ = true;
         searchOnKeys_ = true;
         query_.clear();
@@ -243,62 +243,6 @@ void AppUi::handleHome(const NavInput& in, UiEvent& ev) {
                 rebuild(true);  // same place on screen, not back to the top
                 prefsEvent(ev);
             }
-            break;
-        }
-        case Tab::Genres: {
-            const auto genres = genreOptions();
-            if (genres.empty()) break;
-            const int count = static_cast<int>(genres.size());
-            if (genreGameFocus_ < 0) {
-                const int previous = genreFocus_;
-                if (in.left && genreFocus_ > 0) --genreFocus_;
-                if (in.right && genreFocus_ + 1 < count) ++genreFocus_;
-                if (in.up && genreFocus_ >= 3) genreFocus_ -= 3;
-                // Genres are presented in two rows of three. Down moves
-                // between genre rows before entering the selected game's grid.
-                if (in.down && genreFocus_ + 3 < count) genreFocus_ += 3;
-                if (previous != genreFocus_) dirty_ = true;
-                const bool bottomRow = genreFocus_ + 3 >= count;
-                if ((in.accept || (in.down && bottomRow && previous == genreFocus_)) && !genreGames().empty()) {
-                    genreGameFocus_ = 0;
-                    dirty_ = true;
-                }
-            } else {
-                const auto games = genreGames();
-                const int maxIndex = static_cast<int>(games.size()) - 1;
-                if (maxIndex < 0 || in.back || (in.up && genreGameFocus_ < 6)) {
-                    genreGameFocus_ = -1;
-                    dirty_ = true;
-                } else {
-                    int previous = genreGameFocus_;
-                    if (in.left && genreGameFocus_ > 0) --genreGameFocus_;
-                    if (in.right && genreGameFocus_ < maxIndex) ++genreGameFocus_;
-                    if (in.up && genreGameFocus_ >= 6) genreGameFocus_ -= 6;
-                    if (in.down && genreGameFocus_ + 6 <= maxIndex) genreGameFocus_ += 6;
-                    if (previous != genreGameFocus_) dirty_ = true;
-                    if (in.accept && genreGameFocus_ < static_cast<int>(games.size()))
-                        openDetails(*games[static_cast<size_t>(genreGameFocus_)]);
-                }
-            }
-            break;
-        }
-        case Tab::Friends: {
-            if (in.square) {
-                screen_ = Screen::Profile;
-                dirty_ = true;
-                break;
-            }
-            const auto games = friendGames();
-            const int count = static_cast<int>(games.size());
-            if (count == 0) break;
-            friendGameFocus_ = std::clamp(friendGameFocus_, 0, count - 1);
-            const int previous = friendGameFocus_;
-            if (in.left && friendGameFocus_ > 0) --friendGameFocus_;
-            if (in.right && friendGameFocus_ + 1 < count) ++friendGameFocus_;
-            if (in.up && friendGameFocus_ >= 6) friendGameFocus_ -= 6;
-            if (in.down && friendGameFocus_ + 6 < count) friendGameFocus_ += 6;
-            if (previous != friendGameFocus_) dirty_ = true;
-            if (in.accept) openDetails(*games[static_cast<size_t>(friendGameFocus_)]);
             break;
         }
     }
@@ -569,11 +513,6 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
             ev.settings = settings_;
             return ev;
         }
-        if (screen_ == Screen::Profile) {
-            screen_ = Screen::Home;
-            dirty_ = true;
-            return ev;
-        }
         if (screen_ == Screen::Details) {
             if (!nimboxReturningHome_) {
                 syncHeroToRowsLocked(detail_.productId, detail_.titleId, detail_.heroUrl,
@@ -708,26 +647,12 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
         return ev;
     }
 
-    // Profile avatar and Settings gear are separate native actions.
+    // Check avatar / settings button click to open settings
     if (screen_ == Screen::Home && !searching_) {
         constexpr int kAvatarRight = kW - 120;
-#if defined(__ANDROID__)
-        constexpr int kAvatarSize = 64;
-#else
-        constexpr int kAvatarSize = 52;
-#endif
-        Rect avatarBtn{kAvatarRight - kAvatarSize, 72 - kAvatarSize / 2,
-                       kAvatarSize, kAvatarSize};
         Rect settingsBtn{kAvatarRight + (120 - 52) / 2, 46, 52, 52};
-        auto inRect = [&](const Rect& r) {
-            return x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h;
-        };
-        if (inRect(avatarBtn)) {
-            screen_ = Screen::Profile;
-            dirty_ = true;
-            return ev;
-        }
-        if (inRect(settingsBtn)) {
+        if ((x >= settingsBtn.x - 12 && x <= settingsBtn.x + settingsBtn.w + 12 && y >= settingsBtn.y - 12 && y <= settingsBtn.y + settingsBtn.h + 12) ||
+            (x >= kAvatarRight - 70 && x <= kW && y >= 30 && y <= 120)) {
             screen_ = Screen::Settings;
             settingsRow_ = 0;
             settingsFromError_ = false;
@@ -738,31 +663,6 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
             dirty_ = true;
             return ev;
         }
-    }
-
-    if (screen_ == Screen::Profile) {
-        Rect backBtn{kMargin, 165, 180, 52};
-        Rect settingsBtn{kW - 86, 46, 52, 52};
-        auto inRect = [&](const Rect& r) {
-            return x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h;
-        };
-        if (inRect(backBtn)) {
-            screen_ = Screen::Home;
-            dirty_ = true;
-            return ev;
-        }
-        if (inRect(settingsBtn)) {
-            screen_ = Screen::Settings;
-            settingsRow_ = 0;
-            settingsFromError_ = false;
-            settingsCountry_ = settings_.loginCountry;
-            dropdownOpen_ = false;
-            filterList_ = -1;
-            settingsScrollY_ = 0.0f;
-            dirty_ = true;
-            return ev;
-        }
-        return ev;
     }
 
     // Touch exit from Settings back to Home
@@ -803,15 +703,15 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
 
     // Check top bar tabs
     if (screen_ == Screen::Home && !updatePrompt_ && !quitPrompt_ && !reportOpen_ && y >= 34 && y <= 110) {
-        const auto labels = topTabLabels();
+        const char* labels[3] = {tr(Str::TabGamePass), tr(Str::YourGames), tr(Str::TabConsoles)};
         constexpr int kPx = 22, kPad = 26, kGap = 12;
-        int widths[kTopTabCount], total = 0;
-        for (int i = 0; i < kTopTabCount; ++i) {
+        int widths[3], total = 0;
+        for (int i = 0; i < 3; ++i) {
             widths[i] = fonts_.semibold.measure(labels[i], kPx) + 2 * kPad;
             total += widths[i + 0] + (i ? kGap : 0);
         }
         int tabX = (kW - total) / 2;
-        for (int i = 0; i < kTopTabCount; ++i) {
+        for (int i = 0; i < 3; ++i) {
             if (x >= tabX - 8 && x < tabX + widths[i] + 8) {
                 tab_ = static_cast<Tab>(i);
                 searching_ = false;
@@ -822,47 +722,6 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
                 return ev;
             }
             tabX += widths[i] + kGap;
-        }
-    }
-
-    // Pointer navigation for native Genres and Friends pages.
-    if (screen_ == Screen::Home && !searching_ && !updatePrompt_ && !quitPrompt_ && !reportOpen_) {
-        auto inRect = [&](const Rect& r) {
-            return x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h;
-        };
-        if (tab_ == Tab::Genres) {
-            const auto genres = genreOptions();
-            for (size_t i = 0; i < genres.size(); ++i) {
-                Rect chip{140 + static_cast<int>(i % 3) * 552,
-                          235 + static_cast<int>(i / 3) * 80, 530, 58};
-                if (inRect(chip)) {
-                    genreFocus_ = static_cast<int>(i);
-                    genreGameFocus_ = -1;
-                    dirty_ = true;
-                    return ev;
-                }
-            }
-            const auto games = genreGames();
-            for (size_t i = 0; i < games.size(); ++i) {
-                Rect card{180 + static_cast<int>(i % 6) * kCardPitch,
-                          465 + static_cast<int>(i / 6) * 285, kCard, kCard};
-                if (inRect(card)) {
-                    genreGameFocus_ = static_cast<int>(i);
-                    openDetails(*games[i]);
-                    return ev;
-                }
-            }
-        } else if (tab_ == Tab::Friends) {
-            const auto games = friendGames();
-            for (size_t i = 0; i < games.size(); ++i) {
-                Rect card{180 + static_cast<int>(i % 6) * kCardPitch,
-                          255 + static_cast<int>(i / 6) * 350, kCard, kCard};
-                if (inRect(card)) {
-                    friendGameFocus_ = static_cast<int>(i);
-                    openDetails(*games[i]);
-                    return ev;
-                }
-            }
         }
     }
 
@@ -1784,11 +1643,6 @@ UiEvent AppUi::handleLocked(const NavInput& in) {
             // A desktop window has no system menu to close it from (fullscreen,
             // a controller in hand): Circle / Esc at the top of the home screen
             // asks. On the PS5 the system closes the app; Circle does nothing here.
-            if (caps_.desktopWindow && in.back && !searching_ && (tab_ == Tab::Genres || tab_ == Tab::Friends)) {
-                tab_ = Tab::GamePass;
-                dirty_ = true;
-                break;
-            }
             if (caps_.desktopWindow && in.back && !searching_) {
                 quitPrompt_ = true;
                 promptFocus_ = 1;  // Cancel first: a second Circle / Esc never closes by accident
@@ -1796,21 +1650,6 @@ UiEvent AppUi::handleLocked(const NavInput& in) {
                 break;
             }
             handleHome(in, ev);
-            break;
-        case Screen::Profile:
-            if (in.back) {
-                screen_ = Screen::Home;
-                dirty_ = true;
-            } else if (in.options) {
-                screen_ = Screen::Settings;
-                settingsRow_ = 0;
-                settingsFromError_ = false;
-                settingsCountry_ = settings_.loginCountry;
-                dropdownOpen_ = false;
-                filterList_ = -1;
-                settingsScrollY_ = 0.0f;
-                dirty_ = true;
-            }
             break;
         case Screen::SignIn:
             // Desktop or Android: Cross/A opens the sign-in page in the browser.

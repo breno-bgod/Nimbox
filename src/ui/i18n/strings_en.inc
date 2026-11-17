@@ -589,8 +589,4 @@ constexpr Column kEnglish = {
     "Save",                                                                           // Save
     "Open browser to sign in",                                                        // SignInOpenBrowser
     "Tap here or press A to open in browser",                                         // SignInOpenBrowserHint
-    "Genres", // TabGenres
-    "Friends", // TabFriends
-    "No genres in the loaded catalog.", // GenresEmpty
-    "No friends playing titles from the loaded catalog.", // FriendsEmpty
 };

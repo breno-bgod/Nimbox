@@ -120,7 +120,6 @@ struct Autoplay {
     bool gameSettingsTest = false; // gamesettingstest: test details and game settings modal
     bool publisherTest = false;  // publishertest: test publisher filter dropdown and search results
     bool friendsTest = false;    // friendstest: test friends playing row and card badge
-    bool nativeMenusTest = false; // nativemenustest: capture Gêneros, Amigos, Perfil, Configurações on PS5
     bool streamMenuTest = false; // streammenutest: render StreamMenu with mic and audio route options
     bool tlsCheck = false;       // tlscheck: refused certificates (badssl.com) classified and logged, nothing else
     bool storeCountryTest = false; // settings store country and picker, closed without a change

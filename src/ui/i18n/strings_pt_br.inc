@@ -589,8 +589,4 @@ constexpr Column kPortugueseBR = {
     "Salvar",                                                                         // Save
     "Abrir navegador para fazer login",                                               // SignInOpenBrowser
     "Toque aqui ou pressione A para abrir no navegador",                              // SignInOpenBrowserHint
-    "Gêneros", // TabGenres
-    "Amigos", // TabFriends
-    "Nenhum gênero no catálogo carregado.", // GenresEmpty
-    "Nenhum amigo jogando os títulos carregados.", // FriendsEmpty
 };

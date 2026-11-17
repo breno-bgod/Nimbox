@@ -192,54 +192,6 @@ int desktopSelftest(const std::string& dir) {
     drawCanvas(canvas);
     check(screenshot(dir, "1-signin.png", shot) && varied(shot), "sign-in screen (1-signin.png)");
 
-    // Exercise the native C++ pages directly, with isolated test data.
-    {
-        ui::GameTile sample;
-        sample.name = "Native Menu Test";
-        sample.productId = "MENU_TEST_PRODUCT";
-        sample.titleId = "MENU_TEST_TITLE";
-        sample.categories = {"Action", "Adventure"};
-        sample.friends.push_back({"Selftest Friend", ""});
-        ui::GameRow sampleRow;
-        sampleRow.title = "Native Menu";
-        sampleRow.tiles.push_back(std::move(sample));
-        ui.setRows({sampleRow});
-        ui.setProfile("Nimbox Test", "", "12345");
-        ui.showHome();
-
-        ui::NavInput next;
-        next.r1 = true;
-        ui.handle(next);  // Library
-        ui.handle(next);  // Consoles
-        ui.handle(next);  // Genres
-        ui.render(canvas, platform::nowMs());
-        drawCanvas(canvas);
-        check(ui.tab() == ui::Tab::Genres && screenshot(dir, "2f-genres-native.png", shot) && varied(shot),
-              "native Genres screen (2f-genres-native.png)");
-
-        ui.handle(next);  // Friends
-        ui.render(canvas, platform::nowMs());
-        drawCanvas(canvas);
-        check(ui.tab() == ui::Tab::Friends && screenshot(dir, "2g-friends-native.png", shot) && varied(shot),
-              "native Friends screen (2g-friends-native.png)");
-
-        ui::NavInput profile;
-        profile.square = true;
-        ui.handle(profile);
-        ui.render(canvas, platform::nowMs());
-        drawCanvas(canvas);
-        check(ui.screen() == ui::Screen::Profile &&
-                  screenshot(dir, "2h-profile-native.png", shot) && varied(shot),
-              "native Profile screen (2h-profile-native.png)");
-
-        ui::NavInput back;
-        back.back = true;
-        ui.handle(back);
-        ui.handle(next);  // Friends -> GamePass; restore normal selftest state
-        ui.setProfile("", "", "");
-        ui.setRows({});
-    }
-
     ui.showHome();
     ui::NavInput nav;
     nav.options = true;
