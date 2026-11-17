@@ -23,6 +23,7 @@
 #include "qrcodegen.h"
 
 #include <algorithm>
+#include <array>
 #include <cctype>
 #include <cmath>
 #include <map>
@@ -38,6 +39,12 @@ inline void drawLock(Canvas& c, int cx, int cy) {
     c.line(cx - 8.0f, cy - 4.0f, cx - 8.0f, cy + 1.0f, 3.5f, white);
     c.line(cx + 8.0f, cy - 4.0f, cx + 8.0f, cy + 1.0f, 3.5f, white);
     c.fillRect({cx - 12, cy, 24, 18}, white, 4);
+}
+
+constexpr int kTopTabCount = 5;
+inline std::array<const char*, kTopTabCount> topTabLabels() {
+    return {tr(Str::TabGamePass), tr(Str::YourGames), tr(Str::TabConsoles),
+            tr(Str::TabGenres), tr(Str::TabFriends)};
 }
 
 constexpr int kW = 1920, kH = 1080;
