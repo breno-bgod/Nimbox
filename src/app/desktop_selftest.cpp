@@ -338,6 +338,41 @@ int desktopSelftest(const std::string& dir) {
         ui.handle(back);
     }
 
+    // Colecao Viva: render the native 2.5D view with synthetic local
+    // catalog data. No network, account or xCloud stream is used by this
+    // visual regression capture; real game art is validated separately.
+    {
+        ui::GameRow showcase;
+        showcase.title = "Colecao de teste";
+        const char* names[] = {"Aurora Nexus", "Ember Realms", "Polaris Siege",
+                               "Lumen Falls", "Void Drifter"};
+        for (int i = 0; i < 5; ++i) {
+            ui::GameTile tile;
+            tile.productId = "cv-test-" + std::to_string(i);
+            tile.titleId = "cv-title-" + std::to_string(i);
+            tile.name = names[i];
+            tile.publisher = "Nimbox visual selftest";
+            tile.playable = true;
+            showcase.tiles.push_back(std::move(tile));
+        }
+        ui.setRows({showcase});
+        ui.showHome();
+        ui.render(canvas, platform::nowMs());
+        drawCanvas(canvas);
+        check(ui.screen() == ui::Screen::Home &&
+                  screenshot(dir, "6-colecao-viva-home.png", shot) && varied(shot),
+              "Colecao Viva native carousel (6-colecao-viva-home.png)");
+
+        ui.showDetails(showcase.tiles.front());
+        ui.render(canvas, platform::nowMs());
+        drawCanvas(canvas);
+        check(ui.screen() == ui::Screen::Details &&
+                  screenshot(dir, "6b-colecao-viva-details.png", shot) && varied(shot),
+              "Colecao Viva native physical details (6b-colecao-viva-details.png)");
+        ui.setRows({});
+        ui.showHome();
+    }
+
     // A video frame through the mailbox, then under the game menu.
     Yuv bars = colourBars();
     drawVideo(bars);
