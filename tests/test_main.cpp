@@ -1353,6 +1353,67 @@ static void testNimboxHorizonGeometry() {
     CHECK(horizon::navigate(index, 1, 1, 3950, gate) == horizon::MoveResult::Unchanged);
 }
 
+static void testNimboPlayFrostedSettingsAndQr() {
+    ui::Fonts fonts;
+    ui::ImageCache images([] {});
+    ui::AppUi app(fonts, images);
+    ui::GameRow row;
+    row.title = "Most popular on cloud";
+    ui::GameTile tile;
+    tile.productId = "FROSTED_HOME";
+    tile.titleId = "FROSTED_TITLE";
+    tile.name = "NimboPlay test game";
+    tile.playable = true;
+    row.tiles.push_back(tile);
+    app.setRows({row});
+    app.showHome();
+    ui::Canvas canvas(1920, 1080, ui::rgba(0, 0, 0));
+    app.render(canvas, 10000);
+
+    // The system menu is contextual, but its backdrop is only prepared once.
+    ui::NavInput options;
+    options.options = true;
+    app.handle(options);
+    CHECK(app.screen() == ui::Screen::Settings);
+    app.render(canvas, 10032);
+    auto ordinary = std::vector<uint32_t>(canvas.data(), canvas.data() + 1920 * 1080);
+
+    ui::NavInput qr;
+    qr.r3 = true;
+    app.handle(qr);
+    CHECK(app.screen() == ui::Screen::Settings);
+    app.render(canvas, 10064);
+    int changedPixels = 0;
+    for (size_t i = 0; i < ordinary.size(); i += 53)
+        if (ordinary[i] != canvas.data()[i]) ++changedPixels;
+    CHECK(changedPixels > 1000);
+
+    // Back closes only the large QR; a second Back leaves Settings.
+    ui::NavInput back;
+    back.back = true;
+    app.handle(back);
+    CHECK(app.screen() == ui::Screen::Settings);
+    app.onMouseDown(1420.0f, 775.0f, 1); // QR is a touch/click target
+    CHECK(app.screen() == ui::Screen::Settings);
+    app.onMouseDown(1170.0f, 460.0f, 1); // close expanded QR
+    CHECK(app.screen() == ui::Screen::Settings);
+    app.handle(back);
+    CHECK(app.screen() == ui::Screen::Home);
+
+    // Opening from Details via L2 must return to Details, not to Home.
+    ui::NavInput accept;
+    accept.accept = true;
+    app.handle(accept);
+    CHECK(app.screen() == ui::Screen::Details);
+    ui::NavInput systemSettings;
+    systemSettings.l2 = true;
+    app.handle(systemSettings);
+    CHECK(app.screen() == ui::Screen::Settings);
+    app.render(canvas, 10300);
+    app.handle(back);
+    CHECK(app.screen() == ui::Screen::Details);
+}
+
 static void testNimboxDefaultCarouselNavigation() {
     ui::Fonts fonts;
     ui::ImageCache images([] {});
@@ -11993,6 +12054,7 @@ int main() {
     testNimboxAppearanceStudio();
     testNimboxXboxCaseFinish();
     testNimboxPS5ShowcaseGeometry();
+    testNimboPlayFrostedSettingsAndQr();
     testNimboxHorizonGeometry();
     testNimboxDefaultCarouselNavigation();
     testDetailsHydrationAndPlaytimeBadge();
