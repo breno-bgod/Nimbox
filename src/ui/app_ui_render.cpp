@@ -2044,6 +2044,7 @@ void AppUi::render(Canvas& c, uint64_t nowMs) {
         case Screen::Updating: drawUpdating(c, nowMs); break;
         case Screen::Streaming: break;
     }
+    if (screen_ == Screen::Home && profileOpen_) drawProfilePanel(c);
     if (screen_ == Screen::Home && updatePrompt_) {
         if (showingUpdateNotes_) drawUpdateNotesModal(c);
         else drawUpdatePrompt(c);
