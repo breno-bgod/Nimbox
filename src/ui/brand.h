@@ -17,6 +17,11 @@ constexpr Color kBrandGreen = rgba(16, 124, 16);
 // see-through (whatever is behind shows).
 void drawBrandMark(Canvas& c, float cx, float cy, float r, Color color = rgba(255, 255, 255));
 
+// User-provided Nimble Play cloud + wordmark. INTERNAL menus only; embedded
+// as PNG in the native executable and drawn without any network request.
+// The external launcher icon is intentionally separate.
+void drawInternalBrand(Canvas& c, Rect bounds);
+
 // The square app icon (green field, mark, "PSBox" wordmark).
 void drawAppIcon(Canvas& c, const Fonts& fonts);
 
