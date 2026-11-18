@@ -10,6 +10,9 @@ set(_src "${CMAKE_CURRENT_SOURCE_DIR}")
 
 # The executable target
 install(TARGETS psbox RUNTIME DESTINATION ${_pkg})
+# Experimental Windows diagnostics: separate CLI binary and double-click launcher.
+install(TARGETS xcloud-cli RUNTIME DESTINATION ${_pkg})
+install(FILES "${_src}/windows/Testar-xCloud.cmd" DESTINATION ${_pkg})
 # Preserve the psbox CMake target and runtime IDs, but ship a NimboPlay.exe.
 install(CODE "file(RENAME \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${_pkg}/psbox.exe\" \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${_pkg}/NimboPlay.exe\")")
 
