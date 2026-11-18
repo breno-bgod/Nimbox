@@ -804,6 +804,7 @@ struct StreamPlayer::Impl {
         int surfaceFailures = 0;
         uint64_t surfaceLastSubmitted = 0, surfaceLastReleased = 0;
         uint64_t surfaceLastRendered = 0, surfaceLastBusy = 0, surfaceLastErrors = 0;
+        uint64_t surfaceLastProgressMs = platform::nowMs();
         auto collectSurfaceStats = [&] {
             if (!surfaceDecoder) return;
             auto c = surfaceDecoder->stats();
@@ -811,6 +812,7 @@ struct StreamPlayer::Impl {
             if (c.released >= surfaceLastReleased) surfaceReleased += c.released - surfaceLastReleased;
             if (c.rendered >= surfaceLastRendered) {
                 uint64_t delta = c.rendered - surfaceLastRendered;
+                if (delta) surfaceLastProgressMs = platform::nowMs();
                 surfaceRendered += delta;
                 decodedFrames += delta; // actual on-screen callback, not compressed input
             }
@@ -832,6 +834,7 @@ struct StreamPlayer::Impl {
             activeSurfaceHeight = height;
             surfaceLastSubmitted = surfaceLastReleased = surfaceLastRendered = 0;
             surfaceLastBusy = surfaceLastErrors = 0;
+            surfaceLastProgressMs = platform::nowMs();
             surfaceNeedsIdr = true;
             surfaceActive = true;
             isHwDecode = true;
@@ -1122,6 +1125,22 @@ struct StreamPlayer::Impl {
                 }
                 surfaceNeedsIdr = false;
                 isHwDecode = true;
+                // Some Android drivers accept and release buffers without ever
+                // presenting them. Fall back instead of showing a black screen.
+                if (surfaceLastSubmitted > surfaceLastRendered + 120 &&
+                    platform::nowMs() - surfaceLastProgressMs > 5000) {
+                    XC_LOGW("stream: Surface stalled (%llu submitted, %llu displayed), falling back",
+                            static_cast<unsigned long long>(surfaceLastSubmitted),
+                            static_cast<unsigned long long>(surfaceLastRendered));
+                    ++decodeFailures;
+                    surfaceActive = false;
+                    surfaceDecoder.reset();
+                    ++surfaceFailures;
+                    surfaceRetryAtMs = platform::nowMs() + 3000;
+                    keyframeWanted = true;
+                    requestKeyframeIfWanted();
+                    continue;
+                }
                 auto surfaceInfo = surfaceDecoder->stats();
                 const int shownWidth = surfaceInfo.outputWidth > 0 ? surfaceInfo.outputWidth : activeSurfaceWidth;
                 const int shownHeight = surfaceInfo.outputHeight > 0 ? surfaceInfo.outputHeight : activeSurfaceHeight;
