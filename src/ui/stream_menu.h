@@ -94,12 +94,12 @@ public:
 
     explicit StreamMenu(const Fonts& fonts) : fonts_(fonts) {}
 
-    // `resolution` as SettingsChoice::resolution (0 = 1080p, 1 = 720p, 2 = 1440p).
+    // `resolution` as SettingsChoice::resolution (0 = 1080p, 1 = 720p, 2 = Best Auto, 3 = 1440p QHD).
     // `sharpness` 0 = off, 1..3 = low, medium, high; `deband` 0..2 = off,
     // low, high.
     // `upscaler` 0 = FSR, 1 = Anime4K.
     // `homeConsole`: the user's own Xbox ("End the stream" instead of "Leave the game").
-    // `allow1440`: offered only once a stream delivered it.
+    // `allow1440`: capability hint for Auto; the user can explicitly request QHD.
     void open(int resolution, bool stats, int sharpness = 0, int deband = 1, int upscaler = 0, bool homeConsole = false,
               bool allow1440 = true, bool hasCustomProfile = false, int triggerStrength = 2, int deadzone = 15,
               bool circleConfirms = false, float micLevel = 0.0f, bool micMuted = false, int padSpeakerVolume = 100);

@@ -51,7 +51,8 @@ namespace {
 
 int resolutionToInt(const std::string& res) {
     if (res == "720p") return 1;
-    if (res == "1440p" || res == "best") return 2;
+    if (res == "best") return 2;
+    if (res == "1440p") return 3;
     return 0;
 }
 
@@ -102,7 +103,7 @@ bool Settings::load(const std::string& path) {
     sharpness = static_cast<int>(std::clamp<int64_t>((*j)["sharpness"].asInt(sharpness), 0, 3));
     deband = static_cast<int>(std::clamp<int64_t>((*j)["deband"].asInt(deband), 0, 3));
     upscaler = static_cast<int>(std::clamp<int64_t>((*j)["upscaler"].asInt(upscaler), 0, 3));
-    videoDecoder = static_cast<int>(std::clamp<int64_t>((*j)["videoDecoder"].asInt(videoDecoder), 0, 1));
+    videoDecoder = static_cast<int>(std::clamp<int64_t>((*j)["videoDecoder"].asInt(videoDecoder), 0, kMaxVideoDecoder));
     int parsedFps = static_cast<int>((*j)["fpsLimit"].asInt(fpsLimit));
     fpsLimit = (parsedFps == 30 || parsedFps == 60 || parsedFps == 120) ? parsedFps : 0;
     // "deadzone": one for both sticks, until each could have its own.
@@ -216,11 +217,11 @@ bool Settings::load(const std::string& path) {
         p.sharpness = static_cast<int>(std::clamp<int64_t>(obj["sharpness"].asInt(sharpness), 0, 3));
         p.deband = static_cast<int>(std::clamp<int64_t>(obj["deband"].asInt(deband), 0, 3));
         p.upscaler = static_cast<int>(std::clamp<int64_t>(obj["upscaler"].asInt(upscaler), 0, 3));
-        p.videoDecoder = static_cast<int>(std::clamp<int64_t>(obj["videoDecoder"].asInt(videoDecoder), 0, 1));
+        p.videoDecoder = static_cast<int>(std::clamp<int64_t>(obj["videoDecoder"].asInt(videoDecoder), 0, kMaxVideoDecoder));
         int pFps = static_cast<int>(obj["fpsLimit"].asInt(fpsLimit));
         p.fpsLimit = (pFps == 30 || pFps == 60 || pFps == 120) ? pFps : 0;
         int resDef = resolutionToInt(resolution);
-        p.resolution = static_cast<int>(std::clamp<int64_t>(obj["resolution"].asInt(resDef), 0, 2));
+        p.resolution = static_cast<int>(std::clamp<int64_t>(obj["resolution"].asInt(resDef), 0, 3));
         p.deadzoneLeft = static_cast<int>(std::clamp<int64_t>(obj["deadzoneLeft"].asInt(deadzoneLeft), 0, 50));
         p.deadzoneRight = static_cast<int>(std::clamp<int64_t>(obj["deadzoneRight"].asInt(deadzoneRight), 0, 50));
         p.triggerStrength = static_cast<int>(std::clamp<int64_t>(obj["triggerStrength"].asInt(triggerStrength), 0, 4));

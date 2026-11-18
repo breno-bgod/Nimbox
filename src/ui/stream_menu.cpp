@@ -24,7 +24,7 @@ constexpr Color kWarnColor = rgba(255, 176, 32);  // the connection warning
 constexpr int kBitrates[] = {-1, 0, 15, 20, 25, 30, 35, 40, 45, 50};
 constexpr int kBitratesCount = sizeof(kBitrates) / sizeof(kBitrates[0]);
 
-const char* resolutionName(int r) { return r == 1 ? "720p" : r == 2 ? tr(Str::ResBest) : "1080p"; }
+const char* resolutionName(int r) { return r == 1 ? "720p" : r == 3 ? "1440p (QHD)" : r == 2 ? tr(Str::ResBest) : "1080p"; }
 
 std::string fmt(const char* f, double v) {
     char b[32];
@@ -443,14 +443,18 @@ MenuAction StreamMenu::handle(const NavInput& navIn) {
     }
     if (selected_ == Resolution && (in.left || in.right)) {
         int pos = 0;
-        int n = 3;  // 720p, 1080p, Best (Auto)
+        int n = 4;  // 720p, 1080p, explicit 1440p, Best (Auto)
         for (int i = 0; i < n; ++i)
             if (kResolutionOrder[i] == resolution_) pos = i;
         pos = in.left ? (pos + n - 1) % n : (pos + 1) % n;
         resolution_ = kResolutionOrder[pos];
     }
     if (selected_ == VideoDecoderItem && (in.left || in.right || in.accept)) {
+        #if defined(__ANDROID__)
+        videoDecoder_ = (videoDecoder_ + 1) % 3;
+#else
         videoDecoder_ = (videoDecoder_ == 0) ? 1 : 0;
+#endif
         return MenuAction::VideoDecoder;
     }
     if (selected_ == FpsLimiterItem && (in.left || in.right)) {
@@ -1063,7 +1067,7 @@ Canvas StreamMenu::renderMenu(const StreamInfo& info) const {
         }
         if (i == VideoDecoderItem) {
 #if defined(__ANDROID__)
-            value = (videoDecoder_ == 1) ? "CPU / FFmpeg" : "GPU / MediaCodec";
+            value = videoDecoder_ == 2 ? "Surface Android" : (videoDecoder_ == 1 ? "CPU / FFmpeg" : "GPU / MediaCodec");
 #else
             value = (videoDecoder_ == 1) ? tr(Str::VideoDecoderSw) : tr(Str::VideoDecoderHw);
 #endif

@@ -65,8 +65,9 @@ constexpr Color kPlaceholder = rgba(26, 45, 63);
 enum Icon { kIconCross, kIconCircle, kIconOptions, kIconTriangle, kIconTouchpad, kIconSquare, kIconR3, kIconL3, kIconL2R2, kIconDpadLR, kIconL1R1 };
 
 // The resolution list, lowest first: SettingsChoice::resolution value per
-// position (0 = 1080p, 1 = 720p, 2 = 1440p, as saved).
-constexpr int kResolutionOrder[3] = {1, 0, 2};
+// position (0 = 1080p, 1 = 720p, 2 = Best Auto, 3 = 1440p QHD).
+// Preserve the existing persisted values: only append the explicit QHD tier.
+constexpr int kResolutionOrder[4] = {1, 0, 3, 2};
 // Settings' rows on screen, alike ones together (the row ids stay what
 // settingsRow_ and the helpers use): language, sign-in country, and sign-in check; the
 // stream (resolution, a desktop's display mode, 120 Hz, bitrate, region, network test);

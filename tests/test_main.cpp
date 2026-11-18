@@ -517,17 +517,20 @@ static void testSettingsChoiceRoundTrip() {
     CHECK(ui::formatPlaytime(3600) == "1 h");
     CHECK(ui::formatPlaytime(3660) == "1 h 1 min");
     CHECK(ui::formatPlaytime(8100) == "2 h 15 min");
-    // Every resolution, both ways ("1440p" from older versions reads as the top tier).
-    for (const char* res : {"1080p", "720p", "best"}) {
+    // All four choices survive settings -> shared UI -> settings, independently.
+    for (const char* res : {"1080p", "720p", "1440p", "best"}) {
         xc::app::Settings r;
         r.resolution = res;
         xc::app::Settings out;
         ui::applyChoice(ui::choiceFromSettings(r), out);
         CHECK(out.resolution == res);
     }
-    xc::app::Settings old;
-    old.resolution = "1440p";
-    CHECK(ui::choiceFromSettings(old).resolution == 2);
+    xc::app::Settings qhd;
+    qhd.resolution = "1440p";
+    CHECK(ui::choiceFromSettings(qhd).resolution == 3);
+    xc::app::Settings automatic;
+    automatic.resolution = "best";
+    CHECK(ui::choiceFromSettings(automatic).resolution == 2);
     // An incomplete controller map from the screen never replaces a valid one.
     ui::SettingsChoice broken = c;
     broken.padMap[0] = kPadNone;
@@ -684,6 +687,8 @@ static void testPerGameSettings() {
     // Default profile reflects global settings.
     s.resolution = "best";
     CHECK(s.defaultProfile().resolution == 2);
+    s.resolution = "1440p";
+    CHECK(s.defaultProfile().resolution == 3);
     s.resolution = "720p";
     CHECK(s.defaultProfile().resolution == 1);
     s.resolution = "1080p";
@@ -707,6 +712,7 @@ static void testPerGameSettings() {
     p1.deband = 0;
     p1.upscaler = 3;
     p1.videoDecoder = 1;  // override global HW with SW
+    p1.resolution = 3;    // explicit QHD per-game
     p1.deadzoneLeft = 5;
     p1.deadzoneRight = 8;
     p1.triggerStrength = 1;
@@ -722,7 +728,7 @@ static void testPerGameSettings() {
     CHECK(hasCustom);
     CHECK(prof1Custom.sharpness == 3 && prof1Custom.upscaler == 3 && prof1Custom.circleConfirms);
     CHECK(prof1Custom.deadzoneLeft == 5 && prof1Custom.triggerStrength == 1 && prof1Custom.touchpadMouse);
-    CHECK(prof1Custom.videoDecoder == 1);
+    CHECK(prof1Custom.videoDecoder == 1 && prof1Custom.resolution == 3);
     CHECK(prof1Custom.locale == "pt-BR");
 
     hasCustom = true;
@@ -749,6 +755,7 @@ static void testPerGameSettings() {
     CHECK(hasCustom);
     CHECK(loadedP1.sharpness == 3 && loadedP1.upscaler == 3 && loadedP1.circleConfirms);
     CHECK(loadedP1.highRefresh && loadedP1.touchpadMouse && loadedP1.locale == "pt-BR" && loadedP1.videoDecoder == 1);
+    CHECK(loadedP1.resolution == 3);
     CHECK(loadedP1.deadzoneLeft == 5 && loadedP1.deadzoneRight == 8 && loadedP1.triggerStrength == 1);
 
     // A game's trophies follow the general setting until the player chooses for
@@ -1407,8 +1414,14 @@ static void testStreamMenu() {
     press([](xc::ui::NavInput& n) { n.down = true; });
     press([](xc::ui::NavInput& n) { n.left = true; });  // 1080p -> 720p
     CHECK(menu.resolution() == 1);
-    press([](xc::ui::NavInput& n) { n.left = true; });  // wraps to 1440p
+    press([](xc::ui::NavInput& n) { n.left = true; });  // wraps to Best (Auto)
     CHECK(menu.resolution() == 2);
+    press([](xc::ui::NavInput& n) { n.right = true; });  // Best -> 720p
+    CHECK(menu.resolution() == 1);
+    press([](xc::ui::NavInput& n) { n.right = true; });  // 720p -> 1080p
+    CHECK(menu.resolution() == 0);
+    press([](xc::ui::NavInput& n) { n.right = true; });  // 1080p -> explicit QHD
+    CHECK(menu.resolution() == 3);
     CHECK(press([](xc::ui::NavInput& n) { n.accept = true; }) == MenuAction::Resolution);
     press([](xc::ui::NavInput& n) { n.down = true; }); // VideoDecoderItem
     CHECK(press([](xc::ui::NavInput& n) { n.right = true; }) == MenuAction::VideoDecoder);
@@ -1464,7 +1477,7 @@ static void testStreamMenu() {
     CHECK(!menu.isOpen());
     menu.open(1, true);
     CHECK(press([](xc::ui::NavInput& n) { n.back = true; }) == MenuAction::Close);
-    // Best (Auto) offered as resolution 2; cycling is 720p (1) -> 1080p (0) -> Best (2).
+    // Four options: Best (2) -> 720p (1) -> 1080p (0) -> QHD (3) -> Best (2).
     menu.open(2, false, 0, 1, 0, false, false);
     CHECK(menu.resolution() == 2);
     for (int i = 0; i < 5; ++i) press([](xc::ui::NavInput& n) { n.down = true; });  // to the resolution (Xbox -> Stats -> Upscaler -> Sharpness -> Deband -> Resolution)
@@ -1473,7 +1486,9 @@ static void testStreamMenu() {
     press([](xc::ui::NavInput& n) { n.right = true; });
     CHECK(menu.resolution() == 0);  // 720p -> 1080p
     press([](xc::ui::NavInput& n) { n.right = true; });
-    CHECK(menu.resolution() == 2);  // 1080p -> Best (2)
+    CHECK(menu.resolution() == 3);  // 1080p -> explicit 1440p QHD
+    press([](xc::ui::NavInput& n) { n.right = true; });
+    CHECK(menu.resolution() == 2);  // 1440p QHD -> Best (Auto)
 
     // Test stats indicator customization
     menu.open(0, true);

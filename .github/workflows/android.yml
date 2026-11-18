@@ -4,6 +4,21 @@ name: Android APK
 
 on:
   workflow_dispatch:
+  pull_request:
+    branches:
+      - main
+      - feature/nimbox-android-integrated-h264-v1
+    paths:
+      - 'android/**'
+      - 'src/app/**'
+      - 'src/media/**'
+      - 'src/ui/**'
+      - 'CMakeLists.txt'
+      - '.github/workflows/android.yml'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read

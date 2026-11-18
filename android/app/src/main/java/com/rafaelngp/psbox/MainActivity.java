@@ -1,6 +1,20 @@
 package com.rafaelngp.psbox;
 
 import android.Manifest;
+import android.graphics.PixelFormat;
+import android.os.Looper;
+import android.view.Surface;
+import android.view.SurfaceHolder;
+import android.view.SurfaceView;
+import android.widget.FrameLayout;
+import android.widget.RelativeLayout;
+import android.view.ViewGroup;
+import java.nio.ByteBuffer;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import com.rafaelngp.psbox.surface.AndroidSurfaceEngine;
+import com.rafaelngp.psbox.surface.AndroidSurfaceOverlayView;
+
 import android.app.Activity;
 import android.content.Context;
 import android.content.pm.PackageManager;
@@ -110,6 +124,145 @@ public class MainActivity extends SDLActivity {
     private static volatile boolean sIsForeground = false;
     private static WifiManager.WifiLock sWifiLock = null;
 
+    // Experimental Android-only third playback engine. No change to CPU/GPU paths.
+    private static volatile MainActivity sSurfaceActivity;
+    private static SurfaceView sSurfaceView;
+    private static AndroidSurfaceOverlayView sSurfaceOverlay;
+    private static volatile AndroidSurfaceEngine sSurfaceEngine;
+
+    // Match SDL_LOGICAL_PRESENTATION_LETTERBOX (1920x1080) on wide Android displays.
+    private static void updateSurfaceBounds(MainActivity activity) {
+        if (activity.mLayout == null || sSurfaceView == null) return;
+        int parentW = activity.mLayout.getWidth();
+        int parentH = activity.mLayout.getHeight();
+        if (parentW <= 0 || parentH <= 0) return;
+        float scale = Math.min(parentW / 1920f, parentH / 1080f);
+        int videoW = Math.max(1, Math.round(1920f * scale));
+        int videoH = Math.max(1, Math.round(1080f * scale));
+        RelativeLayout.LayoutParams params = new RelativeLayout.LayoutParams(videoW, videoH);
+        params.addRule(RelativeLayout.CENTER_IN_PARENT);
+        sSurfaceView.setLayoutParams(params);
+    }
+
+    private static void hideSurfaceVideoLayer() {
+        MainActivity activity = sSurfaceActivity;
+        if (activity != null) activity.runOnUiThread(() -> {
+            if (sSurfaceView != null) sSurfaceView.setVisibility(View.GONE);
+            if (sSurfaceOverlay != null) sSurfaceOverlay.setVisibility(View.GONE);
+        });
+    }
+
+    public static boolean surfaceVideoStart(int width, int height) {
+        MainActivity activity = sSurfaceActivity;
+        if (activity == null || activity.mLayout == null) return false;
+        final CountDownLatch created = new CountDownLatch(1);
+        Runnable create = () -> {
+            if (sSurfaceView == null) {
+                sSurfaceView = new SurfaceView(activity);
+                sSurfaceView.setZOrderMediaOverlay(true);
+                sSurfaceView.getHolder().setFormat(PixelFormat.OPAQUE);
+                sSurfaceView.setClickable(false);
+                sSurfaceView.getHolder().addCallback(new SurfaceHolder.Callback() {
+                    @Override public void surfaceCreated(SurfaceHolder holder) { }
+                    @Override public void surfaceChanged(SurfaceHolder holder, int format, int w, int h) { }
+                    @Override public void surfaceDestroyed(SurfaceHolder holder) {
+                        // The next compressed AU tells native playback to fall back safely.
+                        // An intentionally hidden layer is not a device surface failure.
+                        if (sSurfaceView != null && sSurfaceView.getVisibility() == View.VISIBLE) {
+                            surfaceVideoStop();
+                        }
+                    }
+                });
+                activity.mLayout.addView(sSurfaceView, new RelativeLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+                activity.mLayout.addOnLayoutChangeListener((view, left, top, right, bottom,
+                                                            oldLeft, oldTop, oldRight, oldBottom) -> {
+                    if ((right - left) != (oldRight - oldLeft) ||
+                            (bottom - top) != (oldBottom - oldTop)) {
+                        updateSurfaceBounds(activity);
+                    }
+                });
+            }
+            updateSurfaceBounds(activity);
+            if (sSurfaceOverlay == null) {
+                sSurfaceOverlay = new AndroidSurfaceOverlayView(activity);
+                activity.mLayout.addView(sSurfaceOverlay, new FrameLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+            }
+            sSurfaceOverlay.setVisibility(View.VISIBLE);
+            sSurfaceView.setVisibility(View.VISIBLE);
+            created.countDown();
+        };
+        if (Looper.myLooper() == Looper.getMainLooper()) create.run();
+        else activity.runOnUiThread(create);
+        try {
+            if (!created.await(2, TimeUnit.SECONDS)) {
+                hideSurfaceVideoLayer();
+                return false;
+            }
+            Surface surface = null;
+            for (int attempt = 0; attempt < 100; attempt++) {
+                if (sSurfaceView != null) {
+                    surface = sSurfaceView.getHolder().getSurface();
+                    if (surface != null && surface.isValid()) break;
+                }
+                Thread.sleep(20);
+            }
+            if (surface == null || !surface.isValid()) {
+                hideSurfaceVideoLayer();
+                return false;
+            }
+            AndroidSurfaceEngine engine = new AndroidSurfaceEngine();
+            if (!engine.start(surface, width, height)) {
+                hideSurfaceVideoLayer();
+                return false;
+            }
+            sSurfaceEngine = engine;
+            return true;
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            hideSurfaceVideoLayer();
+            return false;
+        }
+    }
+
+    public static int surfaceVideoQueue(ByteBuffer frame, long ptsUs, boolean keyframe) {
+        AndroidSurfaceEngine engine = sSurfaceEngine;
+        return engine != null ? engine.queueVideoFrame(frame, ptsUs, keyframe)
+                : AndroidSurfaceEngine.ERROR;
+    }
+
+    public static long[] surfaceVideoStats() {
+        AndroidSurfaceEngine engine = sSurfaceEngine;
+        return engine != null ? engine.stats() : new long[] {0, 0, 0, 0, 0};
+    }
+
+    public static void surfaceVideoOverlay(ByteBuffer pixels, int x, int y,
+                                           int width, int height, int opacity) {
+        if (sSurfaceEngine == null) return;
+        AndroidSurfaceOverlayView overlay = sSurfaceOverlay;
+        if (overlay == null) return;
+        if (pixels == null || width <= 0 || height <= 0) overlay.clearFrame();
+        else overlay.setFrame(pixels, x, y, width, height, opacity);
+    }
+
+    public static void surfaceVideoStop() {
+        AndroidSurfaceEngine engine = sSurfaceEngine;
+        sSurfaceEngine = null;
+        if (engine != null) engine.stop();
+        MainActivity activity = sSurfaceActivity;
+        if (activity != null) activity.runOnUiThread(() -> {
+            if (sSurfaceOverlay != null) {
+                sSurfaceOverlay.clearFrame();
+                sSurfaceOverlay.setVisibility(View.GONE);
+            }
+            if (sSurfaceView != null) {
+                sSurfaceView.setVisibility(View.GONE);
+            }
+        });
+    }
+
+
     @Override
     protected String[] getLibraries() {
         return new String[] { "SDL3", "main" };
@@ -127,6 +280,7 @@ public class MainActivity extends SDLActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        sSurfaceActivity = this;
         if (getWindow() != null) {
             getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         }
@@ -159,12 +313,21 @@ public class MainActivity extends SDLActivity {
     @Override
     protected void onPause() {
         sIsForeground = false;
+        surfaceVideoStop(); // Release additional decoder when the Activity pauses.
         updateWifiLock();
         super.onPause();
     }
 
     @Override
     protected void onDestroy() {
+        surfaceVideoStop();
+        if (mLayout != null) {
+            if (sSurfaceOverlay != null) mLayout.removeView(sSurfaceOverlay);
+            if (sSurfaceView != null) mLayout.removeView(sSurfaceView);
+        }
+        sSurfaceOverlay = null;
+        sSurfaceView = null;
+        sSurfaceActivity = null;
         sStreamingActive = false;
         sIsForeground = false;
         updateWifiLock();

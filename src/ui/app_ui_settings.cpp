@@ -629,7 +629,7 @@ std::vector<std::string> AppUi::settingOptions(int row) const {
     } else if (row == nimbox_theme::kAppearanceMotion) {
         out = {tr(Str::Deactivated), tr(Str::Activated)};
     } else if (row == 1) {
-        out = {tr(Str::Res720), tr(Str::Res1080), tr(Str::ResBest)};  // kResolutionOrder
+        out = {tr(Str::Res720), tr(Str::Res1080), "1440p (QHD)", tr(Str::ResBest)};  // kResolutionOrder
     } else if (row == 3) {
         // Left and right stick (the tester changes them).
         out = {std::to_string(settings_.deadzone[0]) + " %  \xC2\xB7  " + std::to_string(settings_.deadzone[1]) + " %"};
@@ -687,7 +687,7 @@ std::vector<std::string> AppUi::settingOptions(int row) const {
 #if defined(__ANDROID__)
         // Both are real selectable backends; choosing hardware does not
         // guarantee the driver accepts acceleration on every device.
-        out = {"GPU - MediaCodec (H.264)", "CPU - FFmpeg (H.264)"};
+        out = {"GPU - MediaCodec (H.264)", "CPU - FFmpeg (H.264)", "Surface Android"};
 #else
         out = {tr(Str::VideoDecoderHw), tr(Str::VideoDecoderSw)};
 #endif
@@ -726,7 +726,7 @@ int AppUi::settingSelected(int row) const {
     if (row == nimbox_theme::kAppearanceReflection) return nimbox_theme::clampReflection(settings_.nimboxReflection) / 10;
     if (row == nimbox_theme::kAppearanceMotion) return settings_.nimboxReducedMotion ? 1 : 0;
     if (row == 1) {
-        for (int i = 0; i < 3; ++i)
+        for (int i = 0; i < 4; ++i)
             if (kResolutionOrder[i] == settings_.resolution) return i;
     }
     if (row == 3 || row == 12 || row == 14 || row == 17 || row == 18 || row == 19 || row == 23 || row == 25) return 0;
@@ -738,7 +738,7 @@ int AppUi::settingSelected(int row) const {
     if (row == 13) return settings_.fullscreen ? 1 : 0;
     if (row == 15) return std::clamp(settings_.gyroMode, 0, 4);
     if (row == 16) return settings_.queueReadyAlert ? 1 : 0;
-    if (row == 20) return std::clamp(settings_.videoDecoder, 0, 1);
+    if (row == 20) return std::clamp(settings_.videoDecoder, 0, app::kMaxVideoDecoder);
     if (row == 31) return std::clamp(settings_.upscaler, 0, 3);
     if (row == 32) return std::clamp(settings_.deband, 0, 3);
     if (row == 33) return std::clamp(settings_.sharpness, 0, 3);
@@ -873,7 +873,7 @@ void AppUi::applySetting(int row, int index) {
     } else if (row == 16) {
         settings_.queueReadyAlert = (index == 1);
     } else if (row == 20) {
-        settings_.videoDecoder = std::clamp(index, 0, 1);
+        settings_.videoDecoder = std::clamp(index, 0, app::kMaxVideoDecoder);
     } else if (row == 31) {
         settings_.upscaler = std::clamp(index, 0, 3);
     } else if (row == 32) {
@@ -983,11 +983,11 @@ void AppUi::handleGameSettings(const NavInput& in, UiEvent& ev) {
             activeGameHasCustom_ = true;
             dirty_ = true;
             break;
-        case 4: { // Resolution (1 = 720p, 0 = 1080p, 2 = Best (Auto))
-            static constexpr int kOrder[3] = {1, 0, 2};
+        case 4: { // Resolution (1 = 720p, 0 = 1080p, 3 = 1440p, 2 = Best Auto)
+            static constexpr int kOrder[4] = {1, 0, 3, 2};
             int pos = 0;
-            for (int i = 0; i < 3; ++i) if (kOrder[i] == activeGameProfile_.resolution) pos = i;
-            activeGameProfile_.resolution = kOrder[(pos + 3 + dir) % 3];
+            for (int i = 0; i < 4; ++i) if (kOrder[i] == activeGameProfile_.resolution) pos = i;
+            activeGameProfile_.resolution = kOrder[(pos + 4 + dir) % 4];
             activeGameHasCustom_ = true;
             dirty_ = true;
             break;
@@ -1042,7 +1042,7 @@ void AppUi::handleGameSettings(const NavInput& in, UiEvent& ev) {
             break;
         }
         case 15: // Video decoder (0 Hardware, 1 Software)
-            activeGameProfile_.videoDecoder = (activeGameProfile_.videoDecoder == 0 ? 1 : 0);
+            activeGameProfile_.videoDecoder = (activeGameProfile_.videoDecoder + 1) % (app::kMaxVideoDecoder + 1);
             activeGameHasCustom_ = true;
             dirty_ = true;
             break;
@@ -1081,10 +1081,10 @@ void AppUi::handleGameSettings(const NavInput& in, UiEvent& ev) {
             dirty_ = true;
             break;
         case 4: {
-            static constexpr int kOrder[3] = {1, 0, 2};
+            static constexpr int kOrder[4] = {1, 0, 3, 2};
             int pos = 0;
-            for (int i = 0; i < 3; ++i) if (kOrder[i] == activeGameProfile_.resolution) pos = i;
-            activeGameProfile_.resolution = kOrder[(pos + 1) % 3];
+            for (int i = 0; i < 4; ++i) if (kOrder[i] == activeGameProfile_.resolution) pos = i;
+            activeGameProfile_.resolution = kOrder[(pos + 1) % 4];
             activeGameHasCustom_ = true;
             dirty_ = true;
             break;
@@ -1148,7 +1148,7 @@ void AppUi::handleGameSettings(const NavInput& in, UiEvent& ev) {
             break;
         }
         case 15:
-            activeGameProfile_.videoDecoder = (activeGameProfile_.videoDecoder == 0 ? 1 : 0);
+            activeGameProfile_.videoDecoder = (activeGameProfile_.videoDecoder + 1) % (app::kMaxVideoDecoder + 1);
             activeGameHasCustom_ = true;
             dirty_ = true;
             break;
@@ -2589,7 +2589,7 @@ void AppUi::drawGameSettings(Canvas& c) {
         }
         case 4:
             label = tr(Str::Resolution);
-            value = activeGameProfile_.resolution == 1 ? "720p" : activeGameProfile_.resolution == 2 ? tr(Str::ResBest) : "1080p";
+            value = activeGameProfile_.resolution == 1 ? "720p" : activeGameProfile_.resolution == 3 ? "1440p (QHD)" : activeGameProfile_.resolution == 2 ? tr(Str::ResBest) : "1080p";
             break;
         case 5:
             label = tr(Str::Deadzone);
@@ -2667,7 +2667,7 @@ void AppUi::drawGameSettings(Canvas& c) {
         case 15:
 #if defined(__ANDROID__)
             label = "Decodificador H.264";
-            value = activeGameProfile_.videoDecoder == 1 ? "CPU / FFmpeg" : "GPU / MediaCodec";
+            value = activeGameProfile_.videoDecoder == 2 ? "Surface Android" : (activeGameProfile_.videoDecoder == 1 ? "CPU / FFmpeg" : "GPU / MediaCodec");
 #else
             label = tr(Str::VideoDecoder);
             value = activeGameProfile_.videoDecoder == 1 ? tr(Str::VideoDecoderSw) : tr(Str::VideoDecoderHw);

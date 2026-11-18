@@ -11,6 +11,9 @@
 #include "media/audio_encoder.h"
 #include "media/decoder.h"
 #include "media/hw_decoder.h"
+#if defined(__ANDROID__)
+#include "media/android_surface_decoder.h"
+#endif
 #include "platform/platform.h"
 #include "stream/net_diag.h"
 #include "stream/stream_session.h"
@@ -266,6 +269,11 @@ struct StreamPlayer::Impl {
     int maxBitrateMbps = 0;
     bool hwProbe = false;
     bool preferHwDecode = true;
+    bool androidSurfaceOutput = false;
+    std::atomic<int> androidSurfaceWidth{1920}, androidSurfaceHeight{1080};
+    std::atomic<bool> surfaceActive{false};
+    std::atomic<uint64_t> surfaceSubmitted{0}, surfaceReleased{0}, surfaceRendered{0};
+    std::atomic<uint64_t> surfaceBusy{0}, surfaceErrors{0};
     std::string tierSequence;  // setTierSequence() (measurements)
     std::atomic<bool> isHwDecode{false};
 
@@ -778,11 +786,68 @@ struct StreamPlayer::Impl {
             }
         }
         auto decoder = std::make_unique<media::VideoDecoder>();
+#if defined(__ANDROID__)
+        if (!decoder->init(decodeThreads, androidSurfaceOutput ? false : preferHwDecode)) {
+#else
         if (!decoder->init(decodeThreads, preferHwDecode)) {
+#endif
             end("could not start the H.264 decoder");
             return;
         }
         isHwDecode = decoder->isHardware();
+#if defined(__ANDROID__)
+        std::unique_ptr<media::AndroidSurfaceDecoder> surfaceDecoder;
+        bool surfaceRequested = androidSurfaceOutput;
+        bool surfaceNeedsIdr = true;
+        int activeSurfaceWidth = 0, activeSurfaceHeight = 0;
+        uint64_t surfaceRetryAtMs = 0;
+        int surfaceFailures = 0;
+        uint64_t surfaceLastSubmitted = 0, surfaceLastReleased = 0;
+        uint64_t surfaceLastRendered = 0, surfaceLastBusy = 0, surfaceLastErrors = 0;
+        uint64_t surfaceLastProgressMs = platform::nowMs();
+        auto collectSurfaceStats = [&] {
+            if (!surfaceDecoder) return;
+            auto c = surfaceDecoder->stats();
+            if (c.submitted >= surfaceLastSubmitted) surfaceSubmitted += c.submitted - surfaceLastSubmitted;
+            if (c.released >= surfaceLastReleased) surfaceReleased += c.released - surfaceLastReleased;
+            if (c.rendered >= surfaceLastRendered) {
+                uint64_t delta = c.rendered - surfaceLastRendered;
+                if (delta) surfaceLastProgressMs = platform::nowMs();
+                surfaceRendered += delta;
+                decodedFrames += delta; // actual on-screen callback, not compressed input
+            }
+            if (c.inputBusy >= surfaceLastBusy) surfaceBusy += c.inputBusy - surfaceLastBusy;
+            if (c.errors >= surfaceLastErrors) surfaceErrors += c.errors - surfaceLastErrors;
+            surfaceLastSubmitted = c.submitted;
+            surfaceLastReleased = c.released;
+            surfaceLastRendered = c.rendered;
+            surfaceLastBusy = c.inputBusy;
+            surfaceLastErrors = c.errors;
+        };
+        auto newSurface = [&]() -> bool {
+            auto candidate = std::make_unique<media::AndroidSurfaceDecoder>();
+            const int width = androidSurfaceWidth.load(std::memory_order_relaxed);
+            const int height = androidSurfaceHeight.load(std::memory_order_relaxed);
+            if (!candidate->init(width, height)) return false;
+            surfaceDecoder = std::move(candidate);
+            activeSurfaceWidth = width;
+            activeSurfaceHeight = height;
+            surfaceLastSubmitted = surfaceLastReleased = surfaceLastRendered = 0;
+            surfaceLastBusy = surfaceLastErrors = 0;
+            surfaceLastProgressMs = platform::nowMs();
+            surfaceNeedsIdr = true;
+            surfaceActive = true;
+            isHwDecode = true;
+            surfaceFailures = 0;
+            XC_LOGI("stream: Android Surface selected (%dx%d)", width, height);
+            return true;
+        };
+        if (surfaceRequested && !newSurface()) {
+            surfaceRetryAtMs = platform::nowMs() + 3000;
+            ++surfaceFailures;
+            XC_LOGW("stream: Surface unavailable; existing FFmpeg remains active");
+        }
+#endif
         const bool useAsyncPresent = display::caps().asyncPresent;
         platform::Thread presentThread;
         if (useAsyncPresent) {
@@ -934,19 +999,165 @@ struct StreamPlayer::Impl {
                 requestKeyframeIfWanted();
                 XC_LOGI("stream: decoder made again: %s", decoder->isHardware() ? "hardware" : "software (hardware failed)");
             }
-            if (int want = decoderSwitch.exchange(-1); want == 1 && decoder->isHardware()) {
-                // Already the hardware one: a second one made beside it would
-                // need memory of its own (the kept memory is this one's).
-                XC_LOGI("stream: decoder already hardware");
-            } else if (want >= 0) {
-                auto next = std::make_unique<media::VideoDecoder>();
-                if (next->init(decodeThreads, want == 1)) {
-                    decoder = std::move(next);
-                    keyframeWanted = true;
-                    requestKeyframeIfWanted();
-                    XC_LOGI("stream: decoder switched to %s", decoder->isHardware() ? "hardware" : "software");
+            const int want = decoderSwitch.exchange(-1);
+#if defined(__ANDROID__)
+            if (want == 2) {
+                // New Android output is opt-in. Continue the existing decoder
+                // until a fresh IDR is available, then make a clean switch.
+                surfaceRequested = true;
+                surfaceRetryAtMs = 0;
+                surfaceFailures = 0;
+                surfaceNeedsIdr = true;
+                if (decoder->isHardware() && !surfaceDecoder) {
+                    // Avoid two competing hardware codecs on the same Android device.
+                    decoder.reset();
+                    decoder = std::make_unique<media::VideoDecoder>();
+                    if (!decoder->init(decodeThreads, false)) {
+                        end("could not keep software fallback when selecting Surface");
+                        return;
+                    }
+                }
+                keyframeWanted = true;
+                requestKeyframeIfWanted();
+            }
+#endif
+            if (want >= 0
+#if defined(__ANDROID__)
+                && want != 2
+#endif
+            ) {
+#if defined(__ANDROID__)
+                surfaceRequested = false;
+                if (surfaceDecoder) {
+                    collectSurfaceStats();
+                    surfaceActive = false;
+                    surfaceDecoder.reset();
+                    XC_LOGI("stream: returning to existing Nimbox decoder");
+                }
+#endif
+                if (want == 1 && decoder->isHardware()) {
+                    XC_LOGI("stream: decoder already hardware");
+                } else {
+                    auto next = std::make_unique<media::VideoDecoder>();
+                    if (next->init(decodeThreads, want == 1)) {
+                        decoder = std::move(next);
+                        keyframeWanted = true;
+                        requestKeyframeIfWanted();
+                        XC_LOGI("stream: decoder switched to %s",
+                                decoder->isHardware() ? "hardware" : "software");
+                    }
                 }
             }
+#if defined(__ANDROID__)
+            const bool isIdr = hasIdrSlice(au);
+            const uint64_t nowSurfaceMs = platform::nowMs();
+            if (surfaceDecoder &&
+                (activeSurfaceWidth != androidSurfaceWidth.load(std::memory_order_relaxed) ||
+                 activeSurfaceHeight != androidSurfaceHeight.load(std::memory_order_relaxed))) {
+                // Keep showing the old resolution until an IDR permits a safe
+                // MediaCodec reconfiguration. No other engine is modified.
+                if (isIdr) {
+                    collectSurfaceStats();
+                    surfaceActive = false;
+                    surfaceDecoder.reset();
+                    if (!newSurface()) {
+                        ++surfaceFailures;
+                        surfaceRetryAtMs = nowSurfaceMs + 3000;
+                        keyframeWanted = true;
+                    }
+                } else {
+                    keyframeWanted = true;
+                }
+                requestKeyframeIfWanted();
+            }
+            if (surfaceRequested && !surfaceDecoder && surfaceFailures < 4 &&
+                nowSurfaceMs >= surfaceRetryAtMs) {
+                if (isIdr) {
+                    // The original FFmpeg decoder continues until this succeeds.
+                    // No duplicate xCloud login/session, audio or controller layer.
+                    if (!newSurface()) {
+                        ++surfaceFailures;
+                        surfaceRetryAtMs = nowSurfaceMs + 3000;
+                        XC_LOGW("stream: Surface retry failed (%d/4)", surfaceFailures);
+                    }
+                } else {
+                    keyframeWanted = true;
+                }
+                requestKeyframeIfWanted();
+            }
+            if (surfaceDecoder) {
+                if (surfaceNeedsIdr && !isIdr) {
+                    ++droppedFrames;
+                    keyframeWanted = true;
+                    requestKeyframeIfWanted();
+                    continue;
+                }
+                const uint64_t tSurface0 = platform::nowUs();
+                // Retry a temporarily busy input for a bounded interval.
+                auto status = surfaceDecoder->submit(au.data(), au.size(), frame.rtpTimestamp, isIdr);
+                if (status == media::AndroidSurfaceDecoder::Submit::Busy)
+                    status = surfaceDecoder->submit(au.data(), au.size(), frame.rtpTimestamp, isIdr);
+                const uint64_t elapsed = platform::nowUs() - tSurface0;
+                decodeUs += elapsed;
+                ++decodeCalls;
+                atomicMax(decodeMaxUs, elapsed);
+                collectSurfaceStats();
+                if (status == media::AndroidSurfaceDecoder::Submit::Busy) {
+                    // A compressed P-frame must never be silently skipped as
+                    // "decoded": the dependent picture chain needs a fresh IDR.
+                    ++droppedFrames;
+                    surfaceNeedsIdr = true;
+                    keyframeWanted = true;
+                    requestKeyframeIfWanted();
+                    continue;
+                }
+                if (status == media::AndroidSurfaceDecoder::Submit::Error) {
+                    ++decodeFailures;
+                    collectSurfaceStats();
+                    surfaceActive = false;
+                    surfaceDecoder.reset();
+                    ++surfaceFailures;
+                    surfaceRetryAtMs = nowSurfaceMs + 3000;
+                    keyframeWanted = true;
+                    requestKeyframeIfWanted();
+                    XC_LOGW("stream: Surface failed; original decoder remains available");
+                    continue;
+                }
+                surfaceNeedsIdr = false;
+                isHwDecode = true;
+                // Some Android drivers accept and release buffers without ever
+                // presenting them. Fall back instead of showing a black screen.
+                if (surfaceLastSubmitted > surfaceLastRendered + 120 &&
+                    platform::nowMs() - surfaceLastProgressMs > 5000) {
+                    XC_LOGW("stream: Surface stalled (%llu submitted, %llu displayed), falling back",
+                            static_cast<unsigned long long>(surfaceLastSubmitted),
+                            static_cast<unsigned long long>(surfaceLastRendered));
+                    ++decodeFailures;
+                    surfaceActive = false;
+                    surfaceDecoder.reset();
+                    ++surfaceFailures;
+                    surfaceRetryAtMs = platform::nowMs() + 3000;
+                    keyframeWanted = true;
+                    requestKeyframeIfWanted();
+                    continue;
+                }
+                auto surfaceInfo = surfaceDecoder->stats();
+                const int shownWidth = surfaceInfo.outputWidth > 0 ? surfaceInfo.outputWidth : activeSurfaceWidth;
+                const int shownHeight = surfaceInfo.outputHeight > 0 ? surfaceInfo.outputHeight : activeSurfaceHeight;
+                pictureSize = (static_cast<uint32_t>(shownWidth) << 16) |
+                               static_cast<uint32_t>(shownHeight);
+                if (surfaceLastSubmitted % 120 == 1) {
+                    XC_LOGI("Surface actual output: queued=%llu released=%llu on-screen=%llu busy=%llu errors=%llu",
+                            static_cast<unsigned long long>(surfaceLastSubmitted),
+                            static_cast<unsigned long long>(surfaceLastReleased),
+                            static_cast<unsigned long long>(surfaceLastRendered),
+                            static_cast<unsigned long long>(surfaceLastBusy),
+                            static_cast<unsigned long long>(surfaceLastErrors));
+                }
+                // No CPU/YUV download and no SDL/Vulkan draw of this frame.
+                continue;
+            }
+#endif
             uint64_t t0 = platform::nowUs();
             bool ok = decoder->decode(au.data(), au.size(), pic, frame.rtpTimestamp);
             isHwDecode = decoder->isHardware();
@@ -1742,6 +1953,32 @@ void StreamPlayer::setHwDecodeProbe(bool on) { impl_->hwProbe = on; }
 void StreamPlayer::setPreferHwDecode(bool on) { impl_->preferHwDecode = on; }
 bool StreamPlayer::preferHwDecode() const { return impl_->preferHwDecode; }
 
+void StreamPlayer::setAndroidSurfaceOutput(bool enabled) {
+#if defined(__ANDROID__)
+    impl_->androidSurfaceOutput = enabled;
+#else
+    (void)enabled;
+#endif
+}
+
+void StreamPlayer::setAndroidSurfaceSize(int width, int height) {
+#if defined(__ANDROID__)
+    impl_->androidSurfaceWidth.store(std::clamp(width, 320, 3840), std::memory_order_relaxed);
+    impl_->androidSurfaceHeight.store(std::clamp(height, 240, 2160), std::memory_order_relaxed);
+#else
+    (void)width;
+    (void)height;
+#endif
+}
+
+void StreamPlayer::switchDecoderMode(int mode) {
+#if defined(__ANDROID__)
+    impl_->decoderSwitch = mode == 2 ? 2 : (mode == 0 ? 1 : 0);
+#else
+    impl_->decoderSwitch = mode == 0 ? 1 : 0;
+#endif
+}
+
 void StreamPlayer::setMaxBitrate(int mbps) {
     if (mbps == -1 || mbps >= 100) {
         impl_->maxBitrateMbps = -1;
@@ -1779,6 +2016,12 @@ StreamPlayer::Stats StreamPlayer::stats() const {
     st.width = static_cast<int>(impl_->pictureSize >> 16);
     st.height = static_cast<int>(impl_->pictureSize & 0xFFFF);
     st.isHwDecode = impl_->isHwDecode.load();
+    st.androidSurfaceActive = impl_->surfaceActive.load();
+    st.surfaceSubmitted = impl_->surfaceSubmitted.load();
+    st.surfaceReleased = impl_->surfaceReleased.load();
+    st.surfaceRendered = impl_->surfaceRendered.load();
+    st.surfaceBusy = impl_->surfaceBusy.load();
+    st.surfaceErrors = impl_->surfaceErrors.load();
     // Timings since the previous call.
     uint64_t dc = impl_->decodeCalls.exchange(0), du = impl_->decodeUs.exchange(0);
     uint64_t rc = impl_->drawCalls.exchange(0), ru = impl_->drawUs.exchange(0);
