@@ -9,6 +9,7 @@ on:
       - main
       - feature/nimbox-android-integrated-h264-v1
       - feature/android-surface-third-engine
+      - feature/nimbox-horizon-native-v1
     paths:
       - 'android/**'
       - 'src/app/**'
