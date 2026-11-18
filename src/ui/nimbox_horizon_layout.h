@@ -41,7 +41,7 @@ struct BoundaryGate {
 // Real motion within the collection always clears this gate.
 inline MoveResult navigate(int& selected, int count, int direction, uint64_t nowMs,
                            BoundaryGate& gate) {
-    if (count <= 0 || direction == 0) { gate.reset(); return MoveResult::Unchanged; }
+    if (count <= 1 || direction == 0) { gate.reset(); return MoveResult::Unchanged; }
     const int next = selected + (direction > 0 ? 1 : -1);
     if (next >= 0 && next < count) {
         selected = next;
