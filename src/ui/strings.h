@@ -609,6 +609,12 @@ enum class Str {
     HorizonStartHint,
     HorizonHorizontalHint,
     HorizonVerticalHint,
+    SettingsExpandQr,
+    SettingsQrInstructions,
+    SettingsQrConnect,
+    SettingsQrUnavailable,
+    SettingsQrPointerHint,
+    SettingsDetailsShortcut,
     Count
 };
 
