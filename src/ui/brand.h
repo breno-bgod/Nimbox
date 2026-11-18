@@ -13,8 +13,12 @@ namespace xc::ui {
 
 constexpr Color kBrandGreen = rgba(16, 124, 16);
 
-// The sphere of radius `r` centred at (cx, cy), in `color`; the swooshes are
-// see-through (whatever is behind shows).
+// User-provided NimboPlay wordmark; embedded PNG, transparent and platform-neutral.
+// Draws to a contained rectangle without stretching, cropping or network access.
+void drawInternalBrand(Canvas& c, int x, int y, int w, int h);
+
+// The old technical mark is retained solely for the existing external
+// launcher / PS5 sce_sys icon generation until a separate icon is approved.
 void drawBrandMark(Canvas& c, float cx, float cy, float r, Color color = rgba(255, 255, 255));
 
 // User-provided Nimble Play cloud + wordmark. INTERNAL menus only; embedded
