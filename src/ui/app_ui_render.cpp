@@ -2063,7 +2063,7 @@ void AppUi::render(Canvas& c, uint64_t nowMs) {
     if (screen_ == Screen::Home && quitPrompt_) drawQuitPrompt(c);
     if (screen_ == Screen::Error && countryPickerOpen_) drawCountryPicker(c);
     if (reportOpen_) drawReport(c);
-    if ((screen_ == Screen::Home && !updatePrompt_) || screen_ == Screen::Error) drawSignOutHold(c, nowMs);
+    if ((screen_ == Screen::Home && !updatePrompt_ && !profileOpen_) || screen_ == Screen::Error) drawSignOutHold(c, nowMs);
     if (!toast_.empty()) animating_ = true;  // to expire it
     if (platform::toastsEnabled()) {
         // platform::notify() on a desktop: over everything, under the top bar's right side.
