@@ -1676,8 +1676,8 @@ bool Core::frame() {
     ui::NavInput nav;
     nav.up = up.update(pad.dpadUp || pad.leftStickY < -0.6f, now);
     nav.down = down.update(pad.dpadDown || pad.leftStickY > 0.6f, now);
-    nav.carouselHeldLeft = pad.dpadLeft || pad.leftStickX < -0.6f;
-    nav.carouselHeldRight = pad.dpadRight || pad.leftStickX > 0.6f;
+    nav.carouselHeldLeft = pad.dpadLeft || pad.leftStickX < -0.6f || pad.rightStickX < -0.15f;
+    nav.carouselHeldRight = pad.dpadRight || pad.leftStickX > 0.6f || pad.rightStickX > 0.15f;
     nav.left = left.update(nav.carouselHeldLeft, now);
     nav.right = right.update(nav.carouselHeldRight, now);
     nav.accept = pad.btnA && !prev.btnA;
@@ -1736,6 +1736,13 @@ bool Core::frame() {
         if (touch && !scroll.touching) scroll.vRows = scroll.vCards = 0;  // a new touch stops a glide
         scroll.touching = touch;
         scroll.x = pad.touchX, scroll.y = pad.touchY;
+        // The right stick and touchpad emit accelerated scroll pulses with
+        // idle frames between them. They are one continuous gesture until
+        // released and inertial motion settles, not two presses at the edge.
+        if (pad.touching || std::fabs(scroll.vCards) >= 0.8f) {
+            nav.carouselHeldLeft = true;
+            nav.carouselHeldRight = true;
+        }
         if (g_ui->screen() != ui::Screen::Home) scroll.rows = scroll.cards = scroll.vRows = scroll.vCards = 0;
         nav.scrollRows = static_cast<int>(scroll.rows);
         nav.scrollCards = static_cast<int>(scroll.cards);
