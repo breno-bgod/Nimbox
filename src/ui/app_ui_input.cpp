@@ -1389,7 +1389,7 @@ UiEvent AppUi::onTouch(const app::shell::TouchEvent& ev) {
                     resultScroll_.target = std::clamp(resultScroll_.target - flingDelta, 0.0f, maxScroll);
                     animating_ = true;
                     dirty_ = true;
-                if (tab_ == Tab::Library) {
+                } else if (tab_ == Tab::Library) {
                     const LibraryLayout& L = libraryLayout();
                     float maxScroll = L.rowY.empty() ? 0.0f : static_cast<float>(std::max(0, L.rowY.back() + kGridPitchY - (kH - kLibraryTop)));
                     gridScroll_.target = std::clamp(gridScroll_.target - flingDelta, 0.0f, maxScroll);
