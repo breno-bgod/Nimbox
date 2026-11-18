@@ -1067,7 +1067,7 @@ Canvas StreamMenu::renderMenu(const StreamInfo& info) const {
         }
         if (i == VideoDecoderItem) {
 #if defined(__ANDROID__)
-            value = videoDecoder_ == 2 ? "Surface Android (XStreaming)" : (videoDecoder_ == 1 ? "CPU / FFmpeg" : "GPU / MediaCodec");
+            value = videoDecoder_ == 2 ? "Surface Android" : (videoDecoder_ == 1 ? "CPU / FFmpeg" : "GPU / MediaCodec");
 #else
             value = (videoDecoder_ == 1) ? tr(Str::VideoDecoderSw) : tr(Str::VideoDecoderHw);
 #endif
