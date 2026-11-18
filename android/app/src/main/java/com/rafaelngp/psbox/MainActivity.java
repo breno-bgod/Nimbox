@@ -1,6 +1,17 @@
 package com.rafaelngp.psbox;
 
 import android.Manifest;
+import android.graphics.PixelFormat;
+import android.os.Looper;
+import android.view.Surface;
+import android.view.SurfaceView;
+import android.widget.FrameLayout;
+import android.view.ViewGroup;
+import java.nio.ByteBuffer;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import com.rafaelngp.psbox.surface.AndroidSurfaceEngine;
+
 import android.app.Activity;
 import android.content.Context;
 import android.content.pm.PackageManager;
@@ -34,6 +45,67 @@ public class MainActivity extends SDLActivity {
     private static volatile boolean sIsForeground = false;
     private static WifiManager.WifiLock sWifiLock = null;
 
+    // Experimental Android-only third playback engine. No change to CPU/GPU paths.
+    private static volatile MainActivity sSurfaceActivity;
+    private static SurfaceView sSurfaceView;
+    private static volatile AndroidSurfaceEngine sSurfaceEngine;
+
+    public static boolean surfaceVideoStart(int width, int height) {
+        MainActivity activity = sSurfaceActivity;
+        if (activity == null || activity.mLayout == null) return false;
+        final CountDownLatch created = new CountDownLatch(1);
+        Runnable create = () -> {
+            if (sSurfaceView == null) {
+                sSurfaceView = new SurfaceView(activity);
+                sSurfaceView.setZOrderMediaOverlay(true);
+                sSurfaceView.getHolder().setFormat(PixelFormat.OPAQUE);
+                sSurfaceView.setClickable(false);
+                activity.mLayout.addView(sSurfaceView, new FrameLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+            }
+            sSurfaceView.setVisibility(View.VISIBLE);
+            created.countDown();
+        };
+        if (Looper.myLooper() == Looper.getMainLooper()) create.run();
+        else activity.runOnUiThread(create);
+        try {
+            if (!created.await(2, TimeUnit.SECONDS)) return false;
+            Surface surface = null;
+            for (int attempt = 0; attempt < 100; attempt++) {
+                if (sSurfaceView != null) {
+                    surface = sSurfaceView.getHolder().getSurface();
+                    if (surface != null && surface.isValid()) break;
+                }
+                Thread.sleep(20);
+            }
+            if (surface == null || !surface.isValid()) return false;
+            AndroidSurfaceEngine engine = new AndroidSurfaceEngine();
+            if (!engine.start(surface, width, height)) return false;
+            sSurfaceEngine = engine;
+            return true;
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            return false;
+        }
+    }
+
+    public static boolean surfaceVideoQueue(ByteBuffer frame, long ptsUs, boolean keyframe) {
+        AndroidSurfaceEngine engine = sSurfaceEngine;
+        return engine != null && engine.queueVideoFrame(frame, ptsUs, keyframe);
+    }
+
+    public static void surfaceVideoStop() {
+        AndroidSurfaceEngine engine = sSurfaceEngine;
+        sSurfaceEngine = null;
+        if (engine != null) engine.stop();
+        MainActivity activity = sSurfaceActivity;
+        if (activity != null) activity.runOnUiThread(() -> {
+            if (sSurfaceView != null) {
+                sSurfaceView.setVisibility(View.GONE);
+            }
+        });
+    }
+
     @Override
     protected String[] getLibraries() {
         return new String[] { "SDL3", "main" };
@@ -51,6 +123,7 @@ public class MainActivity extends SDLActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        sSurfaceActivity = this;
         if (getWindow() != null) {
             getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         }
@@ -89,6 +162,8 @@ public class MainActivity extends SDLActivity {
 
     @Override
     protected void onDestroy() {
+        surfaceVideoStop();
+        sSurfaceActivity = null;
         sStreamingActive = false;
         sIsForeground = false;
         updateWifiLock();
