@@ -1597,7 +1597,7 @@ void AppUi::drawSettings(Canvas& c) {
         std::string qrUrl = !webUrl_.empty() ? webUrl_ :
                             "http://" + platform::localIPv4() + ":8080";
         drawQr(c, qrUrl, 1517, 713, 142, qrcodegen_Ecc_LOW);
-        fonts_.semibold.draw(c, "R3 / TOQUE  -  AMPLIAR QR", 1331, 873,
+        fonts_.semibold.draw(c, tr(Str::SettingsQrPointerHint), 1331, 873,
                              17, rgba(192, 218, 244));
         fonts_.regular.draw(c, "Acesse o painel remoto", 1530, 754, 17, rgba(194, 220, 211));
         const std::string urlText = fonts_.semibold.fit(qrUrl, 16, 272);
@@ -1699,13 +1699,13 @@ void AppUi::drawSettings(Canvas& c) {
             } else if (settings_.syncTrophies) {
                 drawHints(c, {{kIconCross, tr(Str::Change)}, {kIconSquare, tr(Str::RunSyncTrophies)}, {kIconTriangle, tr(Str::ReportProblem)}, {kIconCircle, tr(Str::Back)}});
             } else {
-                drawHints(c, {{kIconCross, tr(Str::Change)}, {kIconR3, "Ampliar QR"},
+                drawHints(c, {{kIconCross, tr(Str::Change)}, {kIconR3, tr(Str::SettingsExpandQr)},
                           {kIconTriangle, tr(Str::ReportProblem)}, {kIconCircle, tr(Str::Back)}});
             }
         } else if (settingsRow_ == 10) {
             drawHints(c, {{kIconDpadLR, tr(Str::Adjust)}, {kIconTriangle, tr(Str::ReportProblem)}, {kIconCircle, tr(Str::Back)}});
         } else {
-            drawHints(c, {{kIconCross, tr(Str::Change)}, {kIconR3, "Ampliar QR"},
+            drawHints(c, {{kIconCross, tr(Str::Change)}, {kIconR3, tr(Str::SettingsExpandQr)},
                           {kIconTriangle, tr(Str::ReportProblem)}, {kIconCircle, tr(Str::Back)}});
         }
     }
@@ -1718,17 +1718,17 @@ void AppUi::drawSettingsQrOverlay(Canvas& c) {
     // zone, even when the Settings panel itself is semi-transparent.
     c.fillRect({0, 0, kW, kH}, rgba(2, 9, 20, 250));
     fonts_.bold.draw(c, tr(Str::WebControlTitle), 108, 91, 43, kWhite);
-    fonts_.regular.draw(c, "Escaneie para abrir o painel do NimboPlay",
+    fonts_.regular.draw(c, tr(Str::SettingsQrInstructions),
                         108, 150, 23, rgba(212, 229, 241));
     const std::string qrUrl = !webUrl_.empty() ? webUrl_ :
                               "http://" + platform::localIPv4() + ":8080";
     Rect code = drawQr(c, qrUrl, 1260, 227, 590, qrcodegen_Ecc_LOW);
     if (code.w > 0) {
-        fonts_.semibold.draw(c, "Conectar ao painel Web", 108, 858, 24, kWhite);
+        fonts_.semibold.draw(c, tr(Str::SettingsQrConnect), 108, 858, 24, kWhite);
         fonts_.regular.draw(c, fonts_.regular.fit(qrUrl, 23, 1550),
                             108, 902, 23, rgba(209, 229, 241));
     } else {
-        fonts_.semibold.draw(c, "O QR Code não está disponível nesta sessão.",
+        fonts_.semibold.draw(c, tr(Str::SettingsQrUnavailable),
                              108, 845, 24, kWhite);
     }
     c.fillRect({0, kH - 80, kW, 80}, rgba(2, 9, 20, 250));
