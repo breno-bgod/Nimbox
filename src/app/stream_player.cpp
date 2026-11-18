@@ -1122,8 +1122,11 @@ struct StreamPlayer::Impl {
                 }
                 surfaceNeedsIdr = false;
                 isHwDecode = true;
-                pictureSize = (static_cast<uint32_t>(activeSurfaceWidth) << 16) |
-                               static_cast<uint32_t>(activeSurfaceHeight);
+                auto surfaceInfo = surfaceDecoder->stats();
+                const int shownWidth = surfaceInfo.outputWidth > 0 ? surfaceInfo.outputWidth : activeSurfaceWidth;
+                const int shownHeight = surfaceInfo.outputHeight > 0 ? surfaceInfo.outputHeight : activeSurfaceHeight;
+                pictureSize = (static_cast<uint32_t>(shownWidth) << 16) |
+                               static_cast<uint32_t>(shownHeight);
                 if (surfaceLastSubmitted % 120 == 1) {
                     XC_LOGI("Surface actual output: queued=%llu released=%llu on-screen=%llu busy=%llu errors=%llu",
                             static_cast<unsigned long long>(surfaceLastSubmitted),
