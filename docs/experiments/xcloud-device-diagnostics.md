@@ -13,6 +13,12 @@ Descobrir em qual etapa um título com restrição por tipo de dispositivo deixa
 
 Nenhum resultado do comando deve ser interpretado como permissão para usar identidade de outro dispositivo.
 
+## Windows: pacote experimental pronto para testar
+
+O ZIP do GitHub Actions inclui o aplicativo `NimboPlay.exe`, a ferramenta `xcloud-cli.exe` e o iniciador `Testar-xCloud.cmd`. Extraia o ZIP completo e clique duas vezes em `Testar-xCloud.cmd`. Escolha Killer Instinct 2 Classic, Grand Theft Auto VI ou Fortnite; o modo de consulta nao inicia nenhuma sessao. O modo de sessao exige segunda confirmacao e direitos de acesso reconhecidos pelo servico.
+
+O launcher nao salva tokens ou logs automaticamente. Nao compartilhe capturas do login que mostrem XUID, gamertag ou codigos. O teste real com conta ainda depende da execucao no Windows; o smoke test automatico so verifica compilacao e tela de ajuda da ferramenta.
+
 ## Uso no Linux ou Windows com build de desenvolvimento
 
 Executar da raiz do repositório, com xcloud-cli já compilado para a máquina:
