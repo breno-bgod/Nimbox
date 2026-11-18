@@ -153,6 +153,11 @@ void AppUi::drawTopBar(Canvas& c) {
     } else {
         c.fillCircle(x + kAvatar / 2.0f, 72, kAvatar / 2.0f, kPanel);
     }
+    // A deliberate, subtle affordance: the avatar is now a real action on Home.
+    if (screen_ == Screen::Home && !searching_) {
+        c.strokeCircle(x + kAvatar / 2.0f, 72.0f, kAvatar / 2.0f + 3.0f,
+                       2.0f, rgba(182, 225, 242, 145));
+    }
 
     // Dedicated Settings touch button, perfectly centered between avatar and screen right edge
     constexpr int kBtnSz = 52;
@@ -1224,6 +1229,11 @@ void AppUi::drawProfilePanel(Canvas& c) {
                      46, bright);
     fonts_.regular.draw(c, english ? "Xbox account" : "Conta Xbox",
                         panel.x + 248, panel.y + 220, 22, muted);
+    if (!gamerscore_.empty()) {
+        const std::string score = gamerscore_ + " G";
+        fonts_.semibold.draw(c, fonts_.semibold.fit(score, 23, 520),
+                             panel.x + 248, panel.y + 259, 23, accent);
+    }
 
     const std::string plan = subscription_.empty() ?
         (english ? "Plan not available" : "Plano não informado") :
