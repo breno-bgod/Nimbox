@@ -181,7 +181,7 @@ if [[ $linux == 1 ]]; then
     if (cd "$unpack/squashfs-root" && find . -type f) | grep -nE "$private|\.elf$|\.debug$"; then
         rm -rf "$unpack"; fail "a private or symbol file in the Linux package"
     fi
-    exe=$unpack/squashfs-root/PSBox/psbox
+    exe=$unpack/squashfs-root/NimboPlay/NimboPlay
     if grep -aqE "$tokens" "$exe"; then rm -rf "$unpack"; fail "psbox holds something like a token"; fi
     grep -aq "$version" "$exe" || { rm -rf "$unpack"; fail "psbox doesn't carry version $version (stale build?)"; }
     glibc=$(objdump -T "$exe" | grep -o 'GLIBC_[0-9.]*' | sort -uV | tail -1)
