@@ -10,7 +10,7 @@
 # Configures <build-dir> with the SDL3 app required (a new one: Ninja,
 # RelWithDebInfo, clang when installed; CMAKE_PREFIX_PATH finds an SDL3 of
 # your own), builds it and installs it into an AppDir with the install()
-# rules of cmake/desktop_package.cmake (one PSBox/ folder: psbox, the bundled
+# rules of cmake/desktop_package.cmake (one NimboPlay/ folder: psbox, the bundled
 # SDL3, assets, desktop entry, icon, README and licenses). Checks the folder:
 # the files it must hold, none it must not (sign-in, logs, captures, keys),
 # psbox's RUNPATH and bundled SDL3, no debug info. Packs it with appimagetool
@@ -31,7 +31,7 @@ ok() { echo "  ok  $*"; }
 
 project=$(sed -n 's/^project(xcloud_ps5 VERSION \([0-9.]*\) .*/\1/p' "$root/CMakeLists.txt")
 version=${XC_VERSION:-v$project-dev}
-appimage=$out/PSBox-$version-linux-x86_64.AppImage
+appimage=$out/NimboPlay-$version-linux-x86_64.AppImage
 
 echo "== configure and build ($build)"
 args=(-DXCLOUD_DESKTOP_APP=ON "-DXC_PACKAGE_VERSION=$version")
@@ -51,24 +51,24 @@ trap 'rm -rf "$work"' EXIT
 appdir=$work/AppDir
 echo "== install into the AppDir"
 cmake --install "$build" --prefix "$appdir" >/dev/null
-pkg=$appdir/PSBox
-[[ -x $pkg/psbox ]] || fail "the install made no PSBox/psbox"
+pkg=$appdir/NimboPlay
+[[ -x $pkg/NimboPlay ]] || fail "the install made no NimboPlay/psbox"
 
 echo "== checks in the package"
-list=$(cd "$appdir" && find PSBox | sort)
+list=$(cd "$appdir" && find NimboPlay | sort)
 private='(^|/)account\.json$|(^|/)autoplay\.txt$|\.log$|\.ppm$|\.aus$|\.h264$|\.pem$|\.key$|\.debug$|(^|/)settings\.json$|(^|/)library\.json$|(^|/)prices\.json$'
 # The CA bundle is the one .pem that belongs there.
-if grep -vx 'PSBox/assets/cacert.pem' <<<"$list" | grep -nE "$private"; then fail "a private file in the package"; fi
-ok "no private file ($(cd "$appdir" && find PSBox -type f | wc -l) files)"
-for f in psbox lib/libSDL3.so.0 psbox.desktop psbox.png README-linux.txt assets/cacert.pem assets/fonts/Inter-Regular.ttf \
+if grep -vx 'NimboPlay/assets/cacert.pem' <<<"$list" | grep -nE "$private"; then fail "a private file in the package"; fi
+ok "no private file ($(cd "$appdir" && find NimboPlay -type f | wc -l) files)"
+for f in NimboPlay lib/libSDL3.so.0 NimboPlay.desktop NimboPlay.png README-linux.txt assets/cacert.pem assets/fonts/Inter-Regular.ttf \
          licenses/LICENSE licenses/THIRD_PARTY_NOTICES.md licenses/FFmpeg-LGPL-2.1.txt licenses/FFmpeg-NOTE.txt \
          licenses/SDL3-LICENSE.txt licenses/Inter-OFL.txt licenses/mbedtls-LICENSE.txt licenses/libdatachannel-MPL-2.0.txt \
          licenses/usrsctp-LICENSE.md licenses/libsrtp-LICENSE.txt licenses/plog-LICENSE.txt licenses/stb-LICENSE.txt \
          licenses/FSR1-MIT.txt licenses/Anime4K-MIT.txt licenses/nanosvg-LICENSE.txt; do
-    grep -qx "PSBox/$f" <<<"$list" || fail "missing PSBox/$f"
+    grep -qx "NimboPlay/$f" <<<"$list" || fail "missing NimboPlay/$f"
 done
 ok "app, SDL3, assets, desktop entry, icon, README and licenses in place"
-exe=$pkg/psbox
+exe=$pkg/NimboPlay
 readelf -d "$exe" | grep -E 'RUNPATH|RPATH' | grep -qF '[$ORIGIN/lib]' || fail "psbox's RUNPATH is not \$ORIGIN/lib"
 readelf -d "$exe" | grep -qF '[libSDL3.so.0]' || fail "psbox doesn't ask for libSDL3.so.0"
 if readelf -S "$exe" | grep -qE '\.debug_(info|line)'; then fail "psbox still carries its debug info"; fi
@@ -84,12 +84,12 @@ ok "the bundled SDL3 is the one loaded"
 cat >"$appdir/AppRun" <<'EOF'
 #!/bin/sh
 HERE=$(dirname "$(readlink -f "$0")")
-exec "$HERE/PSBox/psbox" "$@"
+exec "$HERE/NimboPlay/NimboPlay" "$@"
 EOF
 chmod +x "$appdir/AppRun"
-cp "$pkg/psbox.desktop" "$appdir/psbox.desktop"
-cp "$pkg/psbox.png" "$appdir/psbox.png"
-cp "$pkg/psbox.png" "$appdir/.DirIcon"
+cp "$pkg/NimboPlay.desktop" "$appdir/NimboPlay.desktop"
+cp "$pkg/NimboPlay.png" "$appdir/NimboPlay.png"
+cp "$pkg/NimboPlay.png" "$appdir/.DirIcon"
 
 echo "== pack"
 tool=${APPIMAGETOOL:-}
