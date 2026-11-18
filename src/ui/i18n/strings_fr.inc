@@ -600,4 +600,10 @@ constexpr Column kFrench = {
     "DÉBUT DE COLLECTION · RECULEZ ENCORE POUR ALLER À LA FIN",  // HorizonStartHint
     "GAUCHE / DROITE  -  JEUX",  // HorizonHorizontalHint
     "HAUT / BAS  -  COLLECTIONS",  // HorizonVerticalHint
+    "Agrandir le QR",  // SettingsExpandQr
+    "Scannez pour ouvrir le panneau NimboPlay",  // SettingsQrInstructions
+    "Connexion au panneau Web",  // SettingsQrConnect
+    "Code QR indisponible dans cette session.",  // SettingsQrUnavailable
+    "R3 / TOUCHER  -  AGRANDIR QR",  // SettingsQrPointerHint
+    "L2  Paramètres",  // SettingsDetailsShortcut
 };
