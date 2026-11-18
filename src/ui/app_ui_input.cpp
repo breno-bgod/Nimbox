@@ -34,6 +34,7 @@ void AppUi::handleHome(const NavInput& in, UiEvent& ev) {
         // Game Pass, Your games, My consoles, round.
         int n = static_cast<int>(tab_) + (in.r1 ? 1 : 2);
         tab_ = static_cast<Tab>(n % 3);
+        horizonBoundary_.reset();
         searching_ = false;
         dirty_ = true;
         if (tab_ == Tab::Consoles) ev.action = Action::ConsolesShown;
