@@ -4,6 +4,7 @@ import android.Manifest;
 import android.graphics.PixelFormat;
 import android.os.Looper;
 import android.view.Surface;
+import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.widget.FrameLayout;
 import android.view.ViewGroup;
@@ -11,6 +12,7 @@ import java.nio.ByteBuffer;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import com.rafaelngp.psbox.surface.AndroidSurfaceEngine;
+import com.rafaelngp.psbox.surface.AndroidSurfaceOverlayView;
 
 import android.app.Activity;
 import android.content.Context;
@@ -48,12 +50,14 @@ public class MainActivity extends SDLActivity {
     // Experimental Android-only third playback engine. No change to CPU/GPU paths.
     private static volatile MainActivity sSurfaceActivity;
     private static SurfaceView sSurfaceView;
+    private static AndroidSurfaceOverlayView sSurfaceOverlay;
     private static volatile AndroidSurfaceEngine sSurfaceEngine;
 
     private static void hideSurfaceVideoLayer() {
         MainActivity activity = sSurfaceActivity;
         if (activity != null) activity.runOnUiThread(() -> {
             if (sSurfaceView != null) sSurfaceView.setVisibility(View.GONE);
+            if (sSurfaceOverlay != null) sSurfaceOverlay.setVisibility(View.GONE);
         });
     }
 
@@ -67,9 +71,23 @@ public class MainActivity extends SDLActivity {
                 sSurfaceView.setZOrderMediaOverlay(true);
                 sSurfaceView.getHolder().setFormat(PixelFormat.OPAQUE);
                 sSurfaceView.setClickable(false);
+                sSurfaceView.getHolder().addCallback(new SurfaceHolder.Callback() {
+                    @Override public void surfaceCreated(SurfaceHolder holder) { }
+                    @Override public void surfaceChanged(SurfaceHolder holder, int format, int w, int h) { }
+                    @Override public void surfaceDestroyed(SurfaceHolder holder) {
+                        // The next compressed AU tells native playback to fall back safely.
+                        surfaceVideoStop();
+                    }
+                });
                 activity.mLayout.addView(sSurfaceView, new FrameLayout.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
             }
+            if (sSurfaceOverlay == null) {
+                sSurfaceOverlay = new AndroidSurfaceOverlayView(activity);
+                activity.mLayout.addView(sSurfaceOverlay, new FrameLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+            }
+            sSurfaceOverlay.setVisibility(View.VISIBLE);
             sSurfaceView.setVisibility(View.VISIBLE);
             created.countDown();
         };
@@ -106,9 +124,24 @@ public class MainActivity extends SDLActivity {
         }
     }
 
-    public static boolean surfaceVideoQueue(ByteBuffer frame, long ptsUs, boolean keyframe) {
+    public static int surfaceVideoQueue(ByteBuffer frame, long ptsUs, boolean keyframe) {
         AndroidSurfaceEngine engine = sSurfaceEngine;
-        return engine != null && engine.queueVideoFrame(frame, ptsUs, keyframe);
+        return engine != null ? engine.queueVideoFrame(frame, ptsUs, keyframe)
+                : AndroidSurfaceEngine.ERROR;
+    }
+
+    public static long[] surfaceVideoStats() {
+        AndroidSurfaceEngine engine = sSurfaceEngine;
+        return engine != null ? engine.stats() : new long[] {0, 0, 0, 0, 0};
+    }
+
+    public static void surfaceVideoOverlay(ByteBuffer pixels, int x, int y,
+                                           int width, int height, int opacity) {
+        if (sSurfaceEngine == null) return;
+        AndroidSurfaceOverlayView overlay = sSurfaceOverlay;
+        if (overlay == null) return;
+        if (pixels == null || width <= 0 || height <= 0) overlay.clearFrame();
+        else overlay.setFrame(pixels, x, y, width, height, opacity);
     }
 
     public static void surfaceVideoStop() {
@@ -117,6 +150,10 @@ public class MainActivity extends SDLActivity {
         if (engine != null) engine.stop();
         MainActivity activity = sSurfaceActivity;
         if (activity != null) activity.runOnUiThread(() -> {
+            if (sSurfaceOverlay != null) {
+                sSurfaceOverlay.clearFrame();
+                sSurfaceOverlay.setVisibility(View.GONE);
+            }
             if (sSurfaceView != null) {
                 sSurfaceView.setVisibility(View.GONE);
             }
@@ -173,6 +210,7 @@ public class MainActivity extends SDLActivity {
     @Override
     protected void onPause() {
         sIsForeground = false;
+        surfaceVideoStop(); // Never keep MediaCodec bound to a suspended Surface.
         updateWifiLock();
         super.onPause();
     }
