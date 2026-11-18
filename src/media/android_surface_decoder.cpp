@@ -107,6 +107,10 @@ void AndroidSurfaceDecoder::stop() {
     stopMethod_ = nullptr;
 }
 
+bool AndroidSurfaceDecoder::isActive() {
+    return gSurfaceActive.load(std::memory_order_acquire);
+}
+
 void AndroidSurfaceDecoder::mirrorOverlay(const uint32_t* pixels, int x, int y,
                                            int width, int height, uint8_t opacity) {
     if (!gSurfaceActive.load(std::memory_order_acquire)) return;
