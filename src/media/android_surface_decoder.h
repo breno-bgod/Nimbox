@@ -27,6 +27,7 @@ public:
     Counters stats() const;
     void stop();
     // UI composition: mirror the SAME pre-rendered RGBA HUD/menu over the Surface.
+    static bool isActive();
     static void mirrorOverlay(const uint32_t* pixels, int x, int y,
                               int width, int height, uint8_t opacity);
 private:
