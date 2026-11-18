@@ -8,7 +8,7 @@
 #include <vector>
 namespace xc::ui::horizon {
 // 1920x1080 PS5-safe stage: all visible covers stay within 96px side margins.
-constexpr int kCenterX = 960, kPitch = 195, kSideItems = 4;
+constexpr int kCenterX = 960, kPitch = 194, kSideItems = 4;
 constexpr int kSelectedSide = 244, kNeighborSide = 176, kTileCenterY = 746;
 // Shared between Canvas rendering and native pointer hit testing.
 constexpr Rect kPlayButton{104, 500, 248, 66};
