@@ -15,6 +15,7 @@ on:
       - feature/nimble-play-internal-brand-v1
       - feature/nimboplay-external-launcher-icons-v1
       - feature/nimboplay-horizon-finite-navigation-v1
+      - feature/nimboplay-settings-frosted-qr-v1
     paths:
       - 'android/**'
       - 'assets/branding/**'
