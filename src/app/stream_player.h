@@ -177,6 +177,9 @@ public:
     // FFmpeg HWAccel on Desktop) with automatic software CPU fallback.
     void setPreferHwDecode(bool on);
     bool preferHwDecode() const;
+    // Android Surface is a third output engine. It never replaces the existing decoders.
+    void setAndroidSurfaceOutput(bool enabled);
+    void switchDecoderMode(int mode); // 0 hardware, 1 software, 2 Surface (Android only)
     // Presentation pacing FPS limit: 0 unlimited, 30, 60, 120.
     void setFpsLimit(int fps);
     int fpsLimit() const;
