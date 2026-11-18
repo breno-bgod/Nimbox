@@ -216,7 +216,16 @@ jobs:
             -DCMAKE_PREFIX_PATH="$HOME/.cache/xcloud-ps5/sdl3-${{ env.SDL3_VERSION }}-mingw/x86_64-w64-mingw32"
 
       - name: Build
-        run: ninja -C build-win psbox
+        run: ninja -C build-win psbox xcloud-cli
+
+      - name: Diagnostic CLI usage smoke test (Wine, no sign-in)
+        run: |
+          set +e
+          WINEDEBUG=-all wine build-win/xcloud-cli.exe > "$RUNNER_TEMP/xcloud-cli-usage.txt" 2>&1
+          status=$?
+          set -e
+          test "$status" -eq 2
+          grep -Fq 'diagnose-title' "$RUNNER_TEMP/xcloud-cli-usage.txt"
 
       - name: Self-test (Wine headless)
         run: |
