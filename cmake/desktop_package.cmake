@@ -24,7 +24,7 @@ set(_src "${CMAKE_CURRENT_SOURCE_DIR}")
 set_target_properties(psbox PROPERTIES INSTALL_RPATH "\$ORIGIN/lib")
 install(TARGETS psbox RUNTIME DESTINATION ${_pkg})
 # Keep build target psbox for compatibility, rename only the packaged app.
-install(CODE "file(RENAME \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${_pkg}/psbox\" \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${_pkg}/NimboPlay\")"
+install(CODE "file(RENAME \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${_pkg}/psbox\" \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${_pkg}/NimboPlay\")")
 
 # Debug info to symbols/<version>/psbox.debug, then stripped from the copy
 # being installed (the build tree's psbox keeps it).
