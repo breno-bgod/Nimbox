@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 RafaelNGP
 constexpr Column kSpanish = {
-    "Nimbox",
-    "NIMBOX",
+    "NimboPlay",
+    "NIMBOPLAY",
     "Iniciando sesión...",
     "Obteniendo un código de inicio de sesión...",
     "Cargando tus juegos...",
@@ -160,7 +160,7 @@ constexpr Column kSpanish = {
     "Comprobando la firma...",
     "Instalando...",
     "Actualizado. Reiniciando...",
-    "Nimbox actualizado: abre la app de nuevo",
+    "NimboPlay actualizado: abre la app de nuevo",
     "La actualización falló: no se cambió nada",
     "Color del juego",
     "Color personalizado",
@@ -216,7 +216,7 @@ constexpr Column kSpanish = {
     "Informar de un problema",
     "Escanéalo con el móvil: se abre el formulario de errores de GitHub, ya rellenado. Lo revisas antes de enviarlo.",
     "Incluye la versión de la app, el error y líneas del registro, sin datos personales.",
-    "Nimbox se cerró inesperadamente la última vez",
+    "NimboPlay se cerró inesperadamente la última vez",
     "País de inicio de sesión",
     "Desactivado (el de la consola)",
     "Entrar como otro país",
@@ -267,7 +267,7 @@ constexpr Column kSpanish = {
     "Modo de pantalla", // DisplayMode
     "Ventana", // DisplayWindow
     "Pantalla completa", // DisplayFullscreen
-    "¿Salir de Nimbox?", // QuitTitle
+    "¿Salir de NimboPlay?", // QuitTitle
     "Salir", // QuitConfirm
     "Botones del mando", // ControllerButtons
     "Pulsa el botón para %s", // PadPressButton
@@ -338,11 +338,11 @@ constexpr Column kSpanish = {
     "Quitado de lista de deseos",                     // RemovedFromWishlist
     "¡%s está en oferta!",                            // WishlistOnSale
     "¡%s llegó a Game Pass!",                         // WishlistInGamePass
-    "Soporte Nimbox", // SupportProject
-    "Soporte Nimbox", // SupportTitle
-    "Abre el repositorio oficial de Nimbox en GitHub para información y soporte. Los créditos y licencias originales del código abierto permanecen conservados.", // SupportMessage
+    "Soporte NimboPlay", // SupportProject
+    "Soporte NimboPlay", // SupportTitle
+    "Abre el repositorio oficial de NimboPlay en GitHub para información y soporte. Los créditos y licencias originales del código abierto permanecen conservados.", // SupportMessage
     "GitHub", // SupportKoFi
-    "Escanea para abrir el GitHub de Nimbox", // ScanToDonate
+    "Escanea para abrir el GitHub de NimboPlay", // ScanToDonate
     "Probar sonido",                                  // TestSound
     "La lista de deseos está vacía",                  // WishlistEmpty
     // Loading tips
@@ -350,7 +350,7 @@ constexpr Column kSpanish = {
     "Teclado y ratón USB conectados a la consola son compatibles con juegos de la nube habilitados", // TipKeyboardMouse
     "Reclama juegos gratis, demos y descubre promociones de la tienda directamente desde la aplicación", // TipFreeStore
     "¿Encontraste un problema? Abre Notificar problema para escanear un QR con registros de la consola", // TipBugReportQr
-    "¿Necesitas ayuda? Encuentra el GitHub de Nimbox en Configuración.", // TipSupportKofi
+    "¿Necesitas ayuda? Encuentra el GitHub de NimboPlay en Configuración.", // TipSupportKofi
     "Activa salida de vídeo a 120 Hz en Configuración para menor latencia y respuesta más fluida", // Tip120HzVideo
     "Calibra la zona muerta de los sticks en Configuración para eliminar deriva y mejorar la precisión", // TipAnalogDeadzone
     "Usa el micrófono integrado del DualSense para chat de voz en grupos y partidas multijugador", // TipDualSenseMic
@@ -374,7 +374,7 @@ constexpr Column kSpanish = {
     "Activa o desactiva la vibración de gatillos adaptativos L2 y R2 en juegos compatibles", // SettingDescTriggerRumble
     "Alterna la función de confirmar y volver entre Cruz (estilo occidental) y Círculo (estilo japonés)", // SettingDescConfirmButton
     "Configura el color y comportamiento de la barra luminosa del DualSense en menús y durante el juego", // SettingDescLightBar
-    "Consulta las versiones Nimbox en GitHub; las actualizaciones firmadas se instalan solo en plataformas compatibles.", // SettingDescUpdates
+    "Consulta las versiones NimboPlay en GitHub; las actualizaciones firmadas se instalan solo en plataformas compatibles.", // SettingDescUpdates
     "Permite iniciar sesión en tu cuenta de Xbox mediante otra región geográfica para acceder a catálogos alternativos", // SettingDescLoginCountry
     "Activa salida de vídeo a 120 Hz en tu consola para reducir el retardo de pantalla y la latencia de entrada", // SettingDescHighRefresh
     "Automático usa el límite del perfil Xbox; Sin límite quita el tope de la app hasta el máximo real del servidor. Más de 15 Mbps es experimental.", // SettingDescBitrateCap
@@ -386,7 +386,7 @@ constexpr Column kSpanish = {
     "Reproduce un aviso sonoro cuando termina la espera en cola de xCloud y el juego está listo", // SettingDescQueueReady
     "Ejecuta un diagnóstico completo del inicio de sesión de Xbox Live, validando tokens, perfil y suscripciones", // SettingDescCheckSignIn
     "Mide el ping (RTT) y la fluctuación (jitter) a centros de datos de juegos en la nube en múltiples regiones", // SettingDescNetworkTest
-    "Abre el GitHub oficial de Nimbox para información y soporte.", // SettingDescSupportProject
+    "Abre el GitHub oficial de NimboPlay para información y soporte.", // SettingDescSupportProject
     "Novedades",                                      // WhatsNew
     "Novedades",                                      // WhatsNewTitle
     "Altavoz del mando",                              // PadSpeakerVolume
@@ -450,9 +450,9 @@ constexpr Column kSpanish = {
     "Estoy al tanto",                                 // TrophiesDisclaimerAware
     "Cancelar",                                       // TrophiesDisclaimerCancel
     "Eliminar Trofeos Sincronizados",                 // RemoveTrophies
-    "Elimina todos los trofeos añadidos por Nimbox del perfil local para evitar riesgos con PSN. Podrás volver a sincronizarlos cuando quieras desde tu cuenta Xbox.", // SettingDescRemoveTrophies
+    "Elimina todos los trofeos añadidos por NimboPlay del perfil local para evitar riesgos con PSN. Podrás volver a sincronizarlos cuando quieras desde tu cuenta Xbox.", // SettingDescRemoveTrophies
     "¿Eliminar Trofeos Sincronizados?",               // RemoveTrophiesConfirmTitle
-    "Esto borrará los paquetes locales de trofeos de Nimbox para este perfil. Tus logros permanecen seguros en tu cuenta Microsoft/Xbox.", // RemoveTrophiesConfirmBody
+    "Esto borrará los paquetes locales de trofeos de NimboPlay para este perfil. Tus logros permanecen seguros en tu cuenta Microsoft/Xbox.", // RemoveTrophiesConfirmBody
     "Eliminar",                                       // RemoveTrophiesConfirm
     "Se han eliminado %s título(s) de trofeos de este perfil.", // TrophiesRemovedToast
     "Sincronizando logros...",                        // SyncingTrophies
@@ -467,7 +467,7 @@ constexpr Column kSpanish = {
     "Pestañas",                                       // MenuTabsLabel
     "Configuraciones guardadas",                      // SettingsSavedToast
     "Configuraciones del juego guardadas",            // GameSettingsSavedToast
-    "Nimbox: conexiones seguras no disponibles",       // SecureConnUnavailableToast
+    "NimboPlay: conexiones seguras no disponibles",       // SecureConnUnavailableToast
     "Error al sincronizar trofeos: %s",               // TrophySyncFailedToast
     "Telemetría activada",                            // TelemetryOnToast
     "Telemetría desactivada",                         // TelemetryOffToast
