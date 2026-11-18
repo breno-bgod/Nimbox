@@ -828,6 +828,7 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
                         openDetails(tiles[size_t(index)]);
                     } else {
                         focusCol_[size_t(rowIndex)] = index;
+                        horizonBoundary_.reset();
                         nimboxSlide_.value = nimboxReducedMotion_ ? 0.0f :
                                              float(offset) * 1000.0f;
                         nimboxSlide_.target = 0.0f;
@@ -1175,43 +1176,15 @@ UiEvent AppUi::onMouseWheel(float dx, float dy) {
             gridScroll_.target = std::clamp(gridScroll_.target - dy * 140.0f, 0.0f, maxScroll);
             animating_ = true;
             dirty_ = true;
-        } else if (tab_ == Tab::GamePass) {
-            if (!rows_.empty()) {
-                const GameRow& curRow = rows_[static_cast<size_t>(focusRow_)];
-                if (curRow.isGrid) {
-                    int totalRows = (static_cast<int>(curRow.tiles.size()) + kLibraryCols - 1) / kLibraryCols;
-                    float maxScroll = std::max(0.0f, static_cast<float>(totalRows * kGridPitchY - (kH - kRowTop - 48)));
-                    if (dy > 0 && rowScroll_[static_cast<size_t>(focusRow_)].target <= 0.0f) {
-                        if (focusRow_ > 0) {
-                            --focusRow_;
-                            retarget();
-                            animating_ = true;
-                            dirty_ = true;
-                        }
-                    } else {
-                        rowScroll_[static_cast<size_t>(focusRow_)].target =
-                            std::clamp(rowScroll_[static_cast<size_t>(focusRow_)].target - dy * 140.0f, 0.0f, maxScroll);
-                        animating_ = true;
-                        dirty_ = true;
-                    }
-                } else {
-                    if (std::abs(dy) > std::abs(dx)) {
-                        int nextRow = std::clamp(static_cast<int>(rowY_.target - dy), 0, static_cast<int>(rows_.size()) - 1);
-                        if (nextRow != focusRow_) {
-                            focusRow_ = nextRow;
-                            retarget();
-                            animating_ = true;
-                            dirty_ = true;
-                        }
-                    } else if (dx != 0.0f) {
-                        float maxScroll = std::max(0.0f, static_cast<float>(static_cast<int>(curRow.tiles.size()) * kCardPitch - (kW - kMargin)));
-                        rowScroll_[static_cast<size_t>(focusRow_)].target =
-                            std::clamp(rowScroll_[static_cast<size_t>(focusRow_)].target - dx * 160.0f, 0.0f, maxScroll);
-                        animating_ = true;
-                        dirty_ = true;
-                    }
-                }
-            }
+        } else if (tab_ == Tab::GamePass && !rows_.empty()) {
+            // Mouse wheel uses the very same selection model as the D-pad.
+            NavInput nav;
+            nav.nowMs = platform::nowMs();
+            if (std::fabs(dx) > std::fabs(dy) && std::fabs(dx) > 0.01f)
+                (dx > 0.0f ? nav.left : nav.right) = true;
+            else if (std::fabs(dy) > 0.01f)
+                (dy > 0.0f ? nav.up : nav.down) = true;
+            if (nav.left || nav.right || nav.up || nav.down) handleHome(nav, ev);
         }
     } else if (screen_ == Screen::Details && achievementsOpen_) {
         achScroll_ = std::max(0, achScroll_ - static_cast<int>(dy * 3));
@@ -1278,54 +1251,8 @@ UiEvent AppUi::onTouch(const app::shell::TouchEvent& ev) {
                     animating_ = true;
                     dirty_ = true;
                 } else if (tab_ == Tab::GamePass && !rows_.empty()) {
-                    const GameRow& curRow = rows_[static_cast<size_t>(focusRow_)];
-                    if (curRow.isGrid) {
-                        int totalRows = (static_cast<int>(curRow.tiles.size()) + kLibraryCols - 1) / kLibraryCols;
-                        float maxScroll = std::max(0.0f, static_cast<float>(totalRows * kGridPitchY - (kH - kRowTop - 48)));
-                        if (dy > 0 && rowScroll_[static_cast<size_t>(focusRow_)].target <= 0.0f) {
-                            // User is at top of grid and dragging down -> scroll back out to shelf above!
-                            if (focusRow_ > 0) {
-                                --focusRow_;
-                                rowY_.target = std::clamp(static_cast<float>(focusRow_) - dy / static_cast<float>(kRowPitch),
-                                                          0.0f, static_cast<float>(rows_.size() - 1));
-                                rowY_.value = rowY_.target;
-                                animating_ = true;
-                                dirty_ = true;
-                            }
-                        } else {
-                            float prevTarget = rowScroll_[static_cast<size_t>(focusRow_)].target;
-                            float nextTarget = std::clamp(prevTarget - dy, 0.0f, maxScroll);
-                            rowScroll_[static_cast<size_t>(focusRow_)].target = nextTarget;
-                            rowScroll_[static_cast<size_t>(focusRow_)].value = nextTarget;
-                            animating_ = true;
-                            dirty_ = true;
-                            if (dy > 0 && prevTarget > 0.0f && nextTarget == 0.0f && focusRow_ > 0) {
-                                float overshoot = dy - prevTarget;
-                                if (overshoot > 4.0f) {
-                                    --focusRow_;
-                                    rowY_.target = std::clamp(static_cast<float>(focusRow_) - overshoot / static_cast<float>(kRowPitch),
-                                                              0.0f, static_cast<float>(rows_.size() - 1));
-                                    rowY_.value = rowY_.target;
-                                }
-                            }
-                        }
-                    } else {
-                        // Ribbon shelf: vertical drags move shelves, horizontal drags scroll cards
-                        if (std::abs(dy) > std::abs(dx)) {
-                            rowY_.target = std::clamp(rowY_.target - dy / static_cast<float>(kRowPitch),
-                                                      0.0f, static_cast<float>(rows_.size() - 1));
-                            rowY_.value = rowY_.target;
-                            animating_ = true;
-                            dirty_ = true;
-                        } else {
-                            float maxScroll = static_cast<float>(std::max(0, static_cast<int>(curRow.tiles.size()) * kCardPitch - kW));
-                            rowScroll_[static_cast<size_t>(focusRow_)].target =
-                                std::clamp(rowScroll_[static_cast<size_t>(focusRow_)].target - dx, 0.0f, maxScroll);
-                            rowScroll_[static_cast<size_t>(focusRow_)].value = rowScroll_[static_cast<size_t>(focusRow_)].target;
-                            animating_ = true;
-                            dirty_ = true;
-                        }
-                    }
+                    // Wait until finger release: no unrelated legacy rowScroll_
+                    // updates and no dozens of games skipped during one drag.
                 }
             } else if (screen_ == Screen::Home && updatePrompt_ && showingUpdateNotes_) {
                 updateNotesScroll_ = std::clamp(updateNotesScroll_ - static_cast<int>(dy), 0, updateNotesMaxScroll_);
@@ -1371,6 +1298,24 @@ UiEvent AppUi::onTouch(const app::shell::TouchEvent& ev) {
     }
 
     if (ev.kind == app::shell::TouchEvent::Kind::Up) {
+        if (touchTracker_.isDragging && screen_ == Screen::Home &&
+            tab_ == Tab::GamePass && !searching_ && !updatePrompt_ &&
+            !quitPrompt_ && !reportOpen_ && touchTracker_.startY >= 360.0f &&
+            touchTracker_.startY < 955.0f) {
+            const float totalX = ev.x - touchTracker_.startX;
+            const float totalY = ev.y - touchTracker_.startY;
+            NavInput nav;
+            nav.nowMs = now;
+            if (std::fabs(totalX) >= 58.0f && std::fabs(totalX) > 1.18f * std::fabs(totalY))
+                (totalX > 0.0f ? nav.left : nav.right) = true;
+            else if (std::fabs(totalY) >= 80.0f &&
+                     std::fabs(totalY) > 1.18f * std::fabs(totalX))
+                (totalY > 0.0f ? nav.up : nav.down) = true;
+            touchTracker_.active = false;
+            if (nav.left || nav.right || nav.up || nav.down)
+                handleHome(nav, uiEv); // mutex already held
+            return uiEv;
+        }
         if (touchTracker_.isDragging) {
             // Apply inertial deceleration if released with velocity
             if (std::abs(touchTracker_.velocityY) > 0.3f) {
