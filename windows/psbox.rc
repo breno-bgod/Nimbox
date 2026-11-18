@@ -9,7 +9,7 @@
 
 #define IDI_ICON1 101
 
-IDI_ICON1 ICON "psbox.ico"
+IDI_ICON1 ICON "nimboplay_launcher.ico"
 1 RT_MANIFEST "psbox.manifest"
 
 VS_VERSION_INFO VERSIONINFO
@@ -26,12 +26,12 @@ BEGIN
         BLOCK "040904b0"
         BEGIN
             VALUE "CompanyName",      "RafaelNGP\0"
-            VALUE "FileDescription",  "PSBox Cloud Gaming Client\0"
+            VALUE "FileDescription",  "NimboPlay Cloud Gaming Client\0"
             VALUE "FileVersion",      "1.7.5.0\0"
             VALUE "InternalName",     "psbox\0"
             VALUE "LegalCopyright",   "Copyright (C) 2026 RafaelNGP. GPL-3.0-or-later.\0"
             VALUE "OriginalFilename", "psbox.exe\0"
-            VALUE "ProductName",      "PSBox Cloud Gaming\0"
+            VALUE "ProductName",      "NimboPlay Cloud Gaming\0"
             VALUE "ProductVersion",   "1.7.5.0\0"
         END
     END
