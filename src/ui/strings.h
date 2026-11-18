@@ -598,6 +598,10 @@ enum class Str {
     Save,
     SignInOpenBrowser,
     SignInOpenBrowserHint,
+    DetailsShowcase,
+    DetailsAbout,
+    DetailsSession,
+    DetailsArtwork,
     Count
 };
 
