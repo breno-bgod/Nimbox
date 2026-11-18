@@ -13,6 +13,7 @@
 #include "ui/canvas.h"
 #include "ui/font.h"
 #include "ui/image_cache.h"
+#include "ui/nimbox_horizon_layout.h"
 #include "ui/pad_icons.h"
 #include "ui/strings.h"
 #include "xcloud/achievements.h"
@@ -694,6 +695,7 @@ private:
     Anim rowY_;
     // Horizon-only Game Pass carousel, with reduced-motion accessibility.
     Anim nimboxSlide_;
+    horizon::BoundaryGate horizonBoundary_{};
     bool nimboxReducedMotion_ = false;
     Tab tab_ = Tab::GamePass;
     std::vector<ConsoleTile> consoles_;
