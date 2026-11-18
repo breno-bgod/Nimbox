@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Nimbox Horizon: single geometry source for painting and pointer hit testing.
+// NimboPlay Horizon: single geometry source for painting and pointer hit testing.
 #pragma once
 #include "ui/canvas.h"
 #include <algorithm>
@@ -20,9 +20,45 @@ inline Rect tileRect(float offset) {
 }
 // Only one visual collection exists. These utilities are intentionally
 // independent of the removed physical 3D case geometry and its renderer.
+// The carousel must communicate real collection boundaries. No duplicate
+// cover is drawn on the other side of the list.
 inline int indexForOffset(int selected, int count, int offset) {
-    if (count <= 0 || offset < -count / 2 || offset > (count - 1) / 2) return -1;
-    return ((selected + offset) % count + count) % count;
+    const int index = selected + offset;
+    return count > 0 && index >= 0 && index < count ? index : -1;
+}
+
+enum class MoveResult { Unchanged, Moved, Boundary, Wrapped };
+struct BoundaryGate {
+    int direction = 0; // -1 left / +1 right; 0 = not armed
+    uint64_t startedMs = 0;
+    void reset() { direction = 0; startedMs = 0; }
+};
+
+// Require a separate deliberate outward action at an edge before wrapping.
+// The minimum 320ms avoids a high-frequency stick/wheel repeat immediately
+// wrapping from a single edge hit; time window expires after 1600ms.
+// Real motion within the collection always clears this gate.
+inline MoveResult navigate(int& selected, int count, int direction, uint64_t nowMs,
+                           BoundaryGate& gate) {
+    if (count <= 0 || direction == 0) { gate.reset(); return MoveResult::Unchanged; }
+    const int next = selected + (direction > 0 ? 1 : -1);
+    if (next >= 0 && next < count) {
+        selected = next;
+        gate.reset();
+        return MoveResult::Moved;
+    }
+    if (gate.direction == direction && nowMs >= gate.startedMs &&
+        nowMs - gate.startedMs >= 320 && nowMs - gate.startedMs <= 1600) {
+        selected = direction > 0 ? 0 : count - 1;
+        gate.reset();
+        return MoveResult::Wrapped;
+    }
+    if (gate.direction != direction || nowMs < gate.startedMs ||
+        nowMs - gate.startedMs > 1600) {
+        gate.direction = direction;
+        gate.startedMs = nowMs;
+    }
+    return MoveResult::Boundary;
 }
 inline std::vector<int> drawOrder(int selected, int count, float slide) {
     std::vector<int> order;
