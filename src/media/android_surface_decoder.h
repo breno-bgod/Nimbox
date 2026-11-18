@@ -17,6 +17,7 @@ public:
         uint64_t rendered = 0; // Android MediaCodec.OnFrameRenderedListener
         uint64_t inputBusy = 0;
         uint64_t errors = 0;
+        int outputWidth = 0, outputHeight = 0;
     };
     AndroidSurfaceDecoder() = default;
     ~AndroidSurfaceDecoder();
