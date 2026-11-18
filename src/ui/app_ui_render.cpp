@@ -120,8 +120,6 @@ void AppUi::drawTopBar(Canvas& c) {
            rgba(84, 199, 224, 85));
     const bool hasCloudTime = playtimeUnlimited_ || playtimeRemaining_ >= 0;
 #if defined(__ANDROID__)
-    constexpr int kLogoR = 30;
-    constexpr int kBrandPx = 30;
     constexpr int kAvatar = 64;
     constexpr int kGamertagPx = 30;
     constexpr int kSubPlanPx = 16;
@@ -131,8 +129,6 @@ void AppUi::drawTopBar(Canvas& c) {
     constexpr float kBadgeR = 11.5f;
     constexpr int kBadgeMargin = 16;
 #else
-    constexpr int kLogoR = 22;
-    constexpr int kBrandPx = 22;
     constexpr int kAvatar = 52;
     constexpr int kGamertagPx = 22;
     constexpr int kSubPlanPx = 11;
