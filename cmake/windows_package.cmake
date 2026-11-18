@@ -21,11 +21,10 @@ install(DIRECTORY "${_src}/assets/" DESTINATION ${_pkg}/assets)
 
 # Documentation and icon
 install(FILES "${_src}/windows/README-windows.txt" DESTINATION ${_pkg})
-if(EXISTS "${_src}/psbox.png")
-    install(FILES "${_src}/psbox.png" DESTINATION ${_pkg})
-elseif(EXISTS "${CMAKE_CURRENT_BINARY_DIR}/psbox.png")
-    install(FILES "${CMAKE_CURRENT_BINARY_DIR}/psbox.png" DESTINATION ${_pkg})
-endif()
+# The portable EXE embeds its ICO via Windows RC. Keep the same launcher
+# art as an ordinary PNG alongside the executable for integrations/shortcuts.
+install(FILES "${_src}/assets/branding/nimboplay_launcher_256.png"
+        DESTINATION ${_pkg} RENAME "psbox.png")
 
 # Licenses
 install(FILES "${_src}/LICENSE" "${_src}/THIRD_PARTY_NOTICES.md" DESTINATION ${_pkg}/licenses)
