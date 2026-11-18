@@ -1597,7 +1597,7 @@ void AppUi::drawSettings(Canvas& c) {
         std::string qrUrl = !webUrl_.empty() ? webUrl_ :
                             "http://" + platform::localIPv4() + ":8080";
         drawQr(c, qrUrl, 1517, 713, 142, qrcodegen_Ecc_LOW);
-        fonts_.semibold.draw(c, tr(Str::SettingsQrPointerHint), 1331, 873,
+        fonts_.semibold.draw(c, tr(Str::SettingsQrPointerHint), 1530, 849,
                              17, rgba(192, 218, 244));
         fonts_.regular.draw(c, "Acesse o painel remoto", 1530, 754, 17, rgba(194, 220, 211));
         const std::string urlText = fonts_.semibold.fit(qrUrl, 16, 272);
@@ -1716,7 +1716,7 @@ void AppUi::drawSettings(Canvas& c) {
 void AppUi::drawSettingsQrOverlay(Canvas& c) {
     // QR scanning must remain crisp: never blur the code or its white quiet
     // zone, even when the Settings panel itself is semi-transparent.
-    c.fillRect({0, 0, kW, kH}, rgba(2, 9, 20, 250));
+    c.fillRect({0, 0, kW, kH}, rgba(2, 9, 20, 255));
     fonts_.bold.draw(c, tr(Str::WebControlTitle), 108, 91, 43, kWhite);
     fonts_.regular.draw(c, tr(Str::SettingsQrInstructions),
                         108, 150, 23, rgba(212, 229, 241));
@@ -1731,7 +1731,7 @@ void AppUi::drawSettingsQrOverlay(Canvas& c) {
         fonts_.semibold.draw(c, tr(Str::SettingsQrUnavailable),
                              108, 845, 24, kWhite);
     }
-    c.fillRect({0, kH - 80, kW, 80}, rgba(2, 9, 20, 250));
+    c.fillRect({0, kH - 80, kW, 80}, rgba(2, 9, 20, 255));
     drawHints(c, {{kIconCircle, tr(Str::Back)}, {kIconR3, tr(Str::Back)}});
 }
 
