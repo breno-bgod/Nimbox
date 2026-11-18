@@ -576,7 +576,7 @@ bool SettingsManager::updateGameProfileFromJson(const std::string& gameKey, cons
             if (v != prof.fpsLimit) { prof.fpsLimit = v; changed = true; ev.affectsDisplay = true; }
         }
         if (root.has("resolution")) {
-            int v = static_cast<int>(std::clamp<int64_t>(root["resolution"].asInt(prof.resolution), 0, 2));
+            int v = static_cast<int>(std::clamp<int64_t>(root["resolution"].asInt(prof.resolution), 0, 3));
             if (v != prof.resolution) { prof.resolution = v; changed = true; ev.affectsDisplay = true; }
         }
         if (root.has("deadzoneLeft")) {

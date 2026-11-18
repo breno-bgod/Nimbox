@@ -123,8 +123,15 @@ std::string stream(xcloud::GssvClient& gssv, const auth::CloudTimeQuery& cloudQu
 #if defined(__ANDROID__)
         // Video only: existing Nimbox streaming, audio and input remain unchanged.
         player.setAndroidSurfaceOutput(!g_autoplay.swDecode && decoderMode == 2);
-        const int surfW = prof.resolution == 1 ? 1280 : prof.resolution == 2 ? 2560 : 1920;
-        const int surfH = prof.resolution == 1 ? 720 : prof.resolution == 2 ? 1440 : 1080;
+        // Honor the actual global setting when no game-specific profile exists.
+        // Explicit 1440p is independent of any previous resolution probe.
+        const int surfaceResolution = hasCustom ? prof.resolution
+            : g_settings.resolution == "720p" ? 1
+            : g_settings.resolution == "1440p" ? 3
+            : g_settings.resolution == "best" ? 2 : 0;
+        const bool surfaceQhd = surfaceResolution == 3 || (surfaceResolution == 2 && allow1440Locked());
+        const int surfW = surfaceResolution == 1 ? 1280 : surfaceQhd ? 2560 : 1920;
+        const int surfH = surfaceResolution == 1 ? 720 : surfaceQhd ? 1440 : 1080;
         player.setAndroidSurfaceSize(surfW, surfH);
 #endif
         if (g_autoplay.gyroLevel > 0) g_settings.gyroLevel = std::clamp(g_autoplay.gyroLevel, 1, 10);  // the settings are guarded under autoplay
@@ -832,15 +839,15 @@ std::string play(auth::AuthManager& am, xcloud::GssvClient& gssv, const ui::Game
         if (!g_autoplay.resolution.empty()) {
             res = g_autoplay.resolution;
         } else if (hasCustom) {
-            res = prof.resolution == 1 ? "720p" : prof.resolution == 2 ? "best" : "1080p";
+            res = prof.resolution == 1 ? "720p" : prof.resolution == 3 ? "1440p" : prof.resolution == 2 ? "best" : "1080p";
         } else {
             res = g_settings.resolution;
         }
-        bool isBest = (res == "best" || res == "1440p");
-        // "Best" asks for the top tier every time, nothing measured or
-        // remembered: the service gives what the plan and the game allow
-        // (1440p where it can, else 1080p). The user's own Xbox always gets
-        // the top tier (it sends 1080p either way, at ~16 Mbps instead of ~9.5).
+        bool isBest = (res == "best");
+        // Explicit 1440p sends a QHD-tier request irrespective of prior probes.
+        // Best Auto retains its previous adaptive choice based on measured support.
+        // The service can still respond with a lower resolution based on eligibility.
+        // The user's own Xbox has its existing high-bitrate 1080p behavior.
         bool home = gssv.isHome();
         g_probing = false;
         g_afterProbeAlias.clear();

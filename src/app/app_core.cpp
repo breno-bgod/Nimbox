@@ -540,7 +540,7 @@ bool coreStartup() {
                 }
                 if (root.has("resolution") && root["resolution"].isString()) {
                     const std::string res = root["resolution"].str();
-                    const bool known = res == "best" || res == "1080p" || res == "720p" || (res == "1440p" && allow1440Locked());
+                    const bool known = res == "best" || res == "1080p" || res == "720p" || res == "1440p";
                     if (known && res != g_settings.resolution) {
                         g_settings.resolution = res;
                         changed = true;

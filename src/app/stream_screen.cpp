@@ -591,11 +591,11 @@ void StreamScreen::update(const input::ControllerState& pad, ui::NavInput nav, b
                 g_tierPicked = true;
                 // The user's own Xbox: 1080p is its top tier ("1440").
 #if defined(__ANDROID__)
-                g_player->setAndroidSurfaceSize(streamResolution_ == 1 ? 1280 : streamResolution_ == 2 ? 2560 : 1920,
-                                                streamResolution_ == 1 ? 720 : streamResolution_ == 2 ? 1440 : 1080);
+                g_player->setAndroidSurfaceSize(streamResolution_ == 1 ? 1280 : (streamResolution_ == 2 || streamResolution_ == 3) ? 2560 : 1920,
+                                                streamResolution_ == 1 ? 720 : (streamResolution_ == 2 || streamResolution_ == 3) ? 1440 : 1080);
 #endif
                 g_player->requestResolution(streamResolution_ == 1 ? "720HQ"
-                                            : streamResolution_ == 2 || g_playingHome ? "1440"
+                                            : streamResolution_ == 2 || streamResolution_ == 3 || g_playingHome ? "1440"
                                                                                       : "1080HQ");
                 Settings snapshot;
                 bool syncNeeded = false;
