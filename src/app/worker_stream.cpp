@@ -123,6 +123,9 @@ std::string stream(xcloud::GssvClient& gssv, const auth::CloudTimeQuery& cloudQu
 #if defined(__ANDROID__)
         // Video only: existing Nimbox streaming, audio and input remain unchanged.
         player.setAndroidSurfaceOutput(!g_autoplay.swDecode && decoderMode == 2);
+        const int surfW = prof.resolution == 1 ? 1280 : prof.resolution == 2 ? 2560 : 1920;
+        const int surfH = prof.resolution == 1 ? 720 : prof.resolution == 2 ? 1440 : 1080;
+        player.setAndroidSurfaceSize(surfW, surfH);
 #endif
         if (g_autoplay.gyroLevel > 0) g_settings.gyroLevel = std::clamp(g_autoplay.gyroLevel, 1, 10);  // the settings are guarded under autoplay
         if (g_autoplay.gyroCurve == "fortnite") g_settings.gyroCurveStart = 15, g_settings.gyroCurveExp = 24;
