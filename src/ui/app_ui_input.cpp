@@ -4,6 +4,7 @@
 #include "ui/app_ui_internal.h"
 #include "app/shell.h"
 #include "ui/box_carousel.h"
+#include "ui/nimbox_horizon_layout.h"
 
 namespace xc::ui {
 
@@ -39,11 +40,32 @@ void AppUi::handleHome(const NavInput& in, UiEvent& ev) {
         return;
     }
     if (in.r3 && !searching_ && tab_ == Tab::GamePass) {
-        nimboxCarousel_ = !nimboxCarousel_;
+        // Horizon -> Colecao Viva -> Classic -> Horizon.
+        if (!nimboxCarousel_) {
+            nimboxCarousel_ = true;
+            nimboxHorizon_ = true;
+        } else if (nimboxHorizon_) {
+            nimboxHorizon_ = false;
+        } else {
+            nimboxCarousel_ = false;
+        }
+        nimboxSlide_.value = nimboxSlide_.target = 0.0f;
         dirty_ = true;
         return;
     }
-    if (nimboxCarousel_ && tab_ == Tab::GamePass && !searching_ && in.r2) {
+    if (nimboxCarousel_ && nimboxHorizon_ && tab_ == Tab::GamePass && !searching_ && in.r2) {
+        // Same eligibility as the Play button in Details.
+        if (const GameTile* tile = focusedTile()) {
+            if (isEffectivePlayableLocked(*tile)) {
+                ev.action = Action::Play;
+                ev.game = *tile;
+            } else {
+                openDetails(*tile);
+            }
+        }
+        return;
+    }
+    if (nimboxCarousel_ && !nimboxHorizon_ && tab_ == Tab::GamePass && !searching_ && in.r2) {
         nimboxReducedMotion_ = !nimboxReducedMotion_;
         settings_.nimboxReducedMotion = nimboxReducedMotion_;
         if (nimboxReducedMotion_) nimboxSlide_.value = nimboxSlide_.target = 0.0f;
@@ -520,7 +542,7 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
             if (!nimboxReturningHome_) {
                 syncHeroToRowsLocked(detail_.productId, detail_.titleId, detail_.heroUrl,
                                      detail_.description, detail_.publisher, detail_.categories);
-                if (nimboxCarousel_ && tab_ == Tab::GamePass && !nimboxReducedMotion_) {
+                if (nimboxCarousel_ && !nimboxHorizon_ && tab_ == Tab::GamePass && !nimboxReducedMotion_) {
                     nimboxReturningHome_ = true;
                     nimboxDetailIntro_.target = 0.0f;
                 } else {
@@ -860,7 +882,64 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
     }
 
     if (screen_ == Screen::Home && !searching_) {
-        if (nimboxCarousel_ && tab_ == Tab::GamePass) {
+        if (nimboxCarousel_ && nimboxHorizon_ && tab_ == Tab::GamePass) {
+            if (horizon::contains(horizon::kModeSwitch, x, y)) {
+                nimboxHorizon_ = false;
+                nimboxSlide_.value = nimboxSlide_.target = 0.0f;
+                dirty_ = true;
+                return ev;
+            }
+            if (const GameTile* tile = focusedTile()) {
+                if (horizon::contains(horizon::kPlayButton, x, y)) {
+                    if (isEffectivePlayableLocked(*tile)) {
+                        ev.action = Action::Play;
+                        ev.game = *tile;
+                    } else {
+                        openDetails(*tile);
+                    }
+                    return ev;
+                }
+                if (horizon::contains(horizon::kDetailsButton, x, y)) {
+                    openDetails(*tile);
+                    return ev;
+                }
+            }
+            if (!rows_.empty()) {
+                const int rowIndex = std::clamp(focusRow_, 0, int(rows_.size()) - 1);
+                const auto& tiles = rows_[size_t(rowIndex)].tiles;
+                const int count = int(tiles.size());
+                const int selected = count ? std::clamp(focusCol_[size_t(rowIndex)],
+                                                       0, count - 1) : 0;
+                const auto order = nimbox::caseDrawOrder(selected, count,
+                                                         nimboxSlide_.value / 1000.0f);
+                for (auto it = order.rbegin(); it != order.rend(); ++it) {
+                    const int offset = *it;
+                    const int index = nimbox::indexForOffset(selected, count, offset);
+                    if (index < 0 || !horizon::contains(horizon::tileRect(
+                            float(offset) + nimboxSlide_.value / 1000.0f), x, y))
+                        continue;
+                    if (offset == 0) {
+                        openDetails(tiles[size_t(index)]);
+                    } else {
+                        focusCol_[size_t(rowIndex)] = index;
+                        nimboxSlide_.value = nimboxReducedMotion_ ? 0.0f :
+                                             float(offset) * 1000.0f;
+                        nimboxSlide_.target = 0.0f;
+                        retarget();
+                        dirty_ = true;
+                    }
+                    return ev;
+                }
+            }
+            return ev; // Never tap a hidden classic control.
+        }
+        if (nimboxCarousel_ && !nimboxHorizon_ && tab_ == Tab::GamePass) {
+            if (horizon::contains(horizon::kModeSwitch, x, y)) {
+                nimboxHorizon_ = true;
+                nimboxSlide_.value = nimboxSlide_.target = 0.0f;
+                dirty_ = true;
+                return ev;
+            }
             // Accessible touch alternative to the R2 reduced-motion shortcut.
             if (x >= 1430 && x < 1810 && y >= 143 && y < 233) {
                 nimboxReducedMotion_ = !nimboxReducedMotion_;
@@ -2063,7 +2142,7 @@ UiEvent AppUi::handleLocked(const NavInput& in) {
             if (in.back) {
                 syncHeroToRowsLocked(detail_.productId, detail_.titleId, detail_.heroUrl,
                                      detail_.description, detail_.publisher, detail_.categories);
-                if (nimboxCarousel_ && tab_ == Tab::GamePass && !nimboxReducedMotion_) {
+                if (nimboxCarousel_ && !nimboxHorizon_ && tab_ == Tab::GamePass && !nimboxReducedMotion_) {
                     nimboxReturningHome_ = true;
                     nimboxDetailIntro_.target = 0.0f;
                 } else {

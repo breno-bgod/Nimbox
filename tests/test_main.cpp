@@ -37,6 +37,7 @@
 #include "ui/app_ui.h"
 #include "ui/nimbox_pose_core.h"
 #include "ui/box_carousel.h"
+#include "ui/nimbox_horizon_layout.h"
 #include "ui/preview_visual_layout.h"
 #include "ui/nimbox_visual_theme.h"
 #include "ui/collection_case_finish.h"
@@ -1254,6 +1255,20 @@ static void testNimboxXboxCaseFinish() {
     }
     finish::drawGlaze(frame, g, true);
     finish::drawXboxOrb(frame, banner.x, banner.y, 13.0f);
+}
+
+static void testNimboxHorizonGeometry() {
+    using namespace xc::ui;
+    const Rect middle = horizon::tileRect(0.0f);
+    const Rect left = horizon::tileRect(-1.0f);
+    const Rect right = horizon::tileRect(1.0f);
+    CHECK(middle.w > left.w && middle.h > right.h);
+    CHECK(left.x + left.w < middle.x);
+    CHECK(middle.x + middle.w < right.x);
+    CHECK(horizon::contains(middle, middle.x+10, middle.y+10));
+    CHECK(!horizon::contains(middle, 0, 0));
+    CHECK(horizon::contains(horizon::kModeSwitch, horizon::kModeSwitch.x+10,
+                            horizon::kModeSwitch.y+10));
 }
 
 static void testNimboxDefaultCarouselNavigation() {
@@ -11861,6 +11876,7 @@ int main() {
     testNimboxPreview3PageStructure();
     testNimboxAppearanceStudio();
     testNimboxXboxCaseFinish();
+    testNimboxHorizonGeometry();
     testNimboxDefaultCarouselNavigation();
     testDetailsHydrationAndPlaytimeBadge();
     testMilestone5TransmissionQualityAndStreamReload();
