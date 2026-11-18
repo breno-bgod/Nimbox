@@ -1596,7 +1596,7 @@ UiEvent AppUi::handleLocked(const NavInput& in) {
             // A desktop window has no system menu to close it from (fullscreen,
             // a controller in hand): Circle / Esc at the top of the home screen
             // asks. On the PS5 the system closes the app; Circle does nothing here.
-            if (caps_.desktopWindow && in.back && !searching_) {
+            if (caps_.desktopWindow && in.back && !searching_ && !profileOpen_) {
                 quitPrompt_ = true;
                 promptFocus_ = 1;  // Cancel first: a second Circle / Esc never closes by accident
                 dirty_ = true;
