@@ -1319,11 +1319,38 @@ static void testNimboxHorizonGeometry() {
     CHECK(!horizon::contains(middle, 0, 0));
     CHECK(horizon::contains(horizon::kPlayButton,
                             horizon::kPlayButton.x + 10, horizon::kPlayButton.y + 10));
-    CHECK(horizon::indexForOffset(0, 3, -1) == 2);
+    CHECK(horizon::indexForOffset(0, 3, -1) == -1); // no phantom item
     CHECK(horizon::indexForOffset(0, 3, 1) == 1);
-    CHECK(horizon::indexForOffset(0, 3, 2) == -1);
+    CHECK(horizon::indexForOffset(0, 3, 2) == 2);
+    CHECK(horizon::indexForOffset(2, 3, 1) == -1);
     const auto order = horizon::drawOrder(0, 3, 0.0f);
     CHECK(order.size() == 3 && order.back() == 0);
+    CHECK(horizon::drawOrder(2, 3, 0.0f).size() == 3);
+    CHECK(horizon::drawOrder(0, 1, 0.0f).size() == 1);
+    CHECK(horizon::indexForOffset(0, 1, -1) == -1);
+
+    // A first outward push only signals the edge, and repeated events inside
+    // the 320ms guard never auto-wrap during a held-stick burst.
+    horizon::BoundaryGate gate;
+    int index = 0;
+    CHECK(horizon::navigate(index, 4, -1, 1000, gate) == horizon::MoveResult::Boundary);
+    CHECK(index == 0 && gate.direction == -1);
+    CHECK(horizon::navigate(index, 4, -1, 1090, gate) == horizon::MoveResult::Boundary);
+    CHECK(index == 0);
+    CHECK(horizon::navigate(index, 4, -1, 1400, gate) == horizon::MoveResult::Wrapped);
+    CHECK(index == 3 && gate.direction == 0);
+    CHECK(horizon::navigate(index, 4, 1, 1500, gate) == horizon::MoveResult::Boundary);
+    CHECK(index == 3);
+    CHECK(horizon::navigate(index, 4, -1, 1550, gate) == horizon::MoveResult::Moved);
+    CHECK(index == 2 && gate.direction == 0);
+    CHECK(horizon::navigate(index, 4, 1, 1600, gate) == horizon::MoveResult::Moved);
+    CHECK(index == 3);
+    CHECK(horizon::navigate(index, 4, 1, 1650, gate) == horizon::MoveResult::Boundary);
+    CHECK(horizon::navigate(index, 4, 1, 3400, gate) == horizon::MoveResult::Boundary); // stale intent expires
+    CHECK(index == 3);
+    CHECK(horizon::navigate(index, 4, 1, 3820, gate) == horizon::MoveResult::Wrapped);
+    CHECK(index == 0);
+    CHECK(horizon::navigate(index, 1, 1, 3950, gate) == horizon::MoveResult::Unchanged);
 }
 
 static void testNimboxDefaultCarouselNavigation() {
@@ -1331,7 +1358,7 @@ static void testNimboxDefaultCarouselNavigation() {
     ui::ImageCache images([] {});
     ui::AppUi app(fonts, images);
     ui::GameRow row;
-    row.title = "Cloud collection";
+    row.title = "Recently added";
     for (int i = 0; i < 3; ++i) {
         ui::GameTile tile;
         tile.name = "Game " + std::to_string(i + 1);
@@ -1346,16 +1373,51 @@ static void testNimboxDefaultCarouselNavigation() {
     removedModeShortcut.r3 = true;
     app.handle(removedModeShortcut);
 
-    // Horizon is the only cloud home: left from the first cover wraps
-    // to the last; R3 must not resurrect a removed visualization.
+    // Horizon is finite: first left push keeps the first item selected.
     ui::NavInput left;
     left.left = true;
+    left.nowMs = 1000;
     app.handle(left);
     ui::NavInput accept;
     accept.accept = true;
     app.handle(accept);
     CHECK(app.screen() == ui::Screen::Details);
+    CHECK(app.detailWanted(100) == "PRODUCT_1");
+
+    // A new pair of outward presses is required to jump from first to last.
+    app.showHome();
+    app.setRows({row});
+    left.nowMs = 2000;
+    app.handle(left);
+    left.nowMs = 2440;
+    app.handle(left);
+    app.handle(accept);
     CHECK(app.detailWanted(100) == "PRODUCT_3");
+
+    // Touch: one horizontal swipe = one cover, same as a D-pad press.
+    ui::AppUi touch(fonts, images);
+    touch.setRows({row});
+    touch.showHome();
+    touch.onTouch({app::shell::TouchEvent::Kind::Down, 1, 1180.0f, 710.0f});
+    touch.onTouch({app::shell::TouchEvent::Kind::Motion, 1, 1000.0f, 710.0f});
+    touch.onTouch({app::shell::TouchEvent::Kind::Up, 1, 1000.0f, 710.0f});
+    touch.handle(accept);
+    CHECK(touch.detailWanted(100) == "PRODUCT_2");
+
+    // Up/down always switch entire catalog shelves in Horizon, even when the
+    // underlying legacy row is flagged as a grid.
+    ui::AppUi shelves(fonts, images);
+    ui::GameRow second = row;
+    second.title = "Platform";
+    second.isGrid = true;
+    second.tiles[0].productId = "PLATFORM_FIRST";
+    shelves.setRows({row, second});
+    shelves.showHome();
+    ui::NavInput down;
+    down.down = true;
+    shelves.handle(down);
+    shelves.handle(accept);
+    CHECK(shelves.detailWanted(100) == "PLATFORM_FIRST");
 }
 
 static void testDetailsHydrationAndPlaytimeBadge() {
