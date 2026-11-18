@@ -386,6 +386,11 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
     if (screen_ == Screen::Streaming || screen_ == Screen::Splash) {
         return ev;
     }
+    if (button == 3 && screen_ == Screen::Settings && settingsQrExpanded_) {
+        settingsQrExpanded_ = false;
+        dirty_ = true;
+        return ev;
+    }
     if (button == 3) {
         // Right click: Back
         if (reportOpen_) {
