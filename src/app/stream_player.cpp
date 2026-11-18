@@ -1005,6 +1005,15 @@ struct StreamPlayer::Impl {
                 surfaceRetryAtMs = 0;
                 surfaceFailures = 0;
                 surfaceNeedsIdr = true;
+                if (decoder->isHardware() && !surfaceDecoder) {
+                    // Avoid two competing hardware codecs on the same Android device.
+                    decoder.reset();
+                    decoder = std::make_unique<media::VideoDecoder>();
+                    if (!decoder->init(decodeThreads, false)) {
+                        end("could not keep software fallback when selecting Surface");
+                        return;
+                    }
+                }
                 keyframeWanted = true;
                 requestKeyframeIfWanted();
             }
@@ -1930,6 +1939,16 @@ void StreamPlayer::setAndroidSurfaceOutput(bool enabled) {
 #endif
 }
 
+void StreamPlayer::setAndroidSurfaceSize(int width, int height) {
+#if defined(__ANDROID__)
+    impl_->androidSurfaceWidth.store(std::clamp(width, 320, 3840), std::memory_order_relaxed);
+    impl_->androidSurfaceHeight.store(std::clamp(height, 240, 2160), std::memory_order_relaxed);
+#else
+    (void)width;
+    (void)height;
+#endif
+}
+
 void StreamPlayer::switchDecoderMode(int mode) {
 #if defined(__ANDROID__)
     impl_->decoderSwitch = mode == 2 ? 2 : (mode == 0 ? 1 : 0);
@@ -1975,6 +1994,12 @@ StreamPlayer::Stats StreamPlayer::stats() const {
     st.width = static_cast<int>(impl_->pictureSize >> 16);
     st.height = static_cast<int>(impl_->pictureSize & 0xFFFF);
     st.isHwDecode = impl_->isHwDecode.load();
+    st.androidSurfaceActive = impl_->surfaceActive.load();
+    st.surfaceSubmitted = impl_->surfaceSubmitted.load();
+    st.surfaceReleased = impl_->surfaceReleased.load();
+    st.surfaceRendered = impl_->surfaceRendered.load();
+    st.surfaceBusy = impl_->surfaceBusy.load();
+    st.surfaceErrors = impl_->surfaceErrors.load();
     // Timings since the previous call.
     uint64_t dc = impl_->decodeCalls.exchange(0), du = impl_->decodeUs.exchange(0);
     uint64_t rc = impl_->drawCalls.exchange(0), ru = impl_->drawUs.exchange(0);
