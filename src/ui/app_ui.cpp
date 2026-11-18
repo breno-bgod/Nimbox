@@ -245,6 +245,8 @@ void AppUi::setRowsLocked(std::vector<GameRow> rows) {
     focusCol_.assign(rows_.size(), 0);
     rowScroll_.assign(rows_.size(), Anim{});
     focusRow_ = 0;
+    horizonBoundary_.reset(); // catalog refresh invalidates the edge intent
+    nimboxSlide_.value = nimboxSlide_.target = 0.0f;
     for (size_t r = 0; r < rows_.size(); ++r) {
         auto it = kept.find(rows_[r].title);
         if (it == kept.end()) continue;
