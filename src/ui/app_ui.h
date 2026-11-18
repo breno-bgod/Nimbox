@@ -99,6 +99,9 @@ enum class Tab { GamePass, Library, Consoles };
 
 struct NavInput {
     bool up = false, down = false, left = false, right = false;
+    // Raw horizontal hold, before repeat generation; prevents accidental
+    // edge wraps while the same physical stick/D-pad remains held.
+    bool carouselHeldLeft = false, carouselHeldRight = false;
     bool accept = false, acceptHeld = false, back = false, options = false;
     bool l1 = false, r1 = false, square = false, triangle = false, r3 = false, l3 = false;
     bool l2 = false, r2 = false;  // pressed (triggers past halfway)
