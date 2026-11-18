@@ -955,11 +955,45 @@ struct StreamPlayer::Impl {
                 requestKeyframeIfWanted();
                 XC_LOGI("stream: decoder made again: %s", decoder->isHardware() ? "hardware" : "software (hardware failed)");
             }
-            if (int want = decoderSwitch.exchange(-1); want == 1 && decoder->isHardware()) {
+#if defined(__ANDROID__)
+            if (decoderSwitch.load(std::memory_order_relaxed) == 2) {
+                decoderSwitch.store(-1, std::memory_order_relaxed);
+                if (!surfaceDecoder) {
+                    // Release the prior hardware codec before creating Surface's MediaCodec.
+                    decoder.reset();
+                    decoder = std::make_unique<media::VideoDecoder>();
+                    if (!decoder->init(decodeThreads, false)) {
+                        end("could not start the software fallback decoder");
+                        return;
+                    }
+                    auto candidate = std::make_unique<media::AndroidSurfaceDecoder>();
+                    if (candidate->init(1920, 1080)) {
+                        surfaceDecoder = std::move(candidate);
+                        isHwDecode = true;
+                        keyframeWanted = true;
+                        requestKeyframeIfWanted();
+                        XC_LOGI("stream: switched to Android Surface output");
+                    } else {
+                        XC_LOGW("stream: Surface decoder failed; software fallback remains");
+                    }
+                }
+            }
+#endif
+            if (int want = decoderSwitch.exchange(-1); want == 1 && decoder->isHardware()
+#if defined(__ANDROID__)
+                && !surfaceDecoder
+#endif
+            ) {
                 // Already the hardware one: a second one made beside it would
                 // need memory of its own (the kept memory is this one's).
                 XC_LOGI("stream: decoder already hardware");
             } else if (want >= 0) {
+#if defined(__ANDROID__)
+                if (surfaceDecoder) {
+                    surfaceDecoder.reset();
+                    XC_LOGI("stream: returning to original Nimbox video engine");
+                }
+#endif
                 auto next = std::make_unique<media::VideoDecoder>();
                 if (next->init(decodeThreads, want == 1)) {
                     decoder = std::move(next);
@@ -968,6 +1002,27 @@ struct StreamPlayer::Impl {
                     XC_LOGI("stream: decoder switched to %s", decoder->isHardware() ? "hardware" : "software");
                 }
             }
+#if defined(__ANDROID__)
+            if (surfaceDecoder) {
+                const uint64_t tSurface0 = platform::nowUs();
+                if (!surfaceDecoder->decode(au.data(), au.size(), frame.rtpTimestamp, hasIdrSlice(au))) {
+                    XC_LOGW("stream: Surface input failed; reverting to software decoder");
+                    surfaceDecoder.reset();
+                    keyframeWanted = true;
+                    requestKeyframeIfWanted();
+                    continue;
+                }
+                const uint64_t elapsed = platform::nowUs() - tSurface0;
+                decodeUs += elapsed;
+                ++decodeCalls;
+                atomicMax(decodeMaxUs, elapsed);
+                ++decodedFrames;
+                isHwDecode = true;
+                // MediaCodec presents on the separate Android Surface.
+                // The CPU YUV and Vulkan/SDL paths below are unchanged.
+                continue;
+            }
+#endif
             uint64_t t0 = platform::nowUs();
             bool ok = decoder->decode(au.data(), au.size(), pic, frame.rtpTimestamp);
             isHwDecode = decoder->isHardware();
