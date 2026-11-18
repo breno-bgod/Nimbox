@@ -32,13 +32,16 @@
 #include "ui/stream_menu.h"
 #include "ui/strings.h"
 #include "xcloud/gssv.h"
+#include "xcloud/catalog.h"
 #include "xcloud/prices.h"
 
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #define STB_IMAGE_WRITE_STATIC
 #include "stb_image_write.h"
 
+#include <algorithm>
 #include <atomic>
+#include <cctype>
 #include <thread>
 #include <mutex>
 #include <map>
@@ -58,6 +61,8 @@ int usage() {
                  "usage: xcloud-cli [-v] <command>\n"
                  "  login                 sign in with a Microsoft account\n"
                  "  titles [--recent]     list streamable titles\n"
+                 "  diagnose-title <name-or-id> [--probe-session]\n"
+                 "                        inspect title availability and allowed device types\n"
                  "  provision <titleId>   provision a cloud session, then stop it\n"
                  "  stream <titleId> [seconds] [out.h264]\n"
                  "                        provision and stream; dump video to a file\n"
@@ -104,6 +109,123 @@ int cmdTitles(auth::AuthManager& am, bool recent) {
                     t.name.empty() ? "?" : t.name.c_str());
     std::printf("%zu titles\n", titles.size());
     return 0;
+}
+
+// Opt-in, read-mostly diagnostic for investigating device-restricted cloud titles.
+// No changes to the app's login, headers, catalog filters or stream renderer.
+// --probe-session only requests a session for one entitled, unambiguous title;
+// it never connects WebRTC or sends controller input.
+int cmdDiagnoseTitle(auth::AuthManager& am, const std::string& query, bool probeSession) {
+    xcloud::GssvClient gssv;
+    if (!signIn(am, gssv)) return 1;
+
+    std::vector<xcloud::Title> titles;
+    std::string err;
+    if (!gssv.listTitles(titles, err, false)) {
+        std::fprintf(stderr, "title-list request failed: %s\n", err.c_str());
+        return 1;
+    }
+    const std::string market = gssv.session().market.empty() ? "US" : gssv.session().market;
+    // GSSV names are hydrated from the Store; an ID remains searchable even
+    // if hydration is unavailable.
+    if (!gssv.hydrateTitles(titles, market, "en-us", err))
+        std::fprintf(stderr, "warning: title names may be incomplete (%s)\n", err.c_str());
+
+    auto fold = [](std::string value) {
+        for (char& ch : value)
+            ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+        return value;
+    };
+    const std::string key = fold(query);
+    std::vector<const xcloud::Title*> matches;
+    for (const auto& title : titles) {
+        auto contains = [&](const std::string& value) {
+            return !value.empty() && fold(value).find(key) != std::string::npos;
+        };
+        bool found = contains(title.name) || contains(title.titleId) ||
+                     contains(title.productId) || contains(title.xboxTitleId);
+        if (!found)
+            for (const auto& id : title.alternateProductIds)
+                if (contains(id)) { found = true; break; }
+        if (found) matches.push_back(&title);
+    }
+
+    xcloud::ProductList passCatalog;
+    std::string catalogError;
+    const bool passOk = xcloud::fetchList(xcloud::sigl::kAllGames, market, "en-us",
+                                           passCatalog, catalogError);
+    std::printf("NX device diagnostic | market=%s | GSSV titles=%zu | matches=%zu\n",
+                market.c_str(), titles.size(), matches.size());
+    std::printf("Game Pass catalog=%s\n", passOk ? "received" : "unavailable");
+    if (!passOk) std::printf("Catalog note: %s\n", catalogError.c_str());
+
+    if (matches.empty()) {
+        std::printf("NOT_IN_GSSV_TITLE_LIST: '%s'\n", query.c_str());
+        std::printf("This client/account was not offered the title in /v2/titles.\n"
+                    "It does not prove that Xbox consoles cannot access it; "
+                    "no session is attempted without a returned titleId.\n");
+        return 0;
+    }
+
+    for (size_t i = 0; i < matches.size(); ++i) {
+        const auto& t = *matches[i];
+        const bool inPass = passOk &&
+            std::find(passCatalog.productIds.begin(), passCatalog.productIds.end(),
+                      t.productId) != passCatalog.productIds.end();
+        std::printf("\n[%zu] name=%s\n", i + 1, t.name.empty() ? "(not hydrated)" : t.name.c_str());
+        std::printf("titleId=%s productId=%s\n", t.titleId.c_str(), t.productId.c_str());
+        std::printf("entitlement_reported=%s subscription_route=%s free_tier=%s\n",
+                    t.hasEntitlement ? "yes" : "no",
+                    t.viaSubscription ? "yes" : "no",
+                    t.freeTier ? "yes" : "no");
+        std::printf("game_pass_feed=%s\n",
+                    !passOk ? "unknown" : inPass ? "yes" : "no (may be an owned-game title)");
+        std::printf("allowedDeviceTypes=");
+        if (t.allowedDeviceTypes.empty()) {
+            std::printf("(not reported; this does NOT prove unrestricted)");
+        } else {
+            for (size_t j = 0; j < t.allowedDeviceTypes.size(); ++j)
+                std::printf("%s%s", j ? "," : "", t.allowedDeviceTypes[j].c_str());
+        }
+        std::printf("\n");
+    }
+
+    if (!probeSession) {
+        std::printf("\nREAD_ONLY: add --probe-session to request a single entitled title's "
+                    "session and immediately stop it.\n");
+        return 0;
+    }
+    if (matches.size() != 1) {
+        std::fprintf(stderr, "PROBE_SKIPPED: specify an unambiguous titleId, not multiple titles.\n");
+        return 2;
+    }
+    const xcloud::Title& chosen = *matches.front();
+    if (!chosen.hasEntitlement) {
+        std::fprintf(stderr, "PROBE_SKIPPED: service did not report entitlement for this title.\n");
+        return 2;
+    }
+    int status = 0;
+    err.clear();
+    if (!gssv.startSession(chosen.titleId, "en-US", err, &status)) {
+        std::printf("SESSION_REJECTED HTTP=%d device_type_refusal=%s\n",
+                    status, xcloud::isDeviceTypeRefusal(err) ? "yes" : "not confirmed");
+        std::printf("Service response: %s\n", err.c_str());
+        return 3;
+    }
+    xcloud::SessionStatus state;
+    std::string stateError;
+    if (gssv.sessionState(state, stateError)) {
+        std::printf("SESSION_REQUEST_ACCEPTED state=%s\n", state.raw.c_str());
+        if (state.state == xcloud::SessionState::Failed)
+            std::printf("SESSION_FAILED code=%s (device type refusal=%s)\n",
+                        state.errorCode.c_str(),
+                        xcloud::isDeviceTypeRefusal(state.errorCode) ? "yes" : "not confirmed");
+    } else {
+        std::printf("SESSION_REQUEST_ACCEPTED; state unavailable: %s\n", stateError.c_str());
+    }
+    gssv.stopSession();
+    std::printf("No WebRTC connection was opened. Acceptance is NOT proof of stream permission.\n");
+    return state.state == xcloud::SessionState::Failed ? 3 : 0;
 }
 
 // Starts a session for `titleId` and waits until it is Provisioned (queue,
@@ -590,6 +712,19 @@ int main(int argc, char** argv) {
         return r.ok() ? 0 : 1;
     } else if (cmd == "titles") {
         rc = cmdTitles(am, argi < argc && std::strcmp(argv[argi], "--recent") == 0);
+    } else if (cmd == "diagnose-title") {
+        bool probeSession = false;
+        std::string query;
+        for (; argi < argc; ++argi) {
+            std::string a = argv[argi];
+            if (a == "--probe-session") probeSession = true;
+            else if (!a.empty() && a[0] == '-') { query.clear(); break; }
+            else {
+                if (!query.empty()) query += " ";
+                query += a;
+            }
+        }
+        rc = query.empty() ? usage() : cmdDiagnoseTitle(am, query, probeSession);
     } else if (cmd == "provision" && argi < argc) {
         rc = cmdProvision(am, argv[argi]);
     } else if (cmd == "stream" && argi < argc) {
