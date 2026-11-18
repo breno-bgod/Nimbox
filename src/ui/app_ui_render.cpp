@@ -339,7 +339,7 @@ void AppUi::drawToast(Canvas& c, uint64_t nowMs) {
     animating_ = true;
 }
 
-bool AppUi::drawHero(Canvas& c, uint64_t nowMs, const std::string& url, bool details) {
+bool AppUi::drawHero(Canvas& c, uint64_t nowMs, const std::string& url, bool details, bool fullScreen) {
     if (url != heroUrl_) {
         // The previous art may only cross-fade into a new one that is already
         // there; it is never kept up while the new one downloads.
@@ -363,13 +363,19 @@ bool AppUi::drawHero(Canvas& c, uint64_t nowMs, const std::string& url, bool det
     } else {
         prevHeroUrl_.clear();  // nothing on screen to fade from any more
     }
-    // Darken towards the left (text) and the bottom (rows).
-    c.gradientH({0, 0, details ? 1400 : 1200, kH}, rgba(0, 0, 0, details ? 240 : 225), rgba(0, 0, 0, 0));
-    if (details) {
-        c.gradientV({0, 640, kW, 440}, withAlpha(kBg, 0), withAlpha(kBg, 230));
+    // The Horizon stage keeps art visible through all 1080 lines. Gradients
+    // protect readability but never paint a hard band across the wallpaper.
+    if (fullScreen) {
+        c.gradientH({0, 0, 1300, kH}, rgba(2, 11, 23, 192), rgba(2, 11, 23, 0));
+        c.gradientV({0, 610, kW, 470}, rgba(4, 13, 24, 0), rgba(4, 13, 24, 118));
     } else {
-        c.gradientV({0, 360, kW, 420}, withAlpha(kBg, 0), kBg);
-        c.fillRect({0, 780, kW, kH - 780}, kBg);
+        c.gradientH({0, 0, details ? 1400 : 1200, kH}, rgba(0, 0, 0, details ? 240 : 225), rgba(0, 0, 0, 0));
+        if (details) {
+            c.gradientV({0, 640, kW, 440}, withAlpha(kBg, 0), withAlpha(kBg, 230));
+        } else {
+            c.gradientV({0, 360, kW, 420}, withAlpha(kBg, 0), kBg);
+            c.fillRect({0, 780, kW, kH - 780}, kBg);
+        }
     }
     c.gradientV({0, 0, kW, 160}, rgba(0, 0, 0, 150), rgba(0, 0, 0, 0));
     return current != nullptr;
@@ -1047,7 +1053,7 @@ void AppUi::drawNimboxHorizon(Canvas& c, uint64_t nowMs) {
         auto it = detailInfo_.find(focus->productId);
         if (it != detailInfo_.end()) hero = it->second.heroUrl;
     }
-    const bool wideArt = !hero.empty() && drawHero(c, nowMs, hero, true);
+    const bool wideArt = !hero.empty() && drawHero(c, nowMs, hero, true, true);
     if (!wideArt) {
         c.gradientV({0, 122, kW, 830}, env.sky, deep);
         if (focus && !focus->tileUrl.empty()) {
@@ -1057,10 +1063,10 @@ void AppUi::drawNimboxHorizon(Canvas& c, uint64_t nowMs) {
     }
     // Software-friendly fades rather than expensive blur or a new GPU pipeline.
     c.gradientH({0, 124, 1130, 480}, rgba(6, 16, 30, 180), rgba(6, 16, 30, 0));
-    c.gradientV({0, 475, kW, 520}, rgba(8, 20, 34, 15), rgba(7, 17, 29, 243));
+    c.gradientV({0, 475, kW, 520}, rgba(8, 20, 34, 8), rgba(7, 17, 29, 121));
     drawTopBar(c);
     drawTabs(c);
-    fonts_.semibold.draw(c, "HORIZON", 104, 197, 19, env.accent);
+    fonts_.semibold.draw(c, tr(Str::HorizonExplore), 104, 179, 19, env.accent);
     if (!focus || rows_.empty()) {
         fonts_.semibold.draw(c, tr(Str::NoGames), 104, 354, 36, kWhite);
         drawHints(c, {{kIconOptions, tr(Str::Settings)}, {kIconTouchpad, tr(Str::HoldSignOut)}});
@@ -1078,7 +1084,16 @@ void AppUi::drawNimboxHorizon(Canvas& c, uint64_t nowMs) {
         return;
     }
     const int selected = std::clamp(focusCol_[size_t(rowIndex)], 0, count - 1);
-    fonts_.bold.draw(c, fonts_.bold.fit(focus->name, 57, 1070), 104, 315, 57, kWhite);
+    // The collection is part of navigation, not a tiny caption over the shelf.
+    const std::string collection = row.title.empty() ? "GAME PASS" : row.title;
+    fonts_.semibold.draw(c, fonts_.semibold.fit(collection, 38, 1290),
+                         104, 221, 38, kWhite);
+    const std::string collectionPos = trf(Str::HorizonCollectionPosition,
+        std::to_string(rowIndex + 1), std::to_string(rows_.size()));
+    fonts_.regular.draw(c, collectionPos,
+                        1814 - fonts_.regular.measure(collectionPos, 20),
+                        226, 20, soft);
+    fonts_.bold.draw(c, fonts_.bold.fit(focus->name, 57, 1070), 104, 326, 57, kWhite);
     std::string meta = focus->publisher;
     if (!focus->categories.empty()) {
         if (!meta.empty()) meta += "  -  ";
@@ -1096,13 +1111,13 @@ void AppUi::drawNimboxHorizon(Canvas& c, uint64_t nowMs) {
     c.strokeRect(horizon::kDetailsButton, rgba(189, 230, 237, 127), 1, 16);
     fonts_.semibold.draw(c, "DETALHES", horizon::kDetailsButton.x + 37,
                          horizon::kDetailsButton.y + 18, 26, white);
-    const std::string collection = row.title.empty() ? "GAME PASS" : row.title;
-    fonts_.semibold.draw(c, fonts_.semibold.fit(collection, 25, 1200),
-                         104, 581, 25, soft);
-    const std::string section = std::to_string(rowIndex + 1) + " / " +
-                                std::to_string(rows_.size());
-    fonts_.regular.draw(c, section, 1814 - fonts_.regular.measure(section, 19),
-                        586, 19, soft);
+    if (horizonBoundary_.direction && nowMs >= horizonBoundary_.startedMs &&
+        nowMs - horizonBoundary_.startedMs <= 1600) {
+        fonts_.semibold.draw(c, fonts_.semibold.fit(
+            tr(horizonBoundary_.direction > 0 ? Str::HorizonEndHint : Str::HorizonStartHint),
+            20, 1190), 104, 583, 20, env.accent);
+        animating_ = true; // redraw once to clear the hint when it expires
+    }
     const auto order = horizon::drawOrder(selected, count, nimboxSlide_.value / 1000.0f);
     for (int offset : order) {
         const int index = horizon::indexForOffset(selected, count, offset);
@@ -1123,11 +1138,12 @@ void AppUi::drawNimboxHorizon(Canvas& c, uint64_t nowMs) {
         else
             c.fillRect(card, rgba(5, 16, 26, 30), 14);
     }
-    const std::string position = std::to_string(selected+1) + " / " + std::to_string(count);
-    fonts_.regular.draw(c, position, (kW-fonts_.regular.measure(position, 19))/2,
-                        897, 19, rgba(173, 206, 215));
-    fonts_.regular.draw(c, "ESQUERDA / DIREITA  -  JOGOS", 104, 943, 19, soft);
-    const char* directions = "CIMA / BAIXO  -  COLECOES";
+    const std::string position = trf(Str::HorizonGamePosition,
+        std::to_string(selected+1), std::to_string(count));
+    fonts_.regular.draw(c, position, (kW - fonts_.regular.measure(position, 20)) / 2,
+                        897, 20, rgba(196, 222, 231));
+    fonts_.regular.draw(c, tr(Str::HorizonHorizontalHint), 104, 943, 19, soft);
+    const char* directions = tr(Str::HorizonVerticalHint);
     fonts_.regular.draw(c, directions, 1816 - fonts_.regular.measure(directions, 19),
                         943, 19, soft);
     preview31::footerBackdrop(c);
