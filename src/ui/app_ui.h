@@ -570,6 +570,7 @@ private:
     void drawSignIn(Canvas& c, uint64_t nowMs);
     void drawHome(Canvas& c, uint64_t nowMs);
     void drawNimboxHorizon(Canvas& c, uint64_t nowMs);
+    void drawProfilePanel(Canvas& c);  // native PS5-style overlay; real account data only
     void drawSettingsQrOverlay(Canvas& c);
     void drawTabs(Canvas& c);
     void drawConsoles(Canvas& c, uint64_t nowMs);
@@ -701,6 +702,7 @@ private:
     Anim nimboxSlide_;
     horizon::BoundaryGate horizonBoundary_{};
     bool nimboxReducedMotion_ = false;
+    bool profileOpen_ = false;  // UI-only: never changes account or streaming state
     Tab tab_ = Tab::GamePass;
     std::vector<ConsoleTile> consoles_;
     bool allow1440_ = false;
