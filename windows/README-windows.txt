@@ -1,4 +1,4 @@
-PSBox Cloud Gaming for Windows - Portable Edition
+NimboPlay Cloud Gaming for Windows - Portable Edition
 =================================================
 
 Xbox Cloud Gaming (xCloud) native client: browse the cloud catalog and stream
