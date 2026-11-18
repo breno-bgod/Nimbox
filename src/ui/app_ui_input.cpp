@@ -9,6 +9,20 @@
 namespace xc::ui {
 
 void AppUi::handleHome(const NavInput& in, UiEvent& ev) {
+    // The profile is a modal: never pass its input through to the carousel.
+    if (profileOpen_) {
+        if (in.back || in.accept || in.r3 || in.options) {
+            profileOpen_ = false;
+            dirty_ = true;
+        }
+        return;
+    }
+    // Library already owns R3 for sorting; leave that established action.
+    if (!searching_ && tab_ != Tab::Library && in.r3) {
+        profileOpen_ = true;
+        dirty_ = true;
+        return;
+    }
     // Caller holds mutex_. Keep hold/release independent from repeat pulses.
     if (!in.carouselHeldLeft && !in.carouselHeldRight &&
         !in.left && !in.right && in.scrollCards == 0)
@@ -389,6 +403,16 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
     if (screen_ == Screen::Streaming || screen_ == Screen::Splash) {
         return ev;
     }
+    // The native profile blocks pointer events to all background controls.
+    if (screen_ == Screen::Home && profileOpen_ && !updatePrompt_ && !quitPrompt_) {
+        if (button == 3 || (button == 1 &&
+            (horizon::contains(horizon::kProfileClose, x, y) ||
+             !horizon::contains(horizon::kProfilePanel, x, y)))) {
+            profileOpen_ = false;
+            dirty_ = true;
+        }
+        return ev;
+    }
     if (button == 3 && screen_ == Screen::Settings && settingsQrExpanded_) {
         settingsQrExpanded_ = false;
         dirty_ = true;
@@ -604,6 +628,14 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
         return ev;
     }
 
+    // Avatar opens real profile details; gear keeps its existing Settings action.
+    if (screen_ == Screen::Home && !searching_ && !updatePrompt_ &&
+        !quitPrompt_ && !reportOpen_ &&
+        horizon::contains(horizon::kProfileAvatarTap, x, y)) {
+        profileOpen_ = true;
+        dirty_ = true;
+        return ev;
+    }
     // Check avatar / settings button click to open settings
     if ((screen_ == Screen::Home && !searching_) ||
         (screen_ == Screen::Details && !achievementsOpen_ && !gameSettingsOpen_)) {
