@@ -1676,8 +1676,10 @@ bool Core::frame() {
     ui::NavInput nav;
     nav.up = up.update(pad.dpadUp || pad.leftStickY < -0.6f, now);
     nav.down = down.update(pad.dpadDown || pad.leftStickY > 0.6f, now);
-    nav.left = left.update(pad.dpadLeft || pad.leftStickX < -0.6f, now);
-    nav.right = right.update(pad.dpadRight || pad.leftStickX > 0.6f, now);
+    nav.carouselHeldLeft = pad.dpadLeft || pad.leftStickX < -0.6f;
+    nav.carouselHeldRight = pad.dpadRight || pad.leftStickX > 0.6f;
+    nav.left = left.update(nav.carouselHeldLeft, now);
+    nav.right = right.update(nav.carouselHeldRight, now);
     nav.accept = pad.btnA && !prev.btnA;
     nav.acceptHeld = pad.btnA;
     nav.back = (pad.btnB && !prev.btnB) || (!inGame && backPressed);
