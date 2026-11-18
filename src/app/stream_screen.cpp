@@ -19,6 +19,9 @@
 #include "input/pad_usb.h"
 #include "media/audio_out.h"
 #include "media/audio_queue.h"
+#if defined(__ANDROID__)
+#include "media/android_surface_decoder.h"
+#endif
 #include "platform/platform.h"
 #include "platform/toasts.h"
 #include "ui/strings.h"
@@ -31,6 +34,15 @@
 namespace xc::app {
 std::string stageGameName();  // worker_stream.cpp: the game being played
 namespace {
+
+// Keep the existing SDL/Vulkan overlay unmodified, and mirror it to an Android
+// View *only* while the independent MediaCodec Surface engine is selected.
+void setStreamOverlay(const uint32_t* pixels, int x, int y, int w, int h, uint8_t opacity) {
+    display::setOverlay(pixels, x, y, w, h, opacity);
+#if defined(__ANDROID__)
+    media::AndroidSurfaceDecoder::mirrorOverlay(pixels, x, y, w, h, opacity);
+#endif
+}
 
 // How much CAS each sharpness level mixes in (display::setSharpness).
 constexpr int kSharpAmount[] = {0, 96, 176, 256};
@@ -1465,30 +1477,30 @@ void StreamScreen::update(const input::ControllerState& pad, ui::NavInput nav, b
                 // The picture must stay clear for the measurement: a line at the top only.
                 ui::Canvas c = ui::renderToastPanel(
                     fonts_, {ui::trf(ui::Str::GyroAutoCalRunning, std::to_string(std::clamp(gyroCalPercent_, 0, 100)))});
-                display::setOverlay(c.data(), (static_cast<int>(display::kWidth) - c.width()) / 2, 28, c.width(), c.height(), 235);
+                setStreamOverlay(c.data(), (static_cast<int>(display::kWidth) - c.width()) / 2, 28, c.width(), c.height(), 235);
             } else if (menu_.gyroLiveTest()) {
                 ui::Canvas c(ui::GyroWheelDialog::kCompactW, ui::GyroWheelDialog::kCompactH);
                 c.clearTransparent();
                 menu_.drawGyroCompact(c);
-                display::setOverlay(c.data(), static_cast<int>(display::kWidth) - c.width() - 40, 150, c.width(), c.height(), 225);
+                setStreamOverlay(c.data(), static_cast<int>(display::kWidth) - c.width() - 40, 150, c.width(), c.height(), 225);
             } else if (menu_.isGyroDialogOpen()) {
                 ui::Canvas c(display::kWidth, display::kHeight);
                 c.clearTransparent();
                 menu_.drawGyroDialog(c);
-                display::setOverlay(c.data(), 0, 0, c.width(), c.height(), 245);
+                setStreamOverlay(c.data(), 0, 0, c.width(), c.height(), 245);
             } else if (menu_.isStickDialogOpen()) {
                 ui::Canvas c(display::kWidth, display::kHeight);
                 c.clearTransparent();
                 menu_.drawStickDialog(c);
-                display::setOverlay(c.data(), 0, 0, c.width(), c.height(), 245);
+                setStreamOverlay(c.data(), 0, 0, c.width(), c.height(), 245);
             } else if (menu_.isTriggerDialogOpen()) {
                 ui::Canvas c(display::kWidth, display::kHeight);
                 c.clearTransparent();
                 menu_.drawTriggerDialog(c);
-                display::setOverlay(c.data(), 0, 0, c.width(), c.height(), 245);
+                setStreamOverlay(c.data(), 0, 0, c.width(), c.height(), 245);
             } else {
                 ui::Canvas c = menu_.renderMenu(info);
-                display::setOverlay(c.data(), ui::StreamMenu::kMenuX, ui::StreamMenu::kMenuY, c.width(), c.height(), 235);
+                setStreamOverlay(c.data(), ui::StreamMenu::kMenuX, ui::StreamMenu::kMenuY, c.width(), c.height(), 235);
                 // A capture of the game menu as drawn, asked for from outside (the file menu.req
                 // appears in the data folder): menu_now.ppm, to check its layout on the console.
                 static uint64_t menuReqCheckedAt = 0;
@@ -1528,17 +1540,17 @@ void StreamScreen::update(const input::ControllerState& pad, ui::NavInput nav, b
                 ui::Image img{wc.width(), wc.height(), false, std::vector<uint32_t>(wc.data(), wc.data() + static_cast<size_t>(wc.width()) * wc.height())};
                 touchCanvas_.drawImage(img, ui::StreamMenu::kWarnRight - wc.width(), ui::StreamMenu::kWarnY, 200);
             }
-            display::setOverlay(touchCanvas_.data(), 0, 0, touchCanvas_.width(), touchCanvas_.height(), 255);
+            setStreamOverlay(touchCanvas_.data(), 0, 0, touchCanvas_.width(), touchCanvas_.height(), 255);
 #endif
         } else if (auto shown = toasts ? platform::toasts().visible(nowMs) : std::vector<std::string>(); !shown.empty()) {
             ui::Canvas c = ui::renderToastPanel(fonts_, shown);
-            display::setOverlay(c.data(), (static_cast<int>(display::kWidth) - c.width()) / 2, 28, c.width(), c.height(), 235);
+            setStreamOverlay(c.data(), (static_cast<int>(display::kWidth) - c.width()) / 2, 28, c.width(), c.height(), 235);
         } else if (showStats_ && seq) {
             ui::Canvas c = menu_.renderStats(info);
-            display::setOverlay(c.data(), ui::StreamMenu::kStatsX, ui::StreamMenu::kStatsY, c.width(), c.height(), 200);
+            setStreamOverlay(c.data(), ui::StreamMenu::kStatsX, ui::StreamMenu::kStatsY, c.width(), c.height(), 200);
         } else if (info.degraded || info.wifiHoldNow) {
             ui::Canvas c = menu_.renderWarning(info.wifiHoldNow && !info.degraded);
-            display::setOverlay(c.data(), ui::StreamMenu::kWarnRight - c.width(), ui::StreamMenu::kWarnY, c.width(),
+            setStreamOverlay(c.data(), ui::StreamMenu::kWarnRight - c.width(), ui::StreamMenu::kWarnY, c.width(),
                                 c.height(), 200);
         } else {
 #if defined(__ANDROID__)
@@ -1547,9 +1559,9 @@ void StreamScreen::update(const input::ControllerState& pad, ui::NavInput nav, b
             static ui::Canvas s_pullTabCanvas(72, 84);
             s_pullTabCanvas.clearTransparent();
             touchOverlay_.drawPullTab(s_pullTabCanvas, 0.35f);
-            display::setOverlay(s_pullTabCanvas.data(), 0, 0, s_pullTabCanvas.width(), s_pullTabCanvas.height(), 255);
+            setStreamOverlay(s_pullTabCanvas.data(), 0, 0, s_pullTabCanvas.width(), s_pullTabCanvas.height(), 255);
 #else
-            display::setOverlay(nullptr, 0, 0, 0, 0, 0);
+            setStreamOverlay(nullptr, 0, 0, 0, 0, 0);
 #endif
         }
         overlayShown_ = true;
@@ -1623,7 +1635,7 @@ void StreamScreen::idle() {
         gyroCalRecording_.clear();
     }
     if (overlayShown_) {
-        display::setOverlay(nullptr, 0, 0, 0, 0, 0);
+        setStreamOverlay(nullptr, 0, 0, 0, 0, 0);
         overlayShown_ = false;
         lastTouchOverlayVisible_ = false;
         menu_.close();
