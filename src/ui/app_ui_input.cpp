@@ -57,6 +57,9 @@ void AppUi::handleHome(const NavInput& in, UiEvent& ev) {
         return;
     }
     if (in.options) {
+        settingsReturnScreen_ = screen_;
+        settingsBackdropReady_ = false;
+        settingsQrExpanded_ = false;
         screen_ = Screen::Settings;
         settingsRow_ = 0;
         settingsFromError_ = false;
@@ -452,7 +455,9 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
         }
         if (screen_ == Screen::Settings) {
             resetSettingsHoldStart_ = 0;
-            screen_ = settingsFromError_ ? Screen::Error : Screen::Home;
+            screen_ = settingsReturnScreen_;
+            settingsBackdropReady_ = false;
+            settingsFrostedBackdrop_.px.clear();
             dirty_ = true;
             ev.action = settings_.loginCountry != settingsCountry_ ? Action::LoginCountry : Action::SettingsChanged;
             ev.settings = settings_;
@@ -503,6 +508,12 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
             return ev;
         }
 #endif
+    }
+
+    if (screen_ == Screen::Settings && settingsQrExpanded_) {
+        settingsQrExpanded_ = false;
+        dirty_ = true;
+        return ev;
     }
 
     if (reportOpen_) {
@@ -586,11 +597,15 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
     }
 
     // Check avatar / settings button click to open settings
-    if (screen_ == Screen::Home && !searching_) {
+    if ((screen_ == Screen::Home && !searching_) ||
+        (screen_ == Screen::Details && !achievementsOpen_ && !gameSettingsOpen_)) {
         constexpr int kAvatarRight = kW - 120;
         Rect settingsBtn{kAvatarRight + (120 - 52) / 2, 46, 52, 52};
         if ((x >= settingsBtn.x - 12 && x <= settingsBtn.x + settingsBtn.w + 12 && y >= settingsBtn.y - 12 && y <= settingsBtn.y + settingsBtn.h + 12) ||
             (x >= kAvatarRight - 70 && x <= kW && y >= 30 && y <= 120)) {
+            settingsReturnScreen_ = screen_;
+            settingsBackdropReady_ = false;
+            settingsQrExpanded_ = false;
             screen_ = Screen::Settings;
             settingsRow_ = 0;
             settingsFromError_ = false;
@@ -631,7 +646,9 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
                 return ev;
             }
             resetSettingsHoldStart_ = 0;
-            screen_ = settingsFromError_ ? Screen::Error : Screen::Home;
+            screen_ = settingsReturnScreen_;
+            settingsBackdropReady_ = false;
+            settingsFrostedBackdrop_.px.clear();
             dirty_ = true;
             ev.action = settings_.loginCountry != settingsCountry_ ? Action::LoginCountry : Action::SettingsChanged;
             ev.settings = settings_;
@@ -991,6 +1008,13 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
             return ev;
         }
         if (tester_ != Tester::None || pickerOpen_) {
+            return ev;
+        }
+        // The QR has its own large, opaque view for small portable screens.
+        if (!dropdownOpen_ && x >= 1320 && x <= 1535 &&
+            y >= 702 && y <= 903) {
+            settingsQrExpanded_ = true;
+            dirty_ = true;
             return ev;
         }
         // Appearance tiles belong exclusively to Settings. Clicking them
@@ -1552,6 +1576,19 @@ UiEvent AppUi::handleLocked(const NavInput& in) {
             }
             break;
         case Screen::Settings:
+            if (settingsQrExpanded_) {
+                if (in.back || in.accept || in.options || in.r3) {
+                    settingsQrExpanded_ = false;
+                    dirty_ = true;
+                }
+                break;
+            }
+            if (in.r3 && tester_ == Tester::None && !dropdownOpen_ &&
+                !pickerOpen_ && !trophyDisclaimerOpen_ && !removeTrophiesConfirmOpen_) {
+                settingsQrExpanded_ = true;
+                dirty_ = true;
+                break;
+            }
             if (trophyDisclaimerOpen_) {
                 if (in.left || in.right) {
                     trophyDisclaimerFocus_ ^= 1;
@@ -1815,7 +1852,9 @@ UiEvent AppUi::handleLocked(const NavInput& in) {
                 resetSettingsHoldStart_ = 0;
                 // Back where Settings was opened. A new sign-in country
                 // takes a new sign-in.
-                screen_ = settingsFromError_ ? Screen::Error : Screen::Home;
+                screen_ = settingsReturnScreen_;
+            settingsBackdropReady_ = false;
+            settingsFrostedBackdrop_.px.clear();
                 dirty_ = true;
                 ev.action = settings_.loginCountry != settingsCountry_ ? Action::LoginCountry : Action::SettingsChanged;
                 ev.settings = settings_;
@@ -1845,6 +1884,20 @@ UiEvent AppUi::handleLocked(const NavInput& in) {
             }
             if (gameSettingsOpen_) {
                 handleGameSettings(in, ev);
+                break;
+            }
+            if (in.l2) {
+                settingsReturnScreen_ = Screen::Details;
+                settingsBackdropReady_ = false;
+                settingsQrExpanded_ = false;
+                screen_ = Screen::Settings;
+                settingsRow_ = 0;
+                settingsFromError_ = false;
+                settingsCountry_ = settings_.loginCountry;
+                dropdownOpen_ = false;
+                filterList_ = -1;
+                settingsScrollY_ = 0.0f;
+                dirty_ = true;
                 break;
             }
             if (in.options) {
@@ -1925,6 +1978,9 @@ UiEvent AppUi::handleLocked(const NavInput& in) {
                 countryIndex_ = settingSelected(8);
                 dirty_ = true;
             } else if (regionRefused_ && in.options) {  // Settings, on the sign-in country
+                settingsReturnScreen_ = Screen::Error;
+                settingsBackdropReady_ = false;
+                settingsQrExpanded_ = false;
                 screen_ = Screen::Settings;
                 settingsRow_ = 8;
                 settingsFromError_ = true;
