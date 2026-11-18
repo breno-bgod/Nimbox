@@ -5,16 +5,16 @@
 # Release Verifier - Enforces the Tri-Platform Standard (PS5, PS4, Linux AppImage)
 # Verifies the exact 10-asset bundle and release notes tables:
 #
-#   1. PSBoxCloudGaming[PS5]-vX.Y.Z.zip
-#   2. PSBoxCloudGaming[PS5]-vX.Y.Z.zip.sig
-#   3. PSBoxCloudGaming[PS5]-vX.Y.Z.zip.sha256
+#   1. NimboPlay[PS5]-vX.Y.Z.zip
+#   2. NimboPlay[PS5]-vX.Y.Z.zip.sig
+#   3. NimboPlay[PS5]-vX.Y.Z.zip.sha256
 #   4. PPSA99810.zip
 #   5. PPSA99810.zip.sig
 #   6. PPSA99810.zip.sha256
-#   7. PSBoxCloudGaming[PS4]-vX.Y.Z.pkg
-#   8. PSBoxCloudGaming[PS4]-vX.Y.Z.pkg.sha256
-#   9. PSBoxCloudGaming[Linux]-vX.Y.Z.AppImage
-#  10. PSBoxCloudGaming[Linux]-vX.Y.Z.AppImage.sha256
+#   7. NimboPlay[PS4]-vX.Y.Z.pkg
+#   8. NimboPlay[PS4]-vX.Y.Z.pkg.sha256
+#   9. NimboPlay[Linux]-vX.Y.Z.AppImage
+#  10. NimboPlay[Linux]-vX.Y.Z.AppImage.sha256
 #
 # Usage:
 #   tools/release-verify.sh <vX.Y.Z|X.Y.Z> [--verify-sigs]
@@ -131,22 +131,22 @@ check_file() {
 
 echo
 echo -e "${BOLD}Target 1: PlayStation 5 (PS5) - Named Package & In-App Updater Canonical${NC}"
-check_file "PSBoxCloudGaming[PS5]-$tag.zip" '^(PSBoxCloudGaming(\[PS5\]|\.PS5\.)-v'"$version"'\.zip)$' 10000000
-check_file "PSBoxCloudGaming[PS5]-$tag.zip.sig" '^(PSBoxCloudGaming(\[PS5\]|\.PS5\.)-v'"$version"'\.zip\.sig)$' 60
-check_file "PSBoxCloudGaming[PS5]-$tag.zip.sha256" '^(PSBoxCloudGaming(\[PS5\]|\.PS5\.)-v'"$version"'\.zip\.sha256)$' 60
+check_file "NimboPlay[PS5]-$tag.zip" '^(NimboPlay(\[PS5\]|\.PS5\.)-v'"$version"'\.zip)$' 10000000
+check_file "NimboPlay[PS5]-$tag.zip.sig" '^(NimboPlay(\[PS5\]|\.PS5\.)-v'"$version"'\.zip\.sig)$' 60
+check_file "NimboPlay[PS5]-$tag.zip.sha256" '^(NimboPlay(\[PS5\]|\.PS5\.)-v'"$version"'\.zip\.sha256)$' 60
 check_file "PPSA99810.zip (canonical)" '^PPSA99810\.zip$' 10000000
 check_file "PPSA99810.zip.sig (canonical)" '^PPSA99810\.zip\.sig$' 60
 check_file "PPSA99810.zip.sha256 (canonical)" '^PPSA99810\.zip\.sha256$' 60
 
 echo
 echo -e "${BOLD}Target 2: PlayStation 4 (PS4) - FPKG & Checksum${NC}"
-check_file "PSBoxCloudGaming[PS4]-$tag.pkg" '^(PSBoxCloudGaming(\[PS4\]|\.PS4\.)-v'"$version"'\.pkg|PSBoxCloudGaming-v'"$version"'-ps4\.pkg)$' 5000000
-check_file "PSBoxCloudGaming[PS4]-$tag.pkg.sha256" '^(PSBoxCloudGaming(\[PS4\]|\.PS4\.)-v'"$version"'\.pkg\.sha256|PSBoxCloudGaming-v'"$version"'-ps4\.pkg\.sha256)$' 60
+check_file "NimboPlay[PS4]-$tag.pkg" '^(NimboPlay(\[PS4\]|\.PS4\.)-v'"$version"'\.pkg|NimboPlay-v'"$version"'-ps4\.pkg)$' 5000000
+check_file "NimboPlay[PS4]-$tag.pkg.sha256" '^(NimboPlay(\[PS4\]|\.PS4\.)-v'"$version"'\.pkg\.sha256|NimboPlay-v'"$version"'-ps4\.pkg\.sha256)$' 60
 
 echo
 echo -e "${BOLD}Target 3: Linux Desktop & Steam Deck - AppImage & Checksum${NC}"
-check_file "PSBoxCloudGaming[Linux]-$tag.AppImage" '^(PSBoxCloudGaming(\[Linux\]|\.Linux\.)-v'"$version"'\.AppImage|PSBox-v'"$version"'-linux-x86_64\.AppImage)$' 4000000
-check_file "PSBoxCloudGaming[Linux]-$tag.AppImage.sha256" '^(PSBoxCloudGaming(\[Linux\]|\.Linux\.)-v'"$version"'\.AppImage\.sha256|PSBox-v'"$version"'-linux-x86_64\.AppImage\.sha256)$' 60
+check_file "NimboPlay[Linux]-$tag.AppImage" '^(NimboPlay(\[Linux\]|\.Linux\.)-v'"$version"'\.AppImage|NimboPlay-v'"$version"'-linux-x86_64\.AppImage)$' 4000000
+check_file "NimboPlay[Linux]-$tag.AppImage.sha256" '^(NimboPlay(\[Linux\]|\.Linux\.)-v'"$version"'\.AppImage\.sha256|NimboPlay-v'"$version"'-linux-x86_64\.AppImage\.sha256)$' 60
 
 # Optional cryptographic signature verification
 if [[ $verify_sigs -eq 1 && $errors -eq 0 ]]; then
@@ -170,8 +170,8 @@ if [[ $verify_sigs -eq 1 && $errors -eq 0 ]]; then
         fi
         
         # Verify Linux signature if present
-        linux_app=$(find_asset '^PSBox-v'"$version"'-linux-x86_64\.AppImage$')
-        linux_sig=$(find_asset '^PSBox-v'"$version"'-linux-x86_64\.AppImage\.sig$')
+        linux_app=$(find_asset '^NimboPlay-v'"$version"'-linux-x86_64\.AppImage$')
+        linux_sig=$(find_asset '^NimboPlay-v'"$version"'-linux-x86_64\.AppImage\.sig$')
         if [[ -n "$linux_app" && -n "$linux_sig" ]]; then
             gh release download "$tag" -p "$linux_app" -p "$linux_sig" -D "$work" >/dev/null 2>&1
             if openssl dgst -sha256 -verify "$pubkey" -signature "$work/$linux_sig" "$work/$linux_app" >/dev/null 2>&1; then
