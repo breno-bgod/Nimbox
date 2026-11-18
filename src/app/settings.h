@@ -17,6 +17,13 @@ class Value;
 
 namespace xc::app {
 
+// Third output backend is available only in Android builds.
+#if defined(__ANDROID__)
+inline constexpr int kMaxVideoDecoder = 2;
+#else
+inline constexpr int kMaxVideoDecoder = 1;
+#endif
+
 json::Value keyMapToJson(const input::KeyMap& m);
 input::KeyMap keyMapFromJson(const json::Value& v, const input::KeyMap& fallback);
 // Supported optional store-country override; empty means the session market.
@@ -28,7 +35,7 @@ struct GameProfile {
     int deband = 3;              // 0 off, 1 low, 2 high, 3 auto
     int upscaler = 2;            // 0 FSR 1, 1 Anime4K, 2 FSR + clean, 3 Anime4K + clean
     int resolution = 0;          // 0 1080p, 1 720p, 2 1440p
-    int videoDecoder = 0;        // 0 Hardware, 1 Software
+    int videoDecoder = 0;        // 0 Hardware, 1 Software, 2 Android Surface (Android only)
     int fpsLimit = 0;            // 0 Unlimited, 30, 60, 120
     // Controller: dead zone (percent), triggers, confirm button
     int deadzoneLeft = 15, deadzoneRight = 15;
@@ -117,7 +124,7 @@ struct Settings {
     // Anime4K after Anime4K Restore (the clean-up of compression artefacts).
     int upscaler = 2;
 #endif
-    int videoDecoder = 0;  // 0 Hardware, 1 Software
+    int videoDecoder = 0;  // 0 Hardware, 1 Software, 2 Android Surface (Android only)
     // Controller: stick dead zone (percent), vibration in the triggers,
     // Circle as the confirm button (Xbox A).
     int deadzoneLeft = 15, deadzoneRight = 15;  // percent, each stick's own
