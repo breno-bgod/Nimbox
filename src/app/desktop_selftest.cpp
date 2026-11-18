@@ -391,6 +391,26 @@ int desktopSelftest(const std::string& dir) {
         ui.setSettings(shelfSettings);
         ui.setRows({showcase});
         ui.showHome();
+
+        // Horizon is the default; independently verify its cover hit target,
+        // then switch to the physical 3D collection for its own legacy tests.
+        ui.render(canvas, platform::nowMs());
+        drawCanvas(canvas);
+        check(ui.screen() == ui::Screen::Home &&
+                  screenshot(dir, "6a-nimbox-horizon-home.png", shot) && varied(shot),
+              "Nimbox Horizon cinematic Home (6a-nimbox-horizon-home.png)");
+        ui.onMouseDown(960.0f, 731.0f, 1);  // Horizon centre card is meant to open Details.
+        check(ui.screen() == ui::Screen::Details,
+              "Horizon centre-cover tap opens its actual game details");
+        ui::NavInput exitHorizonDetails;
+        exitHorizonDetails.back = true;
+        ui.handle(exitHorizonDetails);
+        check(ui.screen() == ui::Screen::Home,
+              "Horizon Details returns immediately to Home");
+
+        ui::NavInput viewPhysicalCases;
+        viewPhysicalCases.r3 = true;
+        ui.handle(viewPhysicalCases);  // Horizon -> Colecao Viva (physical cases).
         ui.render(canvas, platform::nowMs());
         drawCanvas(canvas);
         check(ui.screen() == ui::Screen::Home &&

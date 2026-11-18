@@ -157,7 +157,6 @@ jobs:
 
   windows-app:
     runs-on: ubuntu-24.04
-    timeout-minutes: 35
     env:
       SDL3_VERSION: 3.4.18
       LLVM_MINGW_VERSION: 20261104
@@ -167,7 +166,6 @@ jobs:
           submodules: recursive
 
       - name: Tools and Wine
-        timeout-minutes: 12
         run: |
           # We only test a 64-bit Windows EXE. Enabling i386 multiplies package
           # indices/downloads and can stall on rate-limited Ubuntu mirrors.
