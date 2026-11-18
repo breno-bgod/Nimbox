@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Nimbox visual-only environment presets from the approved HTML Preview 3.1.
+// NimboPlay visual-only environment presets from the approved HTML Preview 3.1.
 // No effect on cloud streaming, decoder, network, gamepad or Xbox sessions.
 #pragma once
 #include "ui/canvas.h"
@@ -18,7 +18,7 @@ struct Palette {
 constexpr Palette kPalettes[5] = {
     {"Aurora",         rgba(140,190,213), rgba(167,213,232), rgba(79,130,167), rgba(28,71,100), rgba(125,199,212)},
     {"Infinity Light", rgba(222,238,241), rgba(215,237,239), rgba(160,198,206), rgba(69,115,141), rgba(172,222,222)},
-    {"Nimbox Blue",    rgba(128,182,215), rgba(121,190,218), rgba(54,123,166), rgba(22,63,106), rgba(105,190,231)},
+    {"NimboPlay Blue",    rgba(128,182,215), rgba(121,190,218), rgba(54,123,166), rgba(22,63,106), rgba(105,190,231)},
     {"Emerald",        rgba(142,207,194), rgba(180,227,216), rgba(74,151,143), rgba(34,86,93), rgba(137,211,177)},
     {"Cinema Dark",    rgba(78,112,133), rgba(85,124,142), rgba(35,71,94), rgba(8,29,50), rgba(112,171,188)}
 };
