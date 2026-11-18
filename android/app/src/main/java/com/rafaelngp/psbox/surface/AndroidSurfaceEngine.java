@@ -16,6 +16,7 @@ import java.nio.ByteBuffer;
 import java.util.Locale;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public final class AndroidSurfaceEngine {
     private static final String TAG = "NimboxSurface";
@@ -36,13 +37,19 @@ public final class AndroidSurfaceEngine {
         final AtomicLong rendered = new AtomicLong();
         final AtomicLong busy = new AtomicLong();
         final AtomicLong errors = new AtomicLong();
+        final AtomicInteger outputWidth;
+        final AtomicInteger outputHeight;
         Thread outputThread;
         long firstPtsUs = Long.MIN_VALUE;
         long lastPtsUs = -1;
         long firstRenderPtsUs = Long.MIN_VALUE;
         long firstRenderNs = Long.MIN_VALUE;
 
-        Session(MediaCodec decoder) { codec = decoder; }
+        Session(MediaCodec decoder, int width, int height) {
+            codec = decoder;
+            outputWidth = new AtomicInteger(width);
+            outputHeight = new AtomicInteger(height);
+        }
     }
 
     private volatile Session session;
@@ -61,7 +68,7 @@ public final class AndroidSurfaceEngine {
                     Math.max(4 * 1024 * 1024, width * height));
             applyLowLatencyVideoFormat(format, name, mime);
             codec.configure(format, surface, null, 0);
-            Session s = new Session(codec);
+            Session s = new Session(codec, width, height);
             codec.setOnFrameRenderedListener((ignored, ptsUs, systemNano) -> {
                 if (s.running.get()) s.rendered.incrementAndGet();
             }, new Handler(Looper.getMainLooper()));
@@ -136,7 +143,12 @@ public final class AndroidSurfaceEngine {
                     else s.codec.releaseOutputBuffer(index, true);
                     s.released.incrementAndGet();
                 } else if (index == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
-                    Log.i(TAG, "Decoder format: " + s.codec.getOutputFormat());
+                    MediaFormat updated = s.codec.getOutputFormat();
+                    if (updated.containsKey(MediaFormat.KEY_WIDTH))
+                        s.outputWidth.set(updated.getInteger(MediaFormat.KEY_WIDTH));
+                    if (updated.containsKey(MediaFormat.KEY_HEIGHT))
+                        s.outputHeight.set(updated.getInteger(MediaFormat.KEY_HEIGHT));
+                    Log.i(TAG, "Decoder format: " + updated);
                 }
             } catch (Exception ex) {
                 if (s.running.get()) {
@@ -174,9 +186,9 @@ public final class AndroidSurfaceEngine {
     // Actual render counts come from MediaCodec.OnFrameRenderedListener, not input queue.
     public long[] stats() {
         Session s = session;
-        if (s == null) return new long[] {0, 0, 0, 0, 0};
+        if (s == null) return new long[] {0, 0, 0, 0, 0, 0, 0};
         return new long[] {s.submitted.get(), s.released.get(), s.rendered.get(),
-                s.busy.get(), s.errors.get()};
+                s.busy.get(), s.errors.get(), s.outputWidth.get(), s.outputHeight.get()};
     }
 
     public void stop() {
