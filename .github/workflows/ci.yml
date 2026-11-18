@@ -37,6 +37,9 @@ jobs:
         with:
           submodules: recursive
 
+      - name: NimboPlay launcher identity & PS5/Windows icon generation
+        run: python3 -m unittest discover -s tools/branding -p 'test_*.py' -v
+
       # No sce* call or #if XCLOUD_PS5 outside the PS5 backends
       # (docs/multiplatform.md).
       - name: Platform boundaries
