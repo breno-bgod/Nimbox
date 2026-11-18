@@ -1021,6 +1021,7 @@ Tab AppUi::tab() const {
 
 void AppUi::openDetails(const GameTile& tile) {
     // Caller holds mutex_.
+    profileOpen_ = false;
     detail_ = tile;
     if (detail_.productId.empty() && !detail_.titleId.empty()) {
         for (const auto* list : {&gamePassPool_, &libraryPool_, &allOwned_, &allPurchasable_}) {
