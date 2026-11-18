@@ -11,6 +11,9 @@
 #include "media/audio_encoder.h"
 #include "media/decoder.h"
 #include "media/hw_decoder.h"
+#if defined(__ANDROID__)
+#include "media/android_surface_decoder.h"
+#endif
 #include "platform/platform.h"
 #include "stream/net_diag.h"
 #include "stream/stream_session.h"
@@ -266,6 +269,7 @@ struct StreamPlayer::Impl {
     int maxBitrateMbps = 0;
     bool hwProbe = false;
     bool preferHwDecode = true;
+    bool androidSurfaceOutput = false;
     std::string tierSequence;  // setTierSequence() (measurements)
     std::atomic<bool> isHwDecode{false};
 
@@ -778,11 +782,28 @@ struct StreamPlayer::Impl {
             }
         }
         auto decoder = std::make_unique<media::VideoDecoder>();
+#if defined(__ANDROID__)
+        if (!decoder->init(decodeThreads, androidSurfaceOutput ? false : preferHwDecode)) {
+#else
         if (!decoder->init(decodeThreads, preferHwDecode)) {
+#endif
             end("could not start the H.264 decoder");
             return;
         }
         isHwDecode = decoder->isHardware();
+#if defined(__ANDROID__)
+        std::unique_ptr<media::AndroidSurfaceDecoder> surfaceDecoder;
+        if (androidSurfaceOutput) {
+            auto candidate = std::make_unique<media::AndroidSurfaceDecoder>();
+            if (candidate->init(1920, 1080)) {
+                surfaceDecoder = std::move(candidate);
+                isHwDecode = true;
+                XC_LOGI("stream: Android Surface output selected");
+            } else {
+                XC_LOGW("stream: Android Surface unavailable, falling back to existing FFmpeg");
+            }
+        }
+#endif
         const bool useAsyncPresent = display::caps().asyncPresent;
         platform::Thread presentThread;
         if (useAsyncPresent) {
@@ -1741,6 +1762,22 @@ void StreamPlayer::setDecodeThreads(int threads) { impl_->decodeThreads = std::m
 void StreamPlayer::setHwDecodeProbe(bool on) { impl_->hwProbe = on; }
 void StreamPlayer::setPreferHwDecode(bool on) { impl_->preferHwDecode = on; }
 bool StreamPlayer::preferHwDecode() const { return impl_->preferHwDecode; }
+
+void StreamPlayer::setAndroidSurfaceOutput(bool enabled) {
+#if defined(__ANDROID__)
+    impl_->androidSurfaceOutput = enabled;
+#else
+    (void)enabled;
+#endif
+}
+
+void StreamPlayer::switchDecoderMode(int mode) {
+#if defined(__ANDROID__)
+    impl_->decoderSwitch = std::clamp(mode, 0, 2);
+#else
+    impl_->decoderSwitch = mode == 0 ? 1 : 0;
+#endif
+}
 
 void StreamPlayer::setMaxBitrate(int mbps) {
     if (mbps == -1 || mbps >= 100) {
