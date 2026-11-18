@@ -600,4 +600,10 @@ constexpr Column kEnglish = {
     "START OF COLLECTION · MOVE LEFT AGAIN TO GO TO THE END",  // HorizonStartHint
     "LEFT / RIGHT  -  GAMES",  // HorizonHorizontalHint
     "UP / DOWN  -  COLLECTIONS",  // HorizonVerticalHint
+    "Enlarge QR",  // SettingsExpandQr
+    "Scan to open NimboPlay Web Control",  // SettingsQrInstructions
+    "Connect to Web Control",  // SettingsQrConnect
+    "QR code is unavailable in this session.",  // SettingsQrUnavailable
+    "R3 / TAP  -  ENLARGE QR",  // SettingsQrPointerHint
+    "L2  Settings",  // SettingsDetailsShortcut
 };
