@@ -10,6 +10,7 @@ on:
       - feature/nimbox-android-integrated-h264-v1
       - feature/android-surface-third-engine
       - feature/nimbox-horizon-native-v1
+      - feature/nimbox-default-ptbr-v1
     paths:
       - 'android/**'
       - 'src/app/**'

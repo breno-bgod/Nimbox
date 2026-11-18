@@ -589,4 +589,8 @@ constexpr Column kFrench = {
     "Enregistrer",                                                                    // Save
     "Ouvrir le navigateur pour se connecter",                                         // SignInOpenBrowser
     "Touchez ici ou appuyez sur A pour ouvrir dans le navigateur",                    // SignInOpenBrowserHint
+    "DÉTAILS DU JEU",  // DetailsShowcase
+    "À PROPOS DU JEU",  // DetailsAbout
+    "SESSION",  // DetailsSession
+    "JAQUETTE DU JEU",  // DetailsArtwork
 };

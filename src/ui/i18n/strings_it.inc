@@ -589,4 +589,8 @@ constexpr Column kItalian = {
     "Salva",                                                                          // Save
     "Apri il browser per accedere",                                                   // SignInOpenBrowser
     "Tocca qui o premi A per aprire nel browser",                                     // SignInOpenBrowserHint
+    "DETTAGLI DEL GIOCO",  // DetailsShowcase
+    "INFORMAZIONI SUL GIOCO",  // DetailsAbout
+    "SESSIONE",  // DetailsSession
+    "COPERTINA DEL GIOCO",  // DetailsArtwork
 };

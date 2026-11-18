@@ -38,6 +38,7 @@
 #include "ui/nimbox_pose_core.h"
 #include "ui/box_carousel.h"
 #include "ui/nimbox_horizon_layout.h"
+#include "ui/nimbox_detail_showcase.h"
 #include "ui/preview_visual_layout.h"
 #include "ui/nimbox_visual_theme.h"
 #include "ui/collection_case_finish.h"
@@ -1270,6 +1271,26 @@ static void testNimboxXboxCaseFinish() {
     }
     finish::drawGlaze(frame, g, true);
     finish::drawXboxOrb(frame, banner.x, banner.y, 13.0f);
+}
+
+static void testNimboxPS5ShowcaseGeometry() {
+    using namespace xc::ui;
+    const Rect frame = showcase::kFrame;
+    const Rect play = showcase::kPlayButton;
+    const Rect awards = showcase::kAchievementsButton;
+    const Rect claim = showcase::kClaimButton;
+    const Rect rail = showcase::kAchievementsPanel;
+    CHECK(frame.x > 0 && frame.y >= 160 && frame.x + frame.w < 1920);
+    CHECK(frame.y + frame.h < 980);
+    CHECK(play.y > 780 && play.y + play.h < frame.y + frame.h);
+    CHECK(play.x + play.w < awards.x);
+    CHECK(play.x + play.w < showcase::kRailX);
+    CHECK(showcase::contains(play, play.x + 24, play.y + 22));
+    CHECK(showcase::contains(awards, awards.x + 20, awards.y + 20));
+    CHECK(showcase::contains(rail, rail.x + 20, rail.y + 20));
+    CHECK(!showcase::contains(play, 960, 400));
+    CHECK(!showcase::contains(claim, showcase::kRailX + 30, 825));
+    CHECK(showcase::kArtworkPanel.y + showcase::kArtworkPanel.h < frame.y + frame.h);
 }
 
 static void testNimboxHorizonGeometry() {
@@ -11894,6 +11915,7 @@ int main() {
     testNimboxPreview3PageStructure();
     testNimboxAppearanceStudio();
     testNimboxXboxCaseFinish();
+    testNimboxPS5ShowcaseGeometry();
     testNimboxHorizonGeometry();
     testNimboxDefaultCarouselNavigation();
     testDetailsHydrationAndPlaytimeBadge();

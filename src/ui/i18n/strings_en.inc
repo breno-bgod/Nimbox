@@ -589,4 +589,8 @@ constexpr Column kEnglish = {
     "Save",                                                                           // Save
     "Open browser to sign in",                                                        // SignInOpenBrowser
     "Tap here or press A to open in browser",                                         // SignInOpenBrowserHint
+    "GAME DETAILS",  // DetailsShowcase
+    "ABOUT THE GAME",  // DetailsAbout
+    "SESSION",  // DetailsSession
+    "COVER ART",  // DetailsArtwork
 };
