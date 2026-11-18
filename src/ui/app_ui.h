@@ -553,7 +553,7 @@ private:
     void drawBackground(Canvas& c);
     // The game's backdrop; false (and nothing drawn) until its image is
     // there: never another game's art in the meantime.
-    bool drawHero(Canvas& c, uint64_t nowMs, const std::string& url, bool details);
+    bool drawHero(Canvas& c, uint64_t nowMs, const std::string& url, bool details, bool fullScreen = false);
     void drawTopBar(Canvas& c);
     void drawLogo(Canvas& c, float cx, float cy, float r);
     void drawGamerscoreBadge(Canvas& c, float cx, float cy, float r);
