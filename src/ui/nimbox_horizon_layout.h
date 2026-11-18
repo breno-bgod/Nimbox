@@ -7,10 +7,15 @@
 #include <cstdint>
 #include <vector>
 namespace xc::ui::horizon {
-constexpr int kCenterX = 960, kPitch = 210, kSideItems = 4;
-constexpr int kSelectedSide = 230, kNeighborSide = 174, kTileCenterY = 731;
-constexpr Rect kPlayButton{104, 485, 230, 62};
-constexpr Rect kDetailsButton{350, 485, 244, 62};
+// 1920x1080 PS5-safe stage: all visible covers stay within 96px side margins.
+constexpr int kCenterX = 960, kPitch = 195, kSideItems = 4;
+constexpr int kSelectedSide = 244, kNeighborSide = 176, kTileCenterY = 746;
+// Shared between Canvas rendering and native pointer hit testing.
+constexpr Rect kPlayButton{104, 500, 248, 66};
+constexpr Rect kDetailsButton{370, 500, 245, 66};
+constexpr Rect kProfileAvatarTap{1718, 30, 107, 84};
+constexpr Rect kProfilePanel{510, 218, 900, 640};
+constexpr Rect kProfileClose{1332, 244, 48, 48};
 inline Rect tileRect(float offset) {
     if (!std::isfinite(offset)) offset = 0.0f;
     offset = std::clamp(offset, -5.0f, 5.0f);
