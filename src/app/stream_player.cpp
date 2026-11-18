@@ -1828,7 +1828,7 @@ void StreamPlayer::setAndroidSurfaceOutput(bool enabled) {
 
 void StreamPlayer::switchDecoderMode(int mode) {
 #if defined(__ANDROID__)
-    impl_->decoderSwitch = std::clamp(mode, 0, 2);
+    impl_->decoderSwitch = mode == 2 ? 2 : (mode == 0 ? 1 : 0);
 #else
     impl_->decoderSwitch = mode == 0 ? 1 : 0;
 #endif
