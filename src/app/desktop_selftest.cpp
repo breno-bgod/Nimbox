@@ -362,6 +362,7 @@ int desktopSelftest(const std::string& dir) {
     // Horizon is the only Game Pass collection. Exercise its native
     // screenshot, palette, pointer targets and Details without any account.
     {
+        ui.setMembership(true);  // synthetic Game Pass member for offline CTA checks
         ui::GameRow showcase;
         showcase.title = "Colecao de teste";
         const char* names[] = {"Aurora Nexus", "Ember Realms", "Polaris Siege",
@@ -442,6 +443,7 @@ int desktopSelftest(const std::string& dir) {
 
         ui.setRows({});
         ui.setSettings(savedSettings);
+        ui.setMembership(false);
         ui.showHome();
     }
 
