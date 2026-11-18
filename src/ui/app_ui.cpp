@@ -1019,6 +1019,11 @@ Tab AppUi::tab() const {
     return tab_;
 }
 
+bool AppUi::profileOpen() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return profileOpen_;
+}
+
 void AppUi::openDetails(const GameTile& tile) {
     // Caller holds mutex_.
     profileOpen_ = false;
