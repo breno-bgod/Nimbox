@@ -2037,7 +2037,8 @@ UiEvent AppUi::handleLocked(const NavInput& in) {
         default: break;
     }
     // Sign out: hold TOUCHPAD for 5 s on the home or error screen.
-    bool canSignOut = screen_ == Screen::Home || screen_ == Screen::Error;
+    // Holding the touchpad while the profile modal is open must not sign out.
+    bool canSignOut = (screen_ == Screen::Home && !profileOpen_) || screen_ == Screen::Error;
     if (canSignOut && in.touchpad && !signOutLatched_) {
         if (!signOutHoldStart_) signOutHoldStart_ = in.nowMs ? in.nowMs : 1;
         if (in.nowMs - signOutHoldStart_ >= kSignOutHoldMs) {
