@@ -21,7 +21,7 @@ void drawInternalBrand(Canvas& c, int x, int y, int w, int h);
 // launcher / PS5 sce_sys icon generation until a separate icon is approved.
 void drawBrandMark(Canvas& c, float cx, float cy, float r, Color color = rgba(255, 255, 255));
 
-// User-provided Nimble Play cloud + wordmark. INTERNAL menus only; embedded
+// User-provided NimboPlay cloud + wordmark. INTERNAL menus only; embedded
 // as PNG in the native executable and drawn without any network request.
 // The external launcher icon is intentionally separate.
 void drawInternalBrand(Canvas& c, Rect bounds);
