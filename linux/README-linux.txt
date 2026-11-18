@@ -69,7 +69,7 @@ in place of the old one (your data stays in ~/.local/share/psbox).
 
 Licenses
 --------
-NimboPlay é distribuído sob GPL-3.0-or-later (licenses/LICENSE). It links Mbed TLS,
+NimboPlay is distributed under GPL-3.0-or-later (licenses/LICENSE). It links Mbed TLS,
 libdatachannel, usrsctp, libSRTP, plog, FFmpeg (LGPL-2.1, see
 licenses/FFmpeg-NOTE.txt), stb, FSR 1 and Anime4K shaders (MIT), and bundles
 SDL3 (zlib) and the Inter fonts (OFL): their texts are in NimboPlay/licenses/
