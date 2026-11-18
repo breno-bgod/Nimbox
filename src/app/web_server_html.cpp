@@ -737,7 +737,7 @@ input:checked + .slider-sw:before { transform: translateX(20px); }
   }
 }
 
-/* NIMBOX CONTROL CENTER V2 — presentation only.
+/* NIMBOPLAY CONTROL CENTER V2 — presentation only.
    Existing JS functions, setting keys, controller canvas hit areas and routes
    remain unchanged. Dark console-like glass layers; no remote fonts/assets. */
 :root {
