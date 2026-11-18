@@ -142,16 +142,16 @@ foreach(face Regular SemiBold Bold)
     list(APPEND XC_BUILTIN_FONTS "${out}")
 endforeach()
 
-# User-supplied Nimble Play logo is an INTERNAL UI asset only. Do not alter
+# User-supplied NimboPlay logo is an INTERNAL UI asset only. Do not alter
 # PS5 sce_sys/icon0.png, Android launcher icons, or desktop program icons.
-set(XC_INTERNAL_BRAND "${CMAKE_CURRENT_BINARY_DIR}/generated/internal_nimble_brand.cpp")
+set(XC_INTERNAL_BRAND "${CMAKE_CURRENT_BINARY_DIR}/generated/internal_nimboplay_brand.cpp")
 add_custom_command(
     OUTPUT "${XC_INTERNAL_BRAND}"
-    COMMAND ${CMAKE_COMMAND} -DIN=${CMAKE_CURRENT_SOURCE_DIR}/assets/branding/nimble_play_internal.png
-            -DOUT=${XC_INTERNAL_BRAND} -DNAME=xc_internal_nimble_brand
+    COMMAND ${CMAKE_COMMAND} -DIN=${CMAKE_CURRENT_SOURCE_DIR}/assets/branding/nimboplay_internal.png
+            -DOUT=${XC_INTERNAL_BRAND} -DNAME=xc_internal_nimboplay_brand
             -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/embed_file.cmake
-    DEPENDS assets/branding/nimble_play_internal.png cmake/embed_file.cmake
-    COMMENT "Embedding Nimble Play internal logo"
+    DEPENDS assets/branding/nimboplay_internal.png cmake/embed_file.cmake
+    COMMENT "Embedding NimboPlay internal logo"
 )
 
 # The icons drawn from SVG (src/ui/svg_icon.h), inside the binary as well.
