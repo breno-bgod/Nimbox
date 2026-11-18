@@ -1259,22 +1259,17 @@ void AppUi::handleGameSettings(const NavInput& in, UiEvent& ev) {
 }
 
 void AppUi::drawSettings(Canvas& c) {
-    // Nimbox native Settings: precise two-column information architecture
-    // inspired by Preview 3.1, not copied from its static HTML controls.
-    // Left: every REAL PSBox setting. Right: live appearance studio and QR.
-    // Console-grade native visual layer, without changing UI input geometry.
-    const Color cyan = rgba(108, 216, 238);
-    c.clear(rgba(5, 12, 23));
-    c.gradientV({0, 0, kW, kH}, rgba(11, 29, 49), rgba(4, 11, 22));
-    c.gradientH({0, 122, kW, 620}, rgba(19, 79, 106, 74), rgba(5, 18, 31, 4));
-    c.fillCircle(1645, 242, 330.0f, rgba(71, 174, 208, 22));
-    c.fillCircle(210, 410, 220.0f, rgba(47, 124, 161, 20));
-    c.fillRect({66, 189, 1196, 762}, rgba(0, 5, 12, 100), 25);
-    c.fillRect({1278, 189, 586, 762}, rgba(0, 5, 12, 105), 25);
-    c.fillRect({76, 181, 1180, 756}, rgba(11, 28, 43, 235), 22);
-    c.strokeRect({76, 181, 1180, 756}, rgba(124, 191, 210, 64), 1, 22);
-    c.fillRect({1287, 181, 570, 756}, rgba(10, 26, 40, 244), 22);
-    c.strokeRect({1287, 181, 570, 756}, rgba(135, 195, 210, 68), 1, 22);
+    // A cached, blurred Home/Details is underneath. Keep the glass reading
+    // surfaces darker and more neutral than the brighter NimboPlay logo.
+    const Color cyan = rgba(145, 201, 250);
+    c.fillRect({0, 0, kW, kH}, rgba(4, 11, 22, 132));
+    c.gradientV({0, 0, kW, kH}, rgba(7, 20, 37, 25), rgba(3, 10, 22, 96));
+    c.fillRect({69, 190, 1196, 758}, rgba(0, 5, 12, 56), 25);
+    c.fillRect({1280, 190, 586, 758}, rgba(0, 5, 12, 59), 25);
+    c.fillRect({76, 181, 1180, 756}, rgba(10, 22, 37, 207), 22);
+    c.strokeRect({76, 181, 1180, 756}, rgba(203, 228, 246, 62), 1, 22);
+    c.fillRect({1287, 181, 570, 756}, rgba(10, 22, 37, 216), 22);
+    c.strokeRect({1287, 181, 570, 756}, rgba(203, 228, 246, 61), 1, 22);
     c.gradientH({94, 184, 530, 2}, rgba(112, 224, 239, 148), rgba(112, 224, 239, 0));
     c.gradientH({1306, 184, 320, 2}, rgba(112, 224, 239, 126), rgba(112, 224, 239, 0));
     c.fillRect({95, 201, 3, 52}, rgba(102, 214, 237, 140), 2);
@@ -1381,18 +1376,15 @@ void AppUi::drawSettings(Canvas& c) {
             // Only the focused row becomes an illuminated card; resting
             // rows share a subtle category surface instead of flat blocks.
             c.fillRect({r.x + 5, r.y + 1, r.w - 10, r.h - 2},
-                       focused ? rgba(33, 85, 113, 226) : rgba(20, 43, 57, 35), 10);
+                       focused ? rgba(188, 217, 237, 49) : rgba(255, 255, 255, 5), 10);
             if (focused) {
                 c.gradientH({r.x + 11, r.y + 4, 220, r.h - 8},
-                            rgba(96, 181, 213, 72), rgba(96, 181, 213, 0));
+                            rgba(173, 208, 234, 32), rgba(173, 208, 234, 0));
                 c.fillRect({r.x + 6, r.y + 5, 4, r.h - 10}, cyan, 2);
                 c.strokeRect({r.x + 5, r.y + 1, r.w - 10, r.h - 2},
-                             dropdownOpen_ ? rgba(104, 210, 235, 115) : rgba(143, 232, 248, 218),
+                             dropdownOpen_ ? rgba(195, 218, 236, 108) : rgba(211, 234, 249, 154),
                              dropdownOpen_ ? 1 : 2, 10);
-            } else {
-                c.line(r.x + 31.0f, r.y + r.h, r.x + r.w - 31.0f,
-                       r.y + r.h, 1.0f, rgba(161, 196, 204, 25));
-            }
+            } // Resting rows have no spreadsheet-like divider lines.
             fonts_.semibold.draw(c, labels[i], r.x + 32, ty, kRowPx,
                                  focused ? kWhite : rgba(217, 231, 237));
             float cx = static_cast<float>(r.x + r.w - 40), cy = static_cast<float>(r.y + r.h / 2);
@@ -1597,7 +1589,7 @@ void AppUi::drawSettings(Canvas& c) {
         Rect remotePanel{1310, 656, 523, 250};
         c.fillRect({remotePanel.x + 3, remotePanel.y + 7, remotePanel.w,
                     remotePanel.h}, rgba(0, 5, 13, 75), 16);
-        c.fillRect(remotePanel, rgba(6, 20, 34, 228), 16);
+        c.fillRect(remotePanel, rgba(8, 20, 34, 241), 16);
         c.strokeRect(remotePanel, rgba(118, 181, 205, 75), 1, 16);
         c.fillRect({remotePanel.x + 1, remotePanel.y + 25, 3, 61},
                    rgba(102, 218, 238, 166), 2);
@@ -1605,6 +1597,8 @@ void AppUi::drawSettings(Canvas& c) {
         std::string qrUrl = !webUrl_.empty() ? webUrl_ :
                             "http://" + platform::localIPv4() + ":8080";
         drawQr(c, qrUrl, 1517, 713, 142, qrcodegen_Ecc_LOW);
+        fonts_.semibold.draw(c, "R3 / TOQUE  -  AMPLIAR QR", 1331, 873,
+                             17, rgba(192, 218, 244));
         fonts_.regular.draw(c, "Acesse o painel remoto", 1530, 754, 17, rgba(194, 220, 211));
         const std::string urlText = fonts_.semibold.fit(qrUrl, 16, 272);
         fonts_.semibold.draw(c, urlText, 1530, 787, 16, rgba(181, 224, 193));
@@ -1705,15 +1699,40 @@ void AppUi::drawSettings(Canvas& c) {
             } else if (settings_.syncTrophies) {
                 drawHints(c, {{kIconCross, tr(Str::Change)}, {kIconSquare, tr(Str::RunSyncTrophies)}, {kIconTriangle, tr(Str::ReportProblem)}, {kIconCircle, tr(Str::Back)}});
             } else {
-                drawHints(c, {{kIconCross, tr(Str::Change)}, {kIconTriangle, tr(Str::ReportProblem)}, {kIconCircle, tr(Str::Back)}});
+                drawHints(c, {{kIconCross, tr(Str::Change)}, {kIconR3, "Ampliar QR"},
+                          {kIconTriangle, tr(Str::ReportProblem)}, {kIconCircle, tr(Str::Back)}});
             }
         } else if (settingsRow_ == 10) {
             drawHints(c, {{kIconDpadLR, tr(Str::Adjust)}, {kIconTriangle, tr(Str::ReportProblem)}, {kIconCircle, tr(Str::Back)}});
         } else {
-            drawHints(c, {{kIconCross, tr(Str::Change)}, {kIconTriangle, tr(Str::ReportProblem)}, {kIconCircle, tr(Str::Back)}});
+            drawHints(c, {{kIconCross, tr(Str::Change)}, {kIconR3, "Ampliar QR"},
+                          {kIconTriangle, tr(Str::ReportProblem)}, {kIconCircle, tr(Str::Back)}});
         }
     }
     drawToast(c, lastRender_);
+}
+
+
+void AppUi::drawSettingsQrOverlay(Canvas& c) {
+    // QR scanning must remain crisp: never blur the code or its white quiet
+    // zone, even when the Settings panel itself is semi-transparent.
+    c.fillRect({0, 0, kW, kH}, rgba(2, 9, 20, 250));
+    fonts_.bold.draw(c, tr(Str::WebControlTitle), 108, 91, 43, kWhite);
+    fonts_.regular.draw(c, "Escaneie para abrir o painel do NimboPlay",
+                        108, 150, 23, rgba(212, 229, 241));
+    const std::string qrUrl = !webUrl_.empty() ? webUrl_ :
+                              "http://" + platform::localIPv4() + ":8080";
+    Rect code = drawQr(c, qrUrl, 1260, 227, 590, qrcodegen_Ecc_LOW);
+    if (code.w > 0) {
+        fonts_.semibold.draw(c, "Conectar ao painel Web", 108, 858, 24, kWhite);
+        fonts_.regular.draw(c, fonts_.regular.fit(qrUrl, 23, 1550),
+                            108, 902, 23, rgba(209, 229, 241));
+    } else {
+        fonts_.semibold.draw(c, "O QR Code não está disponível nesta sessão.",
+                             108, 845, 24, kWhite);
+    }
+    c.fillRect({0, kH - 80, kW, 80}, rgba(2, 9, 20, 250));
+    drawHints(c, {{kIconCircle, tr(Str::Back)}, {kIconR3, tr(Str::Back)}});
 }
 
 Rect AppUi::drawModal(Canvas& c, int w, int h, const std::string& title, int yOffset) {
