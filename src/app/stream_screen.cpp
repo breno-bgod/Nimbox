@@ -1366,6 +1366,16 @@ void StreamScreen::update(const input::ControllerState& pad, ui::NavInput nav, b
     } else {
         setMouseCaptured_(false);
     }
+#if defined(__ANDROID__)
+    // Force an overlay refresh when Surface playback starts/stops so an
+    // unchanged menu or idle touch HUD remains visible after engine switches.
+    static bool lastSurfaceActive = false;
+    const bool surfaceActive = media::AndroidSurfaceDecoder::isActive();
+    if (surfaceActive != lastSurfaceActive) {
+        lastSurfaceActive = surfaceActive;
+        overlaySeq_ = 0;
+    }
+#endif
     // The overlay: the menu, else the statistics line, redrawn when
     // the numbers or the menu change.
     uint32_t seq = g_infoSeq;
