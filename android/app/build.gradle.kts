@@ -61,13 +61,13 @@ android {
         // Keep the Java namespace unchanged: SDL/JNI native class names depend on it.
         getByName("debug") {
             applicationIdSuffix = ".nimboxalpha"
-            manifestPlaceholders["appLabel"] = "Nimbox Alpha"
+            manifestPlaceholders["appLabel"] = "NimboPlay Alpha"
             manifestPlaceholders["appIcon"] = "@drawable/nimbox_alpha_icon"
             manifestPlaceholders["appRoundIcon"] = "@drawable/nimbox_alpha_icon"
             manifestPlaceholders["appBanner"] = "@drawable/nimbox_alpha_banner"
         }
         release {
-            manifestPlaceholders["appLabel"] = "Nimbox"
+            manifestPlaceholders["appLabel"] = "NimboPlay"
             manifestPlaceholders["appIcon"] = "@drawable/nimbox_alpha_icon"
             manifestPlaceholders["appRoundIcon"] = "@drawable/nimbox_alpha_icon"
             manifestPlaceholders["appBanner"] = "@drawable/nimbox_alpha_banner"
