@@ -6329,7 +6329,7 @@ static void testBlock3Features() {
         auto htmlRes = ws.handleRequest("GET", "/", "");
         CHECK(htmlRes.status == 200);
         CHECK(htmlRes.contentType.find("text/html") != std::string::npos);
-        CHECK(htmlRes.body.find("NIMBOX") != std::string::npos);
+        CHECK(htmlRes.body.find("NIMBOPLAY") != std::string::npos);
         CHECK(htmlRes.body.find("logo-icon") != std::string::npos);
         CHECK(htmlRes.body.find("#107C41") != std::string::npos);
         CHECK(htmlRes.body.find("tabBtnGamePass") != std::string::npos);
@@ -8745,7 +8745,7 @@ static void testBlock1Corrections() {
             CHECK(htmlStr.find(id) != std::string::npos);
         }
         CHECK(htmlStr.find("GPU ou CPU não são codecs") != std::string::npos);
-        CHECK(htmlStr.find("NIMBOX CONTROL CENTER V2") != std::string::npos);
+        CHECK(htmlStr.find("NIMBOPLAY CONTROL CENTER V2") != std::string::npos);
         CHECK(htmlStr.find("remote-hero") != std::string::npos);
     }
 
