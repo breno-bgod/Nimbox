@@ -270,6 +270,10 @@ struct StreamPlayer::Impl {
     bool hwProbe = false;
     bool preferHwDecode = true;
     bool androidSurfaceOutput = false;
+    std::atomic<int> androidSurfaceWidth{1920}, androidSurfaceHeight{1080};
+    std::atomic<bool> surfaceActive{false};
+    std::atomic<uint64_t> surfaceSubmitted{0}, surfaceReleased{0}, surfaceRendered{0};
+    std::atomic<uint64_t> surfaceBusy{0}, surfaceErrors{0};
     std::string tierSequence;  // setTierSequence() (measurements)
     std::atomic<bool> isHwDecode{false};
 
@@ -793,15 +797,52 @@ struct StreamPlayer::Impl {
         isHwDecode = decoder->isHardware();
 #if defined(__ANDROID__)
         std::unique_ptr<media::AndroidSurfaceDecoder> surfaceDecoder;
-        if (androidSurfaceOutput) {
-            auto candidate = std::make_unique<media::AndroidSurfaceDecoder>();
-            if (candidate->init(1920, 1080)) {
-                surfaceDecoder = std::move(candidate);
-                isHwDecode = true;
-                XC_LOGI("stream: Android Surface output selected");
-            } else {
-                XC_LOGW("stream: Android Surface unavailable, falling back to existing FFmpeg");
+        bool surfaceRequested = androidSurfaceOutput;
+        bool surfaceNeedsIdr = true;
+        int activeSurfaceWidth = 0, activeSurfaceHeight = 0;
+        uint64_t surfaceRetryAtMs = 0;
+        int surfaceFailures = 0;
+        uint64_t surfaceLastSubmitted = 0, surfaceLastReleased = 0;
+        uint64_t surfaceLastRendered = 0, surfaceLastBusy = 0, surfaceLastErrors = 0;
+        auto collectSurfaceStats = [&] {
+            if (!surfaceDecoder) return;
+            auto c = surfaceDecoder->stats();
+            if (c.submitted >= surfaceLastSubmitted) surfaceSubmitted += c.submitted - surfaceLastSubmitted;
+            if (c.released >= surfaceLastReleased) surfaceReleased += c.released - surfaceLastReleased;
+            if (c.rendered >= surfaceLastRendered) {
+                uint64_t delta = c.rendered - surfaceLastRendered;
+                surfaceRendered += delta;
+                decodedFrames += delta; // actual on-screen callback, not compressed input
             }
+            if (c.inputBusy >= surfaceLastBusy) surfaceBusy += c.inputBusy - surfaceLastBusy;
+            if (c.errors >= surfaceLastErrors) surfaceErrors += c.errors - surfaceLastErrors;
+            surfaceLastSubmitted = c.submitted;
+            surfaceLastReleased = c.released;
+            surfaceLastRendered = c.rendered;
+            surfaceLastBusy = c.inputBusy;
+            surfaceLastErrors = c.errors;
+        };
+        auto newSurface = [&]() -> bool {
+            auto candidate = std::make_unique<media::AndroidSurfaceDecoder>();
+            const int width = androidSurfaceWidth.load(std::memory_order_relaxed);
+            const int height = androidSurfaceHeight.load(std::memory_order_relaxed);
+            if (!candidate->init(width, height)) return false;
+            surfaceDecoder = std::move(candidate);
+            activeSurfaceWidth = width;
+            activeSurfaceHeight = height;
+            surfaceLastSubmitted = surfaceLastReleased = surfaceLastRendered = 0;
+            surfaceLastBusy = surfaceLastErrors = 0;
+            surfaceNeedsIdr = true;
+            surfaceActive = true;
+            isHwDecode = true;
+            surfaceFailures = 0;
+            XC_LOGI("stream: Android Surface selected (%dx%d)", width, height);
+            return true;
+        };
+        if (surfaceRequested && !newSurface()) {
+            surfaceRetryAtMs = platform::nowMs() + 3000;
+            ++surfaceFailures;
+            XC_LOGW("stream: Surface unavailable; existing FFmpeg remains active");
         }
 #endif
         const bool useAsyncPresent = display::caps().asyncPresent;
