@@ -76,7 +76,10 @@ public class MainActivity extends SDLActivity {
                     @Override public void surfaceChanged(SurfaceHolder holder, int format, int w, int h) { }
                     @Override public void surfaceDestroyed(SurfaceHolder holder) {
                         // The next compressed AU tells native playback to fall back safely.
-                        surfaceVideoStop();
+                        // An intentionally hidden layer is not a device surface failure.
+                        if (sSurfaceView != null && sSurfaceView.getVisibility() == View.VISIBLE) {
+                            surfaceVideoStop();
+                        }
                     }
                 });
                 activity.mLayout.addView(sSurfaceView, new FrameLayout.LayoutParams(
