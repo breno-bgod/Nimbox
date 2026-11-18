@@ -418,7 +418,7 @@ WebServer::HttpResponse WebServer::handleRequest(const std::string& method, cons
             if (s_hooks.getSettings) {
                 s_hooks.getSettings(root);
             } else {
-                root.set("language", "en");
+                root.set("language", "pt-BR");
                 root.set("resolution", "1080p");
                 root.set("padMap", input::padMapJson(input::defaultPadMap()));
                 root.set("keyMap", keyMapToJson(input::defaultKeyMap()));
