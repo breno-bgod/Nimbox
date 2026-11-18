@@ -17,6 +17,12 @@ import java.util.Locale;
 
 public final class AndroidSurfaceEngine {
     private static final String TAG = "NimboxSurface";
+    // XStreaming NanoRustBridge presentation timing: bounded scheduling, no video backlog.
+    private static final long VIDEO_RENDER_START_DELAY_NS = 8_000_000L;
+    private static final long VIDEO_RENDER_MAX_FUTURE_NS = 35_000_000L;
+    private static final long VIDEO_RENDER_LATE_THRESHOLD_NS = 12_000_000L;
+    private long firstVideoRenderPresentationTimeUs = Long.MIN_VALUE;
+    private long firstVideoRenderTimeNs = Long.MIN_VALUE;
     private volatile MediaCodec videoDecoder;
     private volatile boolean videoOutputDrainRunning;
     private Thread videoOutputThread;
@@ -95,7 +101,9 @@ public final class AndroidSurfaceEngine {
                 int index = codec.dequeueOutputBuffer(info, 5000L);
                 if (index >= 0) {
                     // Release directly to Android Surface (no YUV download or SDL blit).
-                    codec.releaseOutputBuffer(index, true);
+                    long renderTimeNs = getVideoRenderTimeNs(info.presentationTimeUs);
+                    if (renderTimeNs > 0L) codec.releaseOutputBuffer(index, renderTimeNs);
+                    else codec.releaseOutputBuffer(index, true);
                     rendered++;
                 } else if (index == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
                     Log.i(TAG, "Surface output format: " + codec.getOutputFormat());
@@ -106,6 +114,30 @@ public final class AndroidSurfaceEngine {
                 break;
             }
         }
+    }
+
+    // Adapted directly from Geocld/XStreaming NanoRustBridge.getVideoRenderTimeNs.
+    private long getVideoRenderTimeNs(long presentationTimeUs) {
+        long nowNs = System.nanoTime();
+        if (firstVideoRenderPresentationTimeUs == Long.MIN_VALUE) {
+            firstVideoRenderPresentationTimeUs = presentationTimeUs;
+            firstVideoRenderTimeNs = nowNs + VIDEO_RENDER_START_DELAY_NS;
+            return firstVideoRenderTimeNs;
+        }
+        long targetNs = firstVideoRenderTimeNs
+                + Math.max(0L, presentationTimeUs - firstVideoRenderPresentationTimeUs) * 1000L;
+        if (targetNs - nowNs > VIDEO_RENDER_MAX_FUTURE_NS) {
+            long clampedNs = nowNs + VIDEO_RENDER_START_DELAY_NS;
+            firstVideoRenderPresentationTimeUs = presentationTimeUs;
+            firstVideoRenderTimeNs = clampedNs;
+            return clampedNs;
+        }
+        if (nowNs - targetNs > VIDEO_RENDER_LATE_THRESHOLD_NS) {
+            firstVideoRenderPresentationTimeUs = presentationTimeUs;
+            firstVideoRenderTimeNs = nowNs;
+            return 0L;
+        }
+        return targetNs;
     }
 
     public void stop() {
