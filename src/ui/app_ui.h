@@ -495,6 +495,7 @@ public:
     void setUpdateStatus(const std::string& status, float fraction);
     Screen screen() const;
     Tab tab() const;
+    bool profileOpen() const;  // Native profile overlay state, for UI regression tests.
     // Switches the home screen's tab (autoplay tests).
     void showTab(Tab t);
     // Autoplay tests: a tab's search with these filters (`mode` and
