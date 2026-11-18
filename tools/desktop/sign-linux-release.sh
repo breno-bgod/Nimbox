@@ -25,7 +25,7 @@ while read -r line; do
         fail "$key is not the key src/app/updater.cpp trusts"
 done <<<"$pub"
 
-name=PSBox-$tag-linux-x86_64.AppImage
+name=NimboPlay-$tag-linux-x86_64.AppImage
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 gh release download "$tag" -p "$name" -p "$name.sha256" -D "$work" ||

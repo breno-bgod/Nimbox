@@ -3,7 +3,7 @@
 <!-- Copyright (C) 2026 RafaelNGP -->
 <assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0" xmlns:asmv3="urn:schemas-microsoft-com:asm.v3">
   <assemblyIdentity type="win32" name="com.rafaelngp.psbox" version="1.7.5.0" processorArchitecture="*"/>
-  <description>PSBox Cloud Gaming</description>
+  <description>NimboPlay Cloud Gaming</description>
   <compatibility xmlns="urn:schemas-microsoft-com:compatibility.v1">
     <application>
       <!-- Windows 10 and Windows 11 -->

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Exports the approved Nimbox HTML with native C++ pose logic compiled to WASM.
+"""Exports the approved NimboPlay HTML with native C++ pose logic compiled to WASM.
 
 Usage: python tools/nimbox/export_preview.py approved-preview.html output.html
 Requires clang++ with wasm32 and wasm-ld. This doesn't turn the full UI into C++;
@@ -60,7 +60,7 @@ WebAssembly.instantiate(Uint8Array.from(atob(NIMBOX_CPP_WASM_BASE64),c=>c.charCo
   renderCases();
 }).catch(err=>{
   document.documentElement.dataset.nimboxEngine='error';
-  console.error('Nimbox C++ preview engine not available:',err);
+  console.error('NimboPlay C++ preview engine not available:',err);
   const title=document.querySelector('#focus-name');
   if(title)title.textContent='Erro ao carregar motor C++ do carrossel';
 });'''

@@ -1,4 +1,4 @@
-PSBox Cloud Gaming - version @VERSION@
+NimboPlay Cloud Gaming - version @VERSION@
 ======================================
 
 Native Xbox Cloud Gaming (xCloud) client for jailbroken PS5 consoles:
@@ -29,7 +29,7 @@ Installation
    /data/homebrew/ on the PS5.
 
 2. Wait for the loader (e.g. ShadowMountPlus) to add the
-   "PSBox Cloud Gaming" icon to the Home screen, then launch it.
+   "NimboPlay Cloud Gaming" icon to the Home screen, then launch it.
 
 Updating: when a new version is out, the app offers it after sign-in
 ("Update now" / "Not now"; also in Settings > Updates). It downloads it,

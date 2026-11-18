@@ -1,4 +1,4 @@
-PSBox Cloud Gaming for Linux - version @XC_PACKAGE_VERSION@
+NimboPlay Cloud Gaming for Linux - version @XC_PACKAGE_VERSION@
 ==========================================================
 
 Xbox Cloud Gaming (xCloud) client: browse the cloud catalog and stream
@@ -16,8 +16,8 @@ Running it
 Make the AppImage executable and start it (on the Steam Deck too, in
 Desktop or Game mode):
 
-    chmod +x PSBox-@XC_PACKAGE_VERSION@-linux-x86_64.AppImage
-    ./PSBox-@XC_PACKAGE_VERSION@-linux-x86_64.AppImage     # --windowed, --fullscreen, --data-dir <dir>
+    chmod +x NimboPlay-@XC_PACKAGE_VERSION@-linux-x86_64.AppImage
+    ./NimboPlay-@XC_PACKAGE_VERSION@-linux-x86_64.AppImage     # --windowed, --fullscreen, --data-dir <dir>
 
 SDL3, the fonts and the certificates are inside it. Needs an x86-64
 Linux with glibc 2.39 or newer (Ubuntu 24.04, Fedora 40, Debian 13 or
@@ -30,7 +30,7 @@ AppImage to Steam as a non-Steam game.
 Check without signing in (window, sound, input; screenshots in the
 folder given):
 
-    ./PSBox-@XC_PACKAGE_VERSION@-linux-x86_64.AppImage --selftest /tmp/psbox-selftest
+    ./NimboPlay-@XC_PACKAGE_VERSION@-linux-x86_64.AppImage --selftest /tmp/psbox-selftest
 
 
 Your data
@@ -69,10 +69,10 @@ in place of the old one (your data stays in ~/.local/share/psbox).
 
 Licenses
 --------
-PSBox is GPL-3.0-or-later (licenses/LICENSE). It links Mbed TLS,
+NimboPlay is distributed under GPL-3.0-or-later (licenses/LICENSE). It links Mbed TLS,
 libdatachannel, usrsctp, libSRTP, plog, FFmpeg (LGPL-2.1, see
 licenses/FFmpeg-NOTE.txt), stb, FSR 1 and Anime4K shaders (MIT), and bundles
-SDL3 (zlib) and the Inter fonts (OFL): their texts are in PSBox/licenses/
+SDL3 (zlib) and the Inter fonts (OFL): their texts are in NimboPlay/licenses/
 inside the AppImage (--appimage-extract unpacks it), the list in
 licenses/THIRD_PARTY_NOTICES.md. Source code: the repository at this
-release's tag, https://github.com/RafaelNGP/psbox-cloud-gaming
+release's tag, https://github.com/breno-bgod/Nimbox

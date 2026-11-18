@@ -62,15 +62,15 @@ android {
         getByName("debug") {
             applicationIdSuffix = ".nimboxalpha"
             manifestPlaceholders["appLabel"] = "NimboPlay Alpha"
-            manifestPlaceholders["appIcon"] = "@drawable/nimbox_alpha_icon"
-            manifestPlaceholders["appRoundIcon"] = "@drawable/nimbox_alpha_icon"
-            manifestPlaceholders["appBanner"] = "@drawable/nimbox_alpha_banner"
+            manifestPlaceholders["appIcon"] = "@mipmap/ic_launcher"
+            manifestPlaceholders["appRoundIcon"] = "@mipmap/ic_launcher_round"
+            manifestPlaceholders["appBanner"] = "@drawable/nimboplay_tv_banner"
         }
         release {
             manifestPlaceholders["appLabel"] = "NimboPlay"
-            manifestPlaceholders["appIcon"] = "@drawable/nimbox_alpha_icon"
-            manifestPlaceholders["appRoundIcon"] = "@drawable/nimbox_alpha_icon"
-            manifestPlaceholders["appBanner"] = "@drawable/nimbox_alpha_banner"
+            manifestPlaceholders["appIcon"] = "@mipmap/ic_launcher"
+            manifestPlaceholders["appRoundIcon"] = "@mipmap/ic_launcher_round"
+            manifestPlaceholders["appBanner"] = "@drawable/nimboplay_tv_banner"
             isMinifyEnabled = false
             val releaseSigning = signingConfigs.findByName("release")
             if (releaseSigning?.storeFile?.exists() == true) {

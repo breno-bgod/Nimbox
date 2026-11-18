@@ -61,7 +61,7 @@ bool download(const std::string& url, long size, std::string& out, const std::fu
     req.url = url;
     req.followRedirects = true;  // GitHub hands the files out from another host
     req.timeoutMs = 30000;
-    req.headers = {{"Accept", "application/octet-stream"}, {"User-Agent", "PSBox-Cloud-Gaming"}};
+    req.headers = {{"Accept", "application/octet-stream"}, {"User-Agent", "NimboPlay-Cloud-Gaming"}};
     out.clear();
     if (size > 0) out.reserve(static_cast<size_t>(size));
     req.onBody = [&](const char* data, size_t len) {

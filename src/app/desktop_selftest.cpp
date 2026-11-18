@@ -373,8 +373,8 @@ int desktopSelftest(const std::string& dir) {
             tile.productId = "cv-test-" + std::to_string(i);
             tile.titleId = "cv-title-" + std::to_string(i);
             tile.name = names[i];
-            tile.publisher = "Nimbox Horizon selftest";
-            tile.description = "Explore um universo cinematografico com novos mundos, personagens e desafios. Uma apresentacao de teste para validar a leitura e os espacos do Nimbox Showcase.";
+            tile.publisher = "NimboPlay Horizon selftest";
+            tile.description = "Explore um universo cinematografico com novos mundos, personagens e desafios. Uma apresentacao de teste para validar a leitura e os espacos do NimboPlay Showcase.";
             tile.categories = {"Aventura", "Acao"};
             tile.ratingAge = "16+";
             tile.ratingSystem = "ClassInd";

@@ -11,7 +11,7 @@ const char* kIndexHtml = R"html(<!DOCTYPE html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Nimbox - Web Control</title>
+<title>NimboPlay - Web Control</title>
 <script>
 (function() {
   function applyInitScale() {
@@ -737,7 +737,7 @@ input:checked + .slider-sw:before { transform: translateX(20px); }
   }
 }
 
-/* NIMBOX CONTROL CENTER V2 — presentation only.
+/* NIMBOPLAY CONTROL CENTER V2 — presentation only.
    Existing JS functions, setting keys, controller canvas hit areas and routes
    remain unchanged. Dark console-like glass layers; no remote fonts/assets. */
 :root {
@@ -986,7 +986,7 @@ body:has(#tab-gamepad.active) .remote-hero { display:none; }
       <path d="M32 72V28L68 72V28" stroke="#e6faff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
     </svg>
     <div class="brand-text">
-      <h1>NIMBOX</h1>
+      <h1>NIMBOPLAY</h1>
       <span class="brand-subtitle" id="brandSubtitle">CONTROLE REMOTO / SMARTGLASS</span>
     </div>
   </div>
@@ -1003,9 +1003,9 @@ body:has(#tab-gamepad.active) .remote-hero { display:none; }
 </div>
 
 <div class="content">
-  <section class="remote-hero" aria-label="Nimbox Control Center">
+  <section class="remote-hero" aria-label="NimboPlay Control Center">
     <div class="remote-hero-copy">
-      <span class="remote-eyebrow">NIMBOX / CONTROL CENTER</span>
+      <span class="remote-eyebrow">NIMBOPLAY / CONTROL CENTER</span>
       <h2>Seu console, do seu jeito.</h2>
       <p>Uma central para explorar jogos, personalizar a imagem e controlar sua sessão.</p>
     </div>
@@ -2949,7 +2949,7 @@ function exportStudioLayout() {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = 'psbox_layout_studio_v1.json';
+  a.download = 'NimboPlay_Layout_Studio_v1.json';
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);

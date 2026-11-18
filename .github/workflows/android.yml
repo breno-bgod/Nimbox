@@ -12,8 +12,11 @@ on:
       - feature/nimbox-horizon-native-v1
       - feature/nimbox-default-ptbr-v1
       - feature/nimbox-ps5-showcase-details-v1
+      - feature/nimble-play-internal-brand-v1
     paths:
       - 'android/**'
+      - 'assets/branding/**'
+      - 'tools/branding/**'
       - 'src/app/**'
       - 'src/media/**'
       - 'src/ui/**'
@@ -75,9 +78,12 @@ jobs:
             sleep $((attempt * 30))
           done
 
+      - name: Set NimboPlay download filename
+        run: cp android/app/build/outputs/apk/debug/app-debug.apk android/app/build/outputs/apk/debug/NimboPlay-Android-Alpha.apk
+
       - name: Upload APK
         uses: actions/upload-artifact@v7
         with:
-          name: nimbox-android
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          name: nimboplay-android
+          path: android/app/build/outputs/apk/debug/NimboPlay-Android-Alpha.apk
           if-no-files-found: error

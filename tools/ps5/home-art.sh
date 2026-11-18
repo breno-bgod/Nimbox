@@ -16,7 +16,10 @@ tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 
 cd "$root"
-"$cli" render-icon ps5/sce_sys/icon0.png 512
+# The PS5 system icon is the external app icon, not the in-menu wordmark.
+python3 tools/branding/make_launcher_assets.py \
+    --source assets/branding/nimboplay_launcher_256.png \
+    --ps5 ps5/sce_sys/icon0.png
 "$cli" render-pic0 "$tmp/pic0.png" 3840
 "$cli" render-pic1 "$tmp/pic1.png" 3840
 mkdir -p "$tmp/out" && cp ps5/sce_sys/icon0.png "$tmp/out/"  # validated alongside

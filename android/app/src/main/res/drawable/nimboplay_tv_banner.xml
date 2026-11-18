@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android TV banner: brand illustration only, no legacy PSBox / Nimbox N. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape>
+            <gradient android:angle="0" android:startColor="#0042D3" android:endColor="#168FF5" />
+            <corners android:radius="16dp" />
+        </shape>
+    </item>
+    <item android:gravity="center" android:width="164dp" android:height="164dp"
+          android:drawable="@drawable/nimboplay_launcher" />
+</layer-list>

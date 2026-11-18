@@ -1,4 +1,4 @@
-PSBox Cloud Gaming for Windows - Portable Edition
+NimboPlay Cloud Gaming for Windows - Portable Edition
 =================================================
 
 Xbox Cloud Gaming (xCloud) native client: browse the cloud catalog and stream
@@ -15,7 +15,7 @@ Running it
 ----------
 Extract the zip archive to any folder and run:
 
-    psbox.exe
+    NimboPlay.exe
 
 Optional command-line parameters:
     --windowed      Start in windowed mode
@@ -25,7 +25,7 @@ Optional command-line parameters:
 F11 or Alt+Enter toggles fullscreen; Settings > Display mode remembers it.
 
 Self-test without signing in:
-    psbox.exe --selftest C:\Temp\psbox-selftest
+    NimboPlay.exe --selftest C:\Temp\psbox-selftest
 
 
 Your data
