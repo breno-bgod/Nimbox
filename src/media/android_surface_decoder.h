@@ -5,22 +5,35 @@
 #if defined(__ANDROID__)
 #include <jni.h>
 namespace xc::media {
-// Android-only third playback path; CPU/GPU decoders are separate and untouched.
-// JNI bridge connects Nimbox's existing H.264 access units to XStreaming-derived
-// MediaCodec -> Surface decoder (AGPLv3, see third_party/XStreaming/NOTICE.md).
+
+// Independent Android-only decoder, adapted from XStreaming's AGPLv3 Surface path.
+// Neither the pre-existing ByteBuffer decoder nor Vulkan/SDL renderer is modified.
 class AndroidSurfaceDecoder {
 public:
+    enum class Submit { Error = -1, Busy = 0, Accepted = 1 };
+    struct Counters {
+        uint64_t submitted = 0;
+        uint64_t released = 0;
+        uint64_t rendered = 0; // Android MediaCodec.OnFrameRenderedListener
+        uint64_t inputBusy = 0;
+        uint64_t errors = 0;
+    };
     AndroidSurfaceDecoder() = default;
     ~AndroidSurfaceDecoder();
     AndroidSurfaceDecoder(const AndroidSurfaceDecoder&) = delete;
     AndroidSurfaceDecoder& operator=(const AndroidSurfaceDecoder&) = delete;
     bool init(int width, int height);
-    bool decode(const uint8_t* accessUnit, size_t size, uint32_t rtpTimestamp, bool keyframe);
+    Submit submit(const uint8_t* accessUnit, size_t size, uint32_t rtpTimestamp, bool keyframe);
+    Counters stats() const;
     void stop();
+    // UI composition: mirror the SAME pre-rendered RGBA HUD/menu over the Surface.
+    static void mirrorOverlay(const uint32_t* pixels, int x, int y,
+                              int width, int height, uint8_t opacity);
 private:
-    jclass activityClass_ = nullptr; // global ref held only during selected session
-    jmethodID feed_ = nullptr;
-    jmethodID stop_ = nullptr;
+    jclass activityClass_ = nullptr;
+    jmethodID queueMethod_ = nullptr;
+    jmethodID statsMethod_ = nullptr;
+    jmethodID stopMethod_ = nullptr;
 };
 }
 #endif
