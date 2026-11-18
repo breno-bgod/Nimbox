@@ -50,6 +50,13 @@ public class MainActivity extends SDLActivity {
     private static SurfaceView sSurfaceView;
     private static volatile AndroidSurfaceEngine sSurfaceEngine;
 
+    private static void hideSurfaceVideoLayer() {
+        MainActivity activity = sSurfaceActivity;
+        if (activity != null) activity.runOnUiThread(() -> {
+            if (sSurfaceView != null) sSurfaceView.setVisibility(View.GONE);
+        });
+    }
+
     public static boolean surfaceVideoStart(int width, int height) {
         MainActivity activity = sSurfaceActivity;
         if (activity == null || activity.mLayout == null) return false;
@@ -69,7 +76,10 @@ public class MainActivity extends SDLActivity {
         if (Looper.myLooper() == Looper.getMainLooper()) create.run();
         else activity.runOnUiThread(create);
         try {
-            if (!created.await(2, TimeUnit.SECONDS)) return false;
+            if (!created.await(2, TimeUnit.SECONDS)) {
+                hideSurfaceVideoLayer();
+                return false;
+            }
             Surface surface = null;
             for (int attempt = 0; attempt < 100; attempt++) {
                 if (sSurfaceView != null) {
@@ -78,13 +88,20 @@ public class MainActivity extends SDLActivity {
                 }
                 Thread.sleep(20);
             }
-            if (surface == null || !surface.isValid()) return false;
+            if (surface == null || !surface.isValid()) {
+                hideSurfaceVideoLayer();
+                return false;
+            }
             AndroidSurfaceEngine engine = new AndroidSurfaceEngine();
-            if (!engine.start(surface, width, height)) return false;
+            if (!engine.start(surface, width, height)) {
+                hideSurfaceVideoLayer();
+                return false;
+            }
             sSurfaceEngine = engine;
             return true;
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
+            hideSurfaceVideoLayer();
             return false;
         }
     }
