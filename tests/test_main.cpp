@@ -250,6 +250,25 @@ static void testLoginCountry() {
     CHECK(!gssv.loginRefused() && gssv.loginStatus() == 0);
 }
 
+static void testPtBrDefaultOnFirstRun() {
+    using namespace ui;
+    // Before any test changes the global language, Nimbox starts in pt-BR.
+    CHECK(language() == Language::PortugueseBR);
+    CHECK(std::string(tr(Str::SignInTitle)) == "Entre para jogar");
+    CHECK(std::string(tr(Str::SignInOpenBrowser)) == "Abrir navegador para fazer login");
+    CHECK(std::string(catalogLanguage()) == "pt-br");
+    CHECK(std::string(gameLocale()) == "pt-BR");
+
+    app::Settings fresh;
+    CHECK(fresh.language == "pt-BR");
+    CHECK(SettingsChoice{}.language == static_cast<int>(Language::PortugueseBR));
+    CHECK(choiceFromSettings(fresh).language == static_cast<int>(Language::PortugueseBR));
+
+    // An existing saved language preference is not silently overwritten.
+    fresh.language = "en";
+    CHECK(choiceFromSettings(fresh).language == static_cast<int>(Language::English));
+}
+
 static void testStrings() {
     using namespace ui;
     auto placeholders = [](const std::string& t) {
@@ -11746,6 +11765,7 @@ static void testWorkerMobileM4Features() {
 }
 
 int main() {
+    testPtBrDefaultOnFirstRun();
     testMilestone1TouchOverlayCanvasAndHaptics();
     testHwPictureContract();
     testTouchVirtualGamepadInjection();

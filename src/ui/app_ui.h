@@ -14,6 +14,7 @@
 #include "ui/font.h"
 #include "ui/image_cache.h"
 #include "ui/pad_icons.h"
+#include "ui/strings.h"
 #include "xcloud/achievements.h"
 
 #include <cstdint>
@@ -119,7 +120,7 @@ struct NavInput {
 
 // What the Settings screen edits.
 struct SettingsChoice {
-    int language = 0;      // ui::Language
+    int language = static_cast<int>(Language::PortugueseBR); // ui::Language
     int resolution = 0;    // 0 = 1080p, 1 = 720p, 2 = Best Auto, 3 = explicit 1440p QHD
     std::string region;    // gssv region name; empty = automatic
     int nimboxTheme = 0;          // visual-only studio theme

@@ -87,7 +87,7 @@ inline std::string gameProfileKey(const std::string& productId, const std::strin
 }
 
 struct Settings {
-    std::string language = "en";     // ui::languageCode()
+    std::string language = "pt-BR";  // ui::languageCode(); default for new installs
     std::string resolution = "1080p";  // "720p", "1080p", "1440p", or "best" (Auto)
     std::string region;                // gssv region name; empty = automatic
     // Nimbox display-only preferences. Never sent to the streaming service.

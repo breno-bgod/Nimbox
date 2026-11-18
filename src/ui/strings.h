@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 RafaelNGP
-// User-facing text in every supported language. English is the default; the
-// user picks another in Settings. To add a language: a Language value, its
+// User-facing text in every supported language. Portuguese (Brazil) is the
+// default for new installs; the user can choose another in Settings. To add a language: a Language value, its
 // codes in strings.cpp, and a column in the table there.
 #pragma once
 

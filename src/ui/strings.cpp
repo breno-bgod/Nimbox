@@ -13,7 +13,7 @@ namespace {
 constexpr size_t kLangs = static_cast<size_t>(Language::Count);
 constexpr size_t kStrs = static_cast<size_t>(Str::Count);
 
-std::atomic<int> g_language{0};
+std::atomic<int> g_language{static_cast<int>(Language::PortugueseBR)};
 
 struct LangInfo {
     const char* name;
