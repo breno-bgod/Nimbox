@@ -32,7 +32,9 @@ enum class MoveResult { Unchanged, Moved, Boundary, Wrapped };
 struct BoundaryGate {
     int direction = 0; // -1 left / +1 right; 0 = not armed
     uint64_t startedMs = 0;
-    void reset() { direction = 0; startedMs = 0; }
+    bool released = false; // only a neutral input may arm a second edge press
+    void noteNeutral() { if (direction) released = true; }
+    void reset() { direction = 0; startedMs = 0; released = false; }
 };
 
 // Require a separate deliberate outward action at an edge before wrapping.
@@ -48,7 +50,8 @@ inline MoveResult navigate(int& selected, int count, int direction, uint64_t now
         gate.reset();
         return MoveResult::Moved;
     }
-    if (gate.direction == direction && nowMs >= gate.startedMs &&
+    if (gate.direction == direction && gate.released &&
+        nowMs >= gate.startedMs &&
         nowMs - gate.startedMs >= 320 && nowMs - gate.startedMs <= 1600) {
         selected = direction > 0 ? 0 : count - 1;
         gate.reset();
@@ -58,6 +61,7 @@ inline MoveResult navigate(int& selected, int count, int direction, uint64_t now
         nowMs - gate.startedMs > 1600) {
         gate.direction = direction;
         gate.startedMs = nowMs;
+        gate.released = false;
     }
     return MoveResult::Boundary;
 }
