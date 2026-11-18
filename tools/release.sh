@@ -114,7 +114,7 @@ sign "$out/PPSA99810.zip"
 ok "signed: $out/PPSA99810.zip.sig"
 
 # Standard named package for PlayStation 5
-ps5_named="PSBoxCloudGaming[PS5]-$tag.zip"
+ps5_named="NimboPlay[PS5]-$tag.zip"
 cp -f "$out/PPSA99810.zip" "$out/$ps5_named"
 cp -f "$out/PPSA99810.zip.sig" "$out/$ps5_named.sig"
 (cd "$out" && sha256sum "$ps5_named" > "$ps5_named.sha256")
@@ -150,8 +150,8 @@ ps4_ver=$(printf '%02d.%02d' "$major" "$((minor * 10 + patch))")
 ps4_out="$out/ps4_pkg"
 XC_PS4_VERSION="$ps4_ver" tools/ps4/package.sh build-ps4 "$ps4_out" >/dev/null
 
-ps4_pkg_name="PSBoxCloudGaming[PS4]-$tag.pkg"
-mv -f "$ps4_out/PSBox Cloud Gaming - PS4.pkg" "$out/$ps4_pkg_name"
+ps4_pkg_name="NimboPlay[PS4]-$tag.pkg"
+mv -f "$ps4_out/NimboPlay Cloud Gaming - PS4.pkg" "$out/$ps4_pkg_name"
 rm -rf "$ps4_out"
 (cd "$out" && sha256sum "$ps4_pkg_name" > "$ps4_pkg_name.sha256")
 ok "$out/$ps4_pkg_name ($(du -h "$out/$ps4_pkg_name" | cut -f1)), sha256 $(cut -d' ' -f1 "$out/$ps4_pkg_name.sha256")"
@@ -167,7 +167,7 @@ ok "PS4 param.sfo: version $ps4_ver confirmed"
 linux_assets=""
 if [[ $linux == 1 ]]; then
     echo "== Linux package"
-    name=PSBox-$tag-linux-x86_64.AppImage
+    name=NimboPlay-$tag-linux-x86_64.AppImage
     appimage=$out/$name
     buildlog=$(mktemp)
     XC_VERSION="$tag" tools/desktop/package-appimage.sh "$root/build-linux-release" "$out" >"$buildlog" 2>&1 ||
@@ -190,10 +190,10 @@ if [[ $linux == 1 ]]; then
     (cd "$out" && sha256sum "$name" > "$name.sha256")
     sign "$appimage"
     ok "signed: $appimage.sig"
-    named_linux="PSBoxCloudGaming[Linux]-$tag.AppImage"
+    named_linux="NimboPlay[Linux]-$tag.AppImage"
     cp -f "$appimage" "$out/$named_linux"
     (cd "$out" && sha256sum "$named_linux" > "$named_linux.sha256")
-    linux_assets=" \"$appimage\" \"$appimage.sha256\" \"$appimage.sig\" \"$out/PSBoxCloudGaming[[]Linux]-$tag.AppImage\" \"$out/PSBoxCloudGaming[[]Linux]-$tag.AppImage.sha256\""
+    linux_assets=" \"$appimage\" \"$appimage.sha256\" \"$appimage.sig\" \"$out/NimboPlay[[]Linux]-$tag.AppImage\" \"$out/NimboPlay[[]Linux]-$tag.AppImage.sha256\""
 fi
 
 if [[ $console == 1 ]]; then
@@ -211,11 +211,11 @@ fi
 echo "== all checks passed; to publish (with release notes in notes.md):"
 echo "  gh release create $tag \\"
 echo "    \"$zip\" \"$out/PPSA99810.zip.sha256\" \"$out/PPSA99810.zip.sig\" \\"
-echo "    \"$out/PSBoxCloudGaming[[]PS5]-$tag.zip#PSBoxCloudGaming[PS5]-$tag.zip\" \\"
-echo "    \"$out/PSBoxCloudGaming[[]PS5]-$tag.zip.sha256#PSBoxCloudGaming[PS5]-$tag.zip.sha256\" \\"
-echo "    \"$out/PSBoxCloudGaming[[]PS5]-$tag.zip.sig#PSBoxCloudGaming[PS5]-$tag.zip.sig\" \\"
-echo "    \"$out/PSBoxCloudGaming[[]PS4]-$tag.pkg#PSBoxCloudGaming[PS4]-$tag.pkg\" \\"
-echo "    \"$out/PSBoxCloudGaming[[]PS4]-$tag.pkg.sha256#PSBoxCloudGaming[PS4]-$tag.pkg.sha256\"$linux_assets \\"
+echo "    \"$out/NimboPlay[[]PS5]-$tag.zip#NimboPlay[PS5]-$tag.zip\" \\"
+echo "    \"$out/NimboPlay[[]PS5]-$tag.zip.sha256#NimboPlay[PS5]-$tag.zip.sha256\" \\"
+echo "    \"$out/NimboPlay[[]PS5]-$tag.zip.sig#NimboPlay[PS5]-$tag.zip.sig\" \\"
+echo "    \"$out/NimboPlay[[]PS4]-$tag.pkg#NimboPlay[PS4]-$tag.pkg\" \\"
+echo "    \"$out/NimboPlay[[]PS4]-$tag.pkg.sha256#NimboPlay[PS4]-$tag.pkg.sha256\"$linux_assets \\"
 echo "    --target $(git rev-parse HEAD) --title \"NimboPlay Cloud Gaming $tag\" --notes-file notes.md"
 echo
 echo "== post-release steps (Mandatory Tri-Platform Standard):"
