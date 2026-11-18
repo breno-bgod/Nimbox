@@ -5,7 +5,7 @@
 # Steam Deck), and checks it. Releases ship this, never a tarball.
 #
 #   tools/desktop/package-appimage.sh <build-dir> [out-dir]
-#       -> <out-dir>/PSBox-<version>-linux-x86_64.AppImage   (out-dir: <build-dir>/pkg)
+#       -> <out-dir>/NimboPlay-<version>-linux-x86_64.AppImage   (out-dir: <build-dir>/pkg)
 #
 # Configures <build-dir> with the SDL3 app required (a new one: Ninja,
 # RelWithDebInfo, clang when installed; CMAKE_PREFIX_PATH finds an SDL3 of
@@ -52,7 +52,7 @@ appdir=$work/AppDir
 echo "== install into the AppDir"
 cmake --install "$build" --prefix "$appdir" >/dev/null
 pkg=$appdir/NimboPlay
-[[ -x $pkg/NimboPlay ]] || fail "the install made no NimboPlay/psbox"
+[[ -x $pkg/NimboPlay ]] || fail "the install made no NimboPlay/NimboPlay"
 
 echo "== checks in the package"
 list=$(cd "$appdir" && find NimboPlay | sort)
