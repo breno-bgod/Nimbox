@@ -17,19 +17,21 @@
 set(XC_PACKAGE_VERSION "v${PROJECT_VERSION}-dev" CACHE STRING
     "Version in the desktop package's name (tools/release.sh sets vX.Y.Z)")
 
-set(_pkg PSBox)
+set(_pkg NimboPlay)
 set(_src "${CMAKE_CURRENT_SOURCE_DIR}")
 
 # The app and its RUNPATH: the bundled SDL3 first, LD_LIBRARY_PATH not needed.
 set_target_properties(psbox PROPERTIES INSTALL_RPATH "\$ORIGIN/lib")
 install(TARGETS psbox RUNTIME DESTINATION ${_pkg})
+# Keep build target psbox for compatibility, rename only the packaged app.
+install(CODE "file(RENAME \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${_pkg}/psbox\" \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${_pkg}/NimboPlay\")"
 
 # Debug info to symbols/<version>/psbox.debug, then stripped from the copy
 # being installed (the build tree's psbox keeps it).
 set(XC_SYMBOLS_DIR "${_src}/symbols/${XC_PACKAGE_VERSION}")
 if(CMAKE_OBJCOPY AND CMAKE_STRIP)
     install(CODE "
-        set(_exe \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${_pkg}/psbox\")
+        set(_exe \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${_pkg}/NimboPlay\")
         file(MAKE_DIRECTORY \"${XC_SYMBOLS_DIR}\")
         execute_process(COMMAND \"${CMAKE_OBJCOPY}\" --only-keep-debug \"\${_exe}\" \"${XC_SYMBOLS_DIR}/psbox.debug\"
                         RESULT_VARIABLE _r1)
@@ -55,7 +57,7 @@ endif()
 install(DIRECTORY "${_src}/assets/" DESTINATION ${_pkg}/assets)
 
 # Desktop launcher uses the SAME approved external icon, not the menu logo.
-set(_icon "${CMAKE_CURRENT_BINARY_DIR}/psbox.png")
+set(_icon "${CMAKE_CURRENT_BINARY_DIR}/NimboPlay.png")
 add_custom_command(OUTPUT "${_icon}"
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
             "${_src}/assets/branding/nimboplay_launcher_256.png" "${_icon}"
