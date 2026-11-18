@@ -4,6 +4,7 @@
 #include "ui/app_ui_internal.h"
 #include "app/shell.h"
 #include "ui/nimbox_horizon_layout.h"
+#include "ui/nimbox_detail_showcase.h"
 
 namespace xc::ui {
 
@@ -355,13 +356,14 @@ UiEvent AppUi::onMouseMove(float x, float y) {
         auto inRect = [&](const Rect& r) {
             return r.w > 0 && r.h > 0 && x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h;
         };
-        Rect play = playRect_.w > 0 ? playRect_ : Rect{kMargin, 620, 300, 76};
+        const Rect play = playRect_;
         if (inRect(play) || inRect(claimRect_)) {
             if (detailButtonFocus_ != 0) {
                 detailButtonFocus_ = 0;
                 dirty_ = true;
             }
-        } else if (inRect(achRect_)) {
+        } else if (!detail_.xboxTitleId.empty() &&
+                   (inRect(achRect_) || showcase::contains(showcase::kAchievementsPanel, x, y))) {
             if (detailButtonFocus_ != 1) {
                 detailButtonFocus_ = 1;
                 dirty_ = true;
@@ -931,7 +933,7 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
             return r.w > 0 && r.h > 0 && x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h;
         };
         if (!effectivePlayable && isF2P && !g->playable) {
-            Rect claim = claimRect_.w > 0 ? claimRect_ : Rect{kMargin, 620, 380, 68};
+            const Rect claim = claimRect_;
             if (inRect(claim)) {
                 detailButtonFocus_ = 0;
                 ev.action = Action::ClaimFreeGame;
@@ -940,14 +942,15 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
                 return ev;
             }
         } else if (effectivePlayable) {
-            Rect play = playRect_.w > 0 ? playRect_ : Rect{kMargin, 620, 300, 76};
+            const Rect play = playRect_;
             if (inRect(play)) {
                 detailButtonFocus_ = 0;
                 ev.action = Action::Play;
                 ev.game = detail_;
                 return ev;
             }
-            if (inRect(achRect_) && !detail_.xboxTitleId.empty()) {
+            if (!detail_.xboxTitleId.empty() &&
+                (inRect(achRect_) || showcase::contains(showcase::kAchievementsPanel, x, y))) {
                 detailButtonFocus_ = 1;
                 openAchievements();
                 return ev;
