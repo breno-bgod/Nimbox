@@ -9,7 +9,10 @@
 namespace xc::ui {
 
 void AppUi::handleHome(const NavInput& in, UiEvent& ev) {
-    // Caller holds mutex_.
+    // Caller holds mutex_. Keep hold/release independent from repeat pulses.
+    if (!in.carouselHeldLeft && !in.carouselHeldRight &&
+        !in.left && !in.right && in.scrollCards == 0)
+        horizonBoundary_.noteNeutral();
     if ((in.scrollRows || in.scrollCards) && !(searching_ && searchOnKeys_)) {
         // Smooth scrolling: the rows and cards it moved by since the last
         // pass, one step at a time (the view glides after the focus).
