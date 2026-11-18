@@ -565,6 +565,7 @@ private:
     void drawSignIn(Canvas& c, uint64_t nowMs);
     void drawHome(Canvas& c, uint64_t nowMs);
     void drawNimboxCarousel(Canvas& c, uint64_t nowMs);
+    void drawNimboxHorizon(Canvas& c, uint64_t nowMs);
     void drawNimboxDisc(Canvas& c, const GameTile& tile, uint64_t nowMs);
     void drawTabs(Canvas& c);
     void drawConsoles(Canvas& c, uint64_t nowMs);
@@ -700,8 +701,9 @@ private:
     Anim nimboxDetailIntro_;  // cinematic library-to-details transition
     bool nimboxReturningHome_ = false; // finish exit before switching screens
     Tab tab_ = Tab::GamePass;
-    // Experimental, opt-in, session-only visual mode. R3 toggles in Game Pass home.
-    bool nimboxCarousel_ = true; // approved Nimbox Home; R3 restores original UI
+    // Horizon -> Colecao Viva 3D -> Classic via R3; all keep the catalog unchanged.
+    bool nimboxCarousel_ = true;
+    bool nimboxHorizon_ = true;
     std::vector<ConsoleTile> consoles_;
     bool allow1440_ = false;
     bool consolesKnown_ = false;

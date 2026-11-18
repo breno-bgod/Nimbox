@@ -6,6 +6,7 @@
 #include "ui/cloud_time.h"
 #include "ui/box_carousel.h"
 #include "ui/collection_case_finish.h"
+#include "ui/nimbox_horizon_layout.h"
 
 #include <algorithm>
 
@@ -23,7 +24,7 @@ bool AppUi::needsRedraw(uint64_t nowMs) const {
     if (dirty_ || animating_) return true;
     // A spinning disc exists only inside Details (24 fps cap for software
     // Canvas). Home is a closed-case shelf with no continuous idle animation.
-    if (nimboxCarousel_ && tab_ == Tab::GamePass && !nimboxReducedMotion_ &&
+    if (nimboxCarousel_ && !nimboxHorizon_ && tab_ == Tab::GamePass && !nimboxReducedMotion_ &&
         screen_ == Screen::Details && !detail_.purchasable &&
         !gameSettingsOpen_ && !achievementsOpen_ &&
         nowMs - lastRender_ >= 42) return true;
@@ -1134,6 +1135,10 @@ void AppUi::drawNimboxCarousel(Canvas& c, uint64_t nowMs) {
     fonts_.semibold.draw(c, nimboxReducedMotion_ ? "R2  MOVIMENTO REDUZIDO" :
                          "R2  ANIMACOES SUAVES", 1447, 174, 20, rgba(202, 237, 239));
     fonts_.regular.draw(c, "TOQUE PARA ALTERNAR", 1447, 200, 14, rgba(143, 190, 202));
+    c.fillRect(horizon::kModeSwitch, rgba(9, 33, 49, 204), 14);
+    c.strokeRect(horizon::kModeSwitch, rgba(160, 220, 230, 86), 1, 14);
+    fonts_.semibold.draw(c, "VER NIMBOX HORIZON", horizon::kModeSwitch.x + 20,
+                         horizon::kModeSwitch.y + 15, 20, rgba(229, 246, 250));
 
     auto drawCase = [&](int offset) {
         const int index = nimbox::indexForOffset(selected, count, offset);
@@ -1353,10 +1358,117 @@ void AppUi::drawNimboxCarousel(Canvas& c, uint64_t nowMs) {
     drawToast(c, nowMs);
 }
 
+// Nimbox Horizon — console-first view. Reuses the existing catalog and image cache.
+void AppUi::drawNimboxHorizon(Canvas& c, uint64_t nowMs) {
+    const auto& env = nimbox_theme::palette(settings_.nimboxTheme);
+    const Color deep = rgba(7, 17, 29);
+    const Color soft = rgba(205, 229, 236);
+    c.clear(deep);
+    const GameTile* focus = focusedTile();
+    std::string hero = focus ? focus->heroUrl : std::string();
+    if (hero.empty() && focus && !focus->productId.empty()) {
+        auto it = detailInfo_.find(focus->productId);
+        if (it != detailInfo_.end()) hero = it->second.heroUrl;
+    }
+    const bool wideArt = !hero.empty() && drawHero(c, nowMs, hero, true);
+    if (!wideArt) {
+        c.gradientV({0, 122, kW, 830}, env.sky, deep);
+        if (focus && !focus->tileUrl.empty()) {
+            if (auto pic = images_.get(focus->tileUrl, 480, 480))
+                c.drawImage(*pic, 1332, 175, 84, 20);
+        }
+    }
+    // Software-friendly fades rather than expensive blur or a new GPU pipeline.
+    c.gradientH({0, 124, 1130, 480}, rgba(6, 16, 30, 180), rgba(6, 16, 30, 0));
+    c.gradientV({0, 475, kW, 520}, rgba(8, 20, 34, 15), rgba(7, 17, 29, 243));
+    drawTopBar(c);
+    drawTabs(c);
+    fonts_.semibold.draw(c, "NIMBOX  /  HORIZON", 104, 197, 19, env.accent);
+    c.fillRect(horizon::kModeSwitch, rgba(9, 28, 43, 177), 14);
+    c.strokeRect(horizon::kModeSwitch, rgba(151, 209, 222, 88), 1, 14);
+    fonts_.semibold.draw(c, "VER COLECAO VIVA  3D", horizon::kModeSwitch.x + 18,
+                         horizon::kModeSwitch.y + 15, 19, rgba(224, 244, 247));
+    if (!focus || rows_.empty()) {
+        fonts_.semibold.draw(c, tr(Str::NoGames), 104, 354, 36, kWhite);
+        drawHints(c, {{kIconR3, "Colecao Viva"}, {kIconOptions, tr(Str::Settings)}});
+        drawPads(c);
+        drawToast(c, nowMs);
+        return;
+    }
+    const int rowIndex = std::clamp(focusRow_, 0, int(rows_.size()) - 1);
+    const GameRow& row = rows_[size_t(rowIndex)];
+    const int count = int(row.tiles.size());
+    if (count <= 0) {
+        drawHints(c, {{kIconR3, "Colecao Viva"}, {kIconOptions, tr(Str::Settings)}});
+        drawPads(c);
+        drawToast(c, nowMs);
+        return;
+    }
+    const int selected = std::clamp(focusCol_[size_t(rowIndex)], 0, count - 1);
+    fonts_.bold.draw(c, fonts_.bold.fit(focus->name, 57, 1070), 104, 315, 57, kWhite);
+    std::string meta = focus->publisher;
+    if (!focus->categories.empty()) {
+        if (!meta.empty()) meta += "  -  ";
+        meta += focus->categories.front();
+    }
+    if (!meta.empty())
+        fonts_.regular.draw(c, fonts_.regular.fit(meta, 22, 920), 108, 391, 22, soft);
+    const bool canPlay = isEffectivePlayableLocked(*focus);
+    const Color white = rgba(236, 249, 251);
+    c.fillRect(horizon::kPlayButton, white, 16);
+    fonts_.semibold.draw(c, canPlay ? "R2  JOGAR" : "VER JOGO",
+                         horizon::kPlayButton.x + 23, horizon::kPlayButton.y + 18,
+                         26, rgba(12, 38, 49));
+    c.fillRect(horizon::kDetailsButton, rgba(12, 28, 43, 170), 16);
+    c.strokeRect(horizon::kDetailsButton, rgba(189, 230, 237, 127), 1, 16);
+    fonts_.semibold.draw(c, "DETALHES", horizon::kDetailsButton.x + 37,
+                         horizon::kDetailsButton.y + 18, 26, white);
+    const std::string collection = row.title.empty() ? "GAME PASS" : row.title;
+    fonts_.semibold.draw(c, fonts_.semibold.fit(collection, 25, 1200),
+                         104, 581, 25, soft);
+    const std::string section = std::to_string(rowIndex + 1) + " / " +
+                                std::to_string(rows_.size());
+    fonts_.regular.draw(c, section, 1814 - fonts_.regular.measure(section, 19),
+                        586, 19, soft);
+    const auto order = nimbox::caseDrawOrder(selected, count, nimboxSlide_.value / 1000.0f);
+    for (int offset : order) {
+        const int index = nimbox::indexForOffset(selected, count, offset);
+        if (index < 0) continue;
+        const GameTile& tile = row.tiles[size_t(index)];
+        const Rect card = horizon::tileRect(float(offset) + nimboxSlide_.value / 1000.0f);
+        const bool center = offset == 0;
+        c.fillRect({card.x-4, card.y+10, card.w+8, card.h+3},
+                   rgba(0, 0, 0, center ? 120 : 65), 14);
+        c.fillRect(card, rgba(25, 51, 63), 14);
+        if (!tile.tileUrl.empty()) {
+            if (auto art = images_.get(tile.tileUrl, card.w, card.h))
+                c.drawImage(*art, card.x, card.y, center ? 255 : 214, 14);
+        }
+        if (center)
+            c.strokeRect({card.x-4, card.y-4, card.w+8, card.h+8},
+                         rgba(226, 248, 251), 3, 18);
+        else
+            c.fillRect(card, rgba(5, 16, 26, 30), 14);
+    }
+    const std::string position = std::to_string(selected+1) + " / " + std::to_string(count);
+    fonts_.regular.draw(c, position, (kW-fonts_.regular.measure(position, 19))/2,
+                        897, 19, rgba(173, 206, 215));
+    fonts_.regular.draw(c, "ESQUERDA / DIREITA  -  JOGOS", 104, 943, 19, soft);
+    const char* directions = "CIMA / BAIXO  -  COLECOES";
+    fonts_.regular.draw(c, directions, 1816 - fonts_.regular.measure(directions, 19),
+                        943, 19, soft);
+    preview31::footerBackdrop(c);
+    drawHints(c, {{kIconCross, "Detalhes"}, {kIconR3, "Colecao Viva"},
+                  {kIconTriangle, tr(Str::TabSearch)}, {kIconOptions, tr(Str::Settings)}});
+    drawPads(c);
+    drawToast(c, nowMs);
+}
+
 void AppUi::drawHome(Canvas& c, uint64_t nowMs) {
     if (searching_) return drawSearch(c, nowMs);
     if (tab_ == Tab::Library) return drawLibrary(c, nowMs);
     if (tab_ == Tab::Consoles) return drawConsoles(c, nowMs);
+    if (nimboxCarousel_ && nimboxHorizon_) return drawNimboxHorizon(c, nowMs);
     if (nimboxCarousel_) return drawNimboxCarousel(c, nowMs);
     const GameTile* focus = focusedTile();
     c.clear(kBg);
@@ -1588,7 +1700,7 @@ void AppUi::drawDetails(Canvas& c, uint64_t nowMs) {
     if (!drawHero(c, nowMs, g->heroUrl, true)) {
         // No hero art (yet): the cover, until the art arrives and fades in.
         drawBackground(c);
-        if (!(nimboxCarousel_ && tab_ == Tab::GamePass && !g->purchasable) &&
+        if (!(nimboxCarousel_ && !nimboxHorizon_ && tab_ == Tab::GamePass && !g->purchasable) &&
             (g->playable || !g->purchasable || isFreeGame(*g))) {  // paid games show their QR code instead
             if (auto img = images_.get(g->tileUrl, kCover, kCover)) c.drawImage(*img, cover.x, cover.y, 255, 16);
             else c.fillRect(cover, kPlaceholder, 16);
@@ -1598,7 +1710,7 @@ void AppUi::drawDetails(Canvas& c, uint64_t nowMs) {
     // Preview 3.0 detail page: cinematic art in the background and a
     // readable smoked-glass text column opposite the unveiled game disc.
     // All Play, achievements, queue and gamedata controls remain unchanged.
-    if (nimboxCarousel_ && tab_ == Tab::GamePass && !g->purchasable) {
+    if (nimboxCarousel_ && !nimboxHorizon_ && tab_ == Tab::GamePass && !g->purchasable) {
         c.fillRect({76, 182, 1080, 766}, rgba(3, 17, 30, 107), 20);
         c.strokeRect({76, 182, 1080, 766}, rgba(143, 225, 243, 43), 1, 20);
         c.gradientH({76, 182, 1040, 766}, rgba(5, 18, 29, 87),
@@ -1607,7 +1719,7 @@ void AppUi::drawDetails(Canvas& c, uint64_t nowMs) {
     // The complete original title, descriptions, availability and Play
     // handling below remain intact. Render the opened disc only in the
     // unused right-hand visual area.
-    if (nimboxCarousel_ && tab_ == Tab::GamePass && !g->purchasable) {
+    if (nimboxCarousel_ && !nimboxHorizon_ && tab_ == Tab::GamePass && !g->purchasable) {
         fonts_.semibold.draw(c, "NIMBOX  /  COLECAO VIVA", kMargin, 201, 20,
                              rgba(171, 199, 207));
         // The media is revealed only after opening a case from the Home
@@ -1811,7 +1923,7 @@ void AppUi::drawDetails(Canvas& c, uint64_t nowMs) {
     // Play button
     Rect play{kMargin, std::max(y + 48, 620), 300, 76};
     playRect_ = play;
-    const bool livingCollection = nimboxCarousel_ && tab_ == Tab::GamePass;
+    const bool livingCollection = nimboxCarousel_ && !nimboxHorizon_ && tab_ == Tab::GamePass;
     const Color playAccent = livingCollection ? rgba(44, 155, 75) : kGreen;
     if (playFocused) {
         c.strokeRect({play.x - 7, play.y - 7, play.w + 14, play.h + 14},
@@ -2376,7 +2488,7 @@ void AppUi::render(Canvas& c, uint64_t nowMs) {
             drawDetails(c, nowMs);
             // Dim the contents during entering/leaving the case display.
             // The top bar and Play UI retain their original hit targets.
-            if (nimboxCarousel_ && tab_ == Tab::GamePass && !nimboxReducedMotion_ &&
+            if (nimboxCarousel_ && !nimboxHorizon_ && tab_ == Tab::GamePass && !nimboxReducedMotion_ &&
                 nimboxDetailIntro_.value < 999.5f) {
                 const float fade = std::clamp(1.0f - nimboxDetailIntro_.value / 1000.0f, 0.0f, 1.0f);
                 c.fillRect({0, 138, kW, kH - 138},
