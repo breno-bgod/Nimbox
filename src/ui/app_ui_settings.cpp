@@ -1291,7 +1291,8 @@ void AppUi::drawSettings(Canvas& c) {
 
     // Editorial page header; the back and Settings targets remain intact.
     fonts_.bold.draw(c, tr(Str::Settings), kMargin + 72, 127, 44, kWhite);
-    fonts_.semibold.draw(c, "NIMBOX  /  CONSOLE EXPERIENCE", 1306, 136, 16,
+    // NimboPlay wordmark remains visible through the shared native top bar.
+    fonts_.semibold.draw(c, "CONSOLE EXPERIENCE", 1306, 136, 16,
                          rgba(142, 197, 214));
     fonts_.bold.draw(c, "SEU ESPACO, SUAS REGRAS", 112, 203, 19, rgba(233, 247, 249));
     fonts_.regular.draw(c, "Ajustes do sistema e experiencias personalizadas", 112, 229,
@@ -1313,7 +1314,7 @@ void AppUi::drawSettings(Canvas& c) {
 #endif
                                         tr(Str::ResetSettings), tr(Str::SyncTrophies),  tr(Str::RemoveTrophies),
                                         tr(Str::FpsLimit), tr(Str::StoreCountry),
-                                        "Ambiente Nimbox", "Reflexo do piso", "Movimento reduzido",
+                                        "Ambiente visual", "Reflexo do piso", "Movimento reduzido",
                                         "Upscaler de imagem", "Suavizacao (Deband)",
                                         "Nitidez CAS", "Saida do chat de voz"};
     constexpr int kRowW = kSettingsRowW, kRowH = kSettingsRowH, kGap = kSettingsGap, kGroupGap = kSettingsGroupGap, kRowPx = kSettingsRowPx;
@@ -1344,7 +1345,7 @@ void AppUi::drawSettings(Canvas& c) {
             const char* group = i == 1 ? "TRANSMISSAO E IMAGEM" :
                                 i == 14 ? "CONTROLES E ACESSIBILIDADE" :
                                 i == 19 ? "MANUTENCAO" :
-                                i == nimbox_theme::kAppearanceFirst ? "APARENCIA NIMBOX" : "PREFERENCIAS";
+                                i == nimbox_theme::kAppearanceFirst ? "APARÊNCIA" : "PREFERENCIAS";
             c.fillRect({kMargin + 5, y + 7, 4, 18}, cyan, 2);
             fonts_.bold.draw(c, group, kMargin + 21, y + 7, 17, rgba(159, 212, 228));
             c.line(kMargin + 360.0f, y + 16.0f, kMargin + kRowW - 18.0f,
@@ -1536,7 +1537,7 @@ void AppUi::drawSettings(Canvas& c) {
     // Preserve the existing remote Web UI QR underneath — do not replace it
     // with demonstration features from the HTML prototype.
     if (tester_ == Tester::None && !pickerOpen_) {
-        fonts_.bold.draw(c, "Ambiente Nimbox", 1328, 204, 30, kWhite);
+        fonts_.bold.draw(c, "Ambiente visual", 1328, 204, 30, kWhite);
         fonts_.regular.draw(c, "Escolha a atmosfera da sua colecao", 1328, 245,
                             17, rgba(152, 189, 201));
         c.fillRect({1310, 272, 524, 225}, rgba(4, 17, 31, 150), 16);
