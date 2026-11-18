@@ -1047,11 +1047,6 @@ void AppUi::openDetails(const GameTile& tile) {
     playRect_ = {};
     achRect_ = {};
     claimRect_ = {};
-    // Original Play and metadata stay unchanged; only the decorative media moves.
-    const bool nimboxDetails = nimboxCarousel_ && tab_ == Tab::GamePass;
-    nimboxReturningHome_ = false;
-    nimboxDetailIntro_.value = nimboxDetails && !nimboxReducedMotion_ ? 0.0f : 1000.0f;
-    nimboxDetailIntro_.target = 1000.0f;
     screen_ = Screen::Details;
     refreshDetail();
     dirty_ = true;

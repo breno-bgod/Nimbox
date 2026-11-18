@@ -37,6 +37,7 @@
 #include "ui/app_ui.h"
 #include "ui/nimbox_pose_core.h"
 #include "ui/box_carousel.h"
+#include "ui/nimbox_horizon_layout.h"
 #include "ui/preview_visual_layout.h"
 #include "ui/nimbox_visual_theme.h"
 #include "ui/collection_case_finish.h"
@@ -1053,11 +1054,7 @@ static void testFreeAccountPlayability() {
     row.tiles = {paidTile, f2pTile};
     app.setRows({row});
     app.showHome();
-    // This test verifies the legacy grid's game selection and Play pathway.
-    // Nimbox is the new default view; explicitly switch to classic via R3.
-    ui::NavInput classicUi;
-    classicUi.r3 = true;
-    app.handle(classicUi);
+    // Horizon is the only Game Pass collection; verify paid/free play flow.
 
     // Paid game on free account: cannot launch
     ui::NavInput in;
@@ -1256,6 +1253,25 @@ static void testNimboxXboxCaseFinish() {
     finish::drawXboxOrb(frame, banner.x, banner.y, 13.0f);
 }
 
+static void testNimboxHorizonGeometry() {
+    using namespace xc::ui;
+    const Rect middle = horizon::tileRect(0.0f);
+    const Rect left = horizon::tileRect(-1.0f);
+    const Rect right = horizon::tileRect(1.0f);
+    CHECK(middle.w > left.w && middle.h > right.h);
+    CHECK(left.x + left.w < middle.x);
+    CHECK(middle.x + middle.w < right.x);
+    CHECK(horizon::contains(middle, middle.x+10, middle.y+10));
+    CHECK(!horizon::contains(middle, 0, 0));
+    CHECK(horizon::contains(horizon::kPlayButton,
+                            horizon::kPlayButton.x + 10, horizon::kPlayButton.y + 10));
+    CHECK(horizon::indexForOffset(0, 3, -1) == 2);
+    CHECK(horizon::indexForOffset(0, 3, 1) == 1);
+    CHECK(horizon::indexForOffset(0, 3, 2) == -1);
+    const auto order = horizon::drawOrder(0, 3, 0.0f);
+    CHECK(order.size() == 3 && order.back() == 0);
+}
+
 static void testNimboxDefaultCarouselNavigation() {
     ui::Fonts fonts;
     ui::ImageCache images([] {});
@@ -1272,9 +1288,12 @@ static void testNimboxDefaultCarouselNavigation() {
     }
     app.setRows({row});
     app.showHome();
+    ui::NavInput removedModeShortcut;
+    removedModeShortcut.r3 = true;
+    app.handle(removedModeShortcut);
 
-    // Nimbox is the default cloud home: left from the first game wraps to
-    // the last physical case. Classic mode would clamp at the first tile.
+    // Horizon is the only cloud home: left from the first cover wraps
+    // to the last; R3 must not resurrect a removed visualization.
     ui::NavInput left;
     left.left = true;
     app.handle(left);
@@ -1477,7 +1496,7 @@ static void testStreamMenu() {
     CHECK(!menu.isOpen());
     menu.open(1, true);
     CHECK(press([](xc::ui::NavInput& n) { n.back = true; }) == MenuAction::Close);
-    // Best (Auto) offered as resolution 2; cycling is 720p (1) -> 1080p (0) -> Best (2).
+    // Four options: Best (2) -> 720p (1) -> 1080p (0) -> QHD (3) -> Best (2).
     menu.open(2, false, 0, 1, 0, false, false);
     CHECK(menu.resolution() == 2);
     for (int i = 0; i < 5; ++i) press([](xc::ui::NavInput& n) { n.down = true; });  // to the resolution (Xbox -> Stats -> Upscaler -> Sharpness -> Deband -> Resolution)
@@ -1486,7 +1505,9 @@ static void testStreamMenu() {
     press([](xc::ui::NavInput& n) { n.right = true; });
     CHECK(menu.resolution() == 0);  // 720p -> 1080p
     press([](xc::ui::NavInput& n) { n.right = true; });
-    CHECK(menu.resolution() == 2);  // 1080p -> Best (2)
+    CHECK(menu.resolution() == 3);  // 1080p -> explicit 1440p QHD
+    press([](xc::ui::NavInput& n) { n.right = true; });
+    CHECK(menu.resolution() == 2);  // 1440p QHD -> Best (Auto)
 
     // Test stats indicator customization
     menu.open(0, true);
@@ -7422,11 +7443,7 @@ static void testDesktopMouseNav() {
     row.tiles.push_back(tile2);
     uiApp.setRows({row});
     uiApp.showHome();
-    // The coordinates below are those of the classic rectangular tile grid.
-    // Select classic mode explicitly; Nimbox has different case hitboxes.
-    ui::NavInput classicUi;
-    classicUi.r3 = true;
-    uiApp.handle(classicUi);
+    // Desktop mouse navigation uses Horizon's real shared card geometry.
 
     // 1. Mouse cursor state, initial position, and clamping
     CHECK(uiApp.mouseCursorX() == 960.0f);
@@ -7457,14 +7474,14 @@ static void testDesktopMouseNav() {
 
     // 3. Hovering over a card updates focus
     {
-        // First card is at kMargin (96) + 0, cardY = kRowTop (470) + 48 = 518
-        auto ev = uiApp.onMouseMove(120.0f, 550.0f);
+        // Centered Horizon cover at (960, 731).
+        auto ev = uiApp.onMouseMove(960.0f, 731.0f);
         CHECK(ev.action == ui::Action::None);
     }
 
     // 4. Clicking a card opens details
     {
-        auto ev = uiApp.onMouseDown(120.0f, 550.0f, 1);
+        auto ev = uiApp.onMouseDown(960.0f, 731.0f, 1);
         CHECK(ev.action == ui::Action::None);
         // AppUi should now be showing details
         CHECK(uiApp.detailWanted(100) == "GAME_001");
@@ -8752,11 +8769,7 @@ static void testBlock1Corrections() {
         friendsRow.tiles = {friendTile};
         app.setRows({friendsRow});
         app.showHome();
-        // This test assumes immediate classic-mode back navigation.
-        // The new Nimbox shelf intentionally animates its return via render ticks.
-        ui::NavInput classicUi;
-        classicUi.r3 = true;
-        app.handle(classicUi);
+        // Horizon's details return immediately, preserving hero metadata.
 
         // 3a. On Home screen with tile focused, heroWanted requests the missing heroUrl
         CHECK(app.heroWanted(100) == "PROD_FRIEND_01");
@@ -11861,6 +11874,7 @@ int main() {
     testNimboxPreview3PageStructure();
     testNimboxAppearanceStudio();
     testNimboxXboxCaseFinish();
+    testNimboxHorizonGeometry();
     testNimboxDefaultCarouselNavigation();
     testDetailsHydrationAndPlaytimeBadge();
     testMilestone5TransmissionQualityAndStreamReload();

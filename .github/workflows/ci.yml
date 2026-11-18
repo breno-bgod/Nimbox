@@ -167,9 +167,14 @@ jobs:
 
       - name: Tools and Wine
         run: |
-          sudo dpkg --add-architecture i386
-          sudo apt-get update -q
-          sudo apt-get install -y -q cmake ninja-build wine64 wine nasm
+          # We only test a 64-bit Windows EXE. Enabling i386 multiplies package
+          # indices/downloads and can stall on rate-limited Ubuntu mirrors.
+          # Avoid pulling 32-bit recommended packages for this 64-bit job.
+          sudo apt-get -o Acquire::Retries=3 update -q
+          sudo DEBIAN_FRONTEND=noninteractive apt-get \
+            -o Acquire::Retries=3 install -y -q --no-install-recommends \
+            cmake ninja-build wine64 wine nasm
+          wine --version
 
       - name: Toolchain cache (llvm-mingw)
         id: toolchain-cache

@@ -3,7 +3,7 @@
 #include <cstddef>
 #include "ui/app_ui_internal.h"
 #include "app/shell.h"
-#include "ui/box_carousel.h"
+#include "ui/nimbox_horizon_layout.h"
 
 namespace xc::ui {
 
@@ -38,18 +38,16 @@ void AppUi::handleHome(const NavInput& in, UiEvent& ev) {
         if (tab_ == Tab::Consoles) ev.action = Action::ConsolesShown;
         return;
     }
-    if (in.r3 && !searching_ && tab_ == Tab::GamePass) {
-        nimboxCarousel_ = !nimboxCarousel_;
-        dirty_ = true;
-        return;
-    }
-    if (nimboxCarousel_ && tab_ == Tab::GamePass && !searching_ && in.r2) {
-        nimboxReducedMotion_ = !nimboxReducedMotion_;
-        settings_.nimboxReducedMotion = nimboxReducedMotion_;
-        if (nimboxReducedMotion_) nimboxSlide_.value = nimboxSlide_.target = 0.0f;
-        dirty_ = true;
-        ev.action = Action::SettingsChanged;
-        ev.settings = settings_;
+    if (tab_ == Tab::GamePass && !searching_ && in.r2) {
+        // Same eligibility as the Play button in Details.
+        if (const GameTile* tile = focusedTile()) {
+            if (isEffectivePlayableLocked(*tile)) {
+                ev.action = Action::Play;
+                ev.game = *tile;
+            } else {
+                openDetails(*tile);
+            }
+        }
         return;
     }
     if (in.l3 && !searching_) {
@@ -136,9 +134,8 @@ void AppUi::handleHome(const NavInput& in, UiEvent& ev) {
             int& col = focusCol_[static_cast<size_t>(focusRow_)];
             int count = static_cast<int>(curRow.tiles.size());
 
-            // A physical shelf wraps so the selected cover always has cases
-            // to both sides. Keep existing details, hidden-games and play flows.
-            if (nimboxCarousel_ && count > 0 && (in.left || in.right)) {
+            // Horizon wraps cover navigation while preserving existing game actions.
+            if (count > 0 && (in.left || in.right)) {
                 col = (col + (in.right ? 1 : -1) + count) % count;
                 nimboxSlide_.value = nimboxReducedMotion_ ? 0.0f : (in.right ? 1000.0f : -1000.0f);
                 nimboxSlide_.target = 0.0f;
@@ -289,56 +286,9 @@ UiEvent AppUi::onMouseMove(float x, float y) {
         return ev;
     }
     if (screen_ == Screen::Home && !searching_ && !reportOpen_ && !updatePrompt_ && !quitPrompt_) {
-        // Ignore obsolete classic-grid hover regions while the carousel is visible.
-        if (nimboxCarousel_ && tab_ == Tab::GamePass) return ev;
-        if (tab_ == Tab::GamePass && y >= 140 && y < kH - 80) {
-            constexpr int kGridW = kLibraryCols * kCardPitch - kCardGap;
-            const int gridLeft = (kW - kGridW) / 2;
-            int afterGridOffset = 0;
-            for (size_t r = 0; r < rows_.size(); ++r) {
-                float rel = static_cast<float>(r) - rowY_.value;
-                int rowBaseY = kRowTop + static_cast<int>(std::lround(rel * kRowPitch)) + afterGridOffset;
-                const GameRow& row = rows_[r];
-                if (row.isGrid) {
-                    int offset = static_cast<int>(std::lround(rowScroll_[r].value));
-                    int cardY = rowBaseY - offset + 48;
-                    for (size_t i = 0; i < row.tiles.size(); ++i) {
-                        int c_col = static_cast<int>(i) % kLibraryCols;
-                        int c_row = static_cast<int>(i) / kLibraryCols;
-                        int cy = cardY + c_row * kGridPitchY;
-                        int cx = gridLeft + c_col * kCardPitch;
-                        if (x >= cx && x < cx + kCard && y >= cy && y < cy + kCard) {
-                            if (focusRow_ != static_cast<int>(r) || focusCol_[r] != static_cast<int>(i)) {
-                                focusRow_ = static_cast<int>(r);
-                                focusCol_[r] = static_cast<int>(i);
-                                retarget();
-                                dirty_ = true;
-                            }
-                            return ev;
-                        }
-                    }
-                    int gridHeight = 48 + ((static_cast<int>(row.tiles.size()) + kLibraryCols - 1) / kLibraryCols) * kGridPitchY;
-                    afterGridOffset += gridHeight - offset - kRowPitch;
-                } else {
-                    int cardY = rowBaseY + 48;
-                    int scroll = static_cast<int>(std::lround(rowScroll_[r].value));
-                    int firstCol = std::max(0, scroll / kCardPitch - 1);
-                    for (size_t col = static_cast<size_t>(firstCol); col < row.tiles.size(); ++col) {
-                        int cx = kMargin + static_cast<int>(col) * kCardPitch - scroll;
-                        if (cx > kW) break;
-                        if (x >= cx && x < cx + kCard && y >= cardY && y < cardY + kCard) {
-                            if (focusRow_ != static_cast<int>(r) || focusCol_[r] != static_cast<int>(col)) {
-                                focusRow_ = static_cast<int>(r);
-                                focusCol_[r] = static_cast<int>(col);
-                                retarget();
-                                dirty_ = true;
-                            }
-                            return ev;
-                        }
-                    }
-                }
-            }
-        } else if (tab_ == Tab::Library && y >= 150 && y < kH - 80) {
+        // Horizon uses explicit clickable covers, not the classic grid hover.
+        if (tab_ == Tab::GamePass) return ev;
+        if (tab_ == Tab::Library && y >= 150 && y < kH - 80) {
             constexpr int kGridW = kLibraryCols * kCardPitch - kCardGap;
             const int left = (kW - kGridW) / 2;
             const LibraryLayout& L = libraryLayout();
@@ -517,17 +467,10 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
             return ev;
         }
         if (screen_ == Screen::Details) {
-            if (!nimboxReturningHome_) {
-                syncHeroToRowsLocked(detail_.productId, detail_.titleId, detail_.heroUrl,
-                                     detail_.description, detail_.publisher, detail_.categories);
-                if (nimboxCarousel_ && tab_ == Tab::GamePass && !nimboxReducedMotion_) {
-                    nimboxReturningHome_ = true;
-                    nimboxDetailIntro_.target = 0.0f;
-                } else {
-                    screen_ = Screen::Home;
-                }
-                dirty_ = true;
-            }
+            syncHeroToRowsLocked(detail_.productId, detail_.titleId, detail_.heroUrl,
+                                 detail_.description, detail_.publisher, detail_.categories);
+            screen_ = Screen::Home;
+            dirty_ = true;
             return ev;
         }
         return ev;
@@ -860,107 +803,52 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
     }
 
     if (screen_ == Screen::Home && !searching_) {
-        if (nimboxCarousel_ && tab_ == Tab::GamePass) {
-            // Accessible touch alternative to the R2 reduced-motion shortcut.
-            if (x >= 1430 && x < 1810 && y >= 143 && y < 233) {
-                nimboxReducedMotion_ = !nimboxReducedMotion_;
-                settings_.nimboxReducedMotion = nimboxReducedMotion_;
-                if (nimboxReducedMotion_) nimboxSlide_.value = nimboxSlide_.target = 0.0f;
-                dirty_ = true;
-                ev.action = Action::SettingsChanged;
-                ev.settings = settings_;
-                return ev;
-            }
-            // Rendered CTA is also clickable/tappable; gamepad Select already
-            // follows the same existing openDetails path.
-            if (x >= kCollectionDetailsCta.x &&
-                x < kCollectionDetailsCta.x + kCollectionDetailsCta.w &&
-                y >= kCollectionDetailsCta.y &&
-                y < kCollectionDetailsCta.y + kCollectionDetailsCta.h) {
-                if (!rows_.empty()) {
-                    const int rowIndex = std::clamp(focusRow_, 0, static_cast<int>(rows_.size()) - 1);
-                    const auto& tiles = rows_[static_cast<size_t>(rowIndex)].tiles;
-                    if (!tiles.empty()) {
-                        const int selected = std::clamp(focusCol_[static_cast<size_t>(rowIndex)],
-                                                        0, static_cast<int>(tiles.size()) - 1);
-                        openDetails(tiles[static_cast<size_t>(selected)]);
+        if (tab_ == Tab::GamePass) {
+            if (const GameTile* tile = focusedTile()) {
+                if (horizon::contains(horizon::kPlayButton, x, y)) {
+                    if (isEffectivePlayableLocked(*tile)) {
+                        ev.action = Action::Play;
+                        ev.game = *tile;
+                    } else {
+                        openDetails(*tile);
                     }
+                    return ev;
                 }
-                return ev;
+                if (horizon::contains(horizon::kDetailsButton, x, y)) {
+                    openDetails(*tile);
+                    return ev;
+                }
             }
             if (!rows_.empty()) {
-                const int rowIndex = std::clamp(focusRow_, 0, static_cast<int>(rows_.size()) - 1);
-                const auto& tiles = rows_[static_cast<size_t>(rowIndex)].tiles;
-                const int count = static_cast<int>(tiles.size());
-                if (count > 0) {
-                    const int selected = std::clamp(focusCol_[static_cast<size_t>(rowIndex)], 0, count - 1);
-                    // The physical arc overlaps. Touch goes from the last
-                    // painted case to the first, including mid-transition.
-                    const auto order = nimbox::caseDrawOrder(
-                        selected, count, nimboxSlide_.value / 1000.0f);
-                    for (auto it = order.rbegin(); it != order.rend(); ++it) {
-                        const int offset = *it;
-                        const int index = nimbox::indexForOffset(selected, count, offset);
-                        if (index < 0) continue;
-                        if (!nimbox::hit(nimbox::layoutAnimated(static_cast<float>(offset) +
-                            nimboxSlide_.value / 1000.0f), x, y)) continue;
-                        if (offset == 0) openDetails(tiles[static_cast<size_t>(index)]);
-                        else {
-                            focusCol_[static_cast<size_t>(rowIndex)] = index;
-                            nimboxSlide_.value = nimboxReducedMotion_ ? 0.0f : static_cast<float>(offset) * 1000.0f;
-                            nimboxSlide_.target = 0.0f;
-                            retarget();
-                            dirty_ = true;
-                        }
-                        return ev;
+                const int rowIndex = std::clamp(focusRow_, 0, int(rows_.size()) - 1);
+                const auto& tiles = rows_[size_t(rowIndex)].tiles;
+                const int count = int(tiles.size());
+                const int selected = count ? std::clamp(focusCol_[size_t(rowIndex)],
+                                                       0, count - 1) : 0;
+                const auto order = horizon::drawOrder(selected, count,
+                                                         nimboxSlide_.value / 1000.0f);
+                for (auto it = order.rbegin(); it != order.rend(); ++it) {
+                    const int offset = *it;
+                    const int index = horizon::indexForOffset(selected, count, offset);
+                    if (index < 0 || !horizon::contains(horizon::tileRect(
+                            float(offset) + nimboxSlide_.value / 1000.0f), x, y))
+                        continue;
+                    if (offset == 0) {
+                        openDetails(tiles[size_t(index)]);
+                    } else {
+                        focusCol_[size_t(rowIndex)] = index;
+                        nimboxSlide_.value = nimboxReducedMotion_ ? 0.0f :
+                                             float(offset) * 1000.0f;
+                        nimboxSlide_.target = 0.0f;
+                        retarget();
+                        dirty_ = true;
                     }
+                    return ev;
                 }
             }
-            // Never accidentally hit invisible classic-grid cards.
-            return ev;
+            return ev; // Never tap a hidden classic control.
         }
-        if (tab_ == Tab::GamePass && y >= 140 && y < kH - 80) {
-            constexpr int kGridW = kLibraryCols * kCardPitch - kCardGap;
-            const int gridLeft = (kW - kGridW) / 2;
-            int afterGridOffset = 0;
-            for (size_t r = 0; r < rows_.size(); ++r) {
-                float rel = static_cast<float>(r) - rowY_.value;
-                int rowBaseY = kRowTop + static_cast<int>(std::lround(rel * kRowPitch)) + afterGridOffset;
-                const GameRow& row = rows_[r];
-                if (row.isGrid) {
-                    int offset = static_cast<int>(std::lround(rowScroll_[r].value));
-                    int cardY = rowBaseY - offset + 48;
-                    for (size_t i = 0; i < row.tiles.size(); ++i) {
-                        int c_col = static_cast<int>(i) % kLibraryCols;
-                        int c_row = static_cast<int>(i) / kLibraryCols;
-                        int cy = cardY + c_row * kGridPitchY;
-                        int cx = gridLeft + c_col * kCardPitch;
-                        if (x >= cx && x < cx + kCard && y >= cy && y < cy + kCard) {
-                            focusRow_ = static_cast<int>(r);
-                            focusCol_[r] = static_cast<int>(i);
-                            openDetails(row.tiles[i]);
-                            return ev;
-                        }
-                    }
-                    int gridHeight = 48 + ((static_cast<int>(row.tiles.size()) + kLibraryCols - 1) / kLibraryCols) * kGridPitchY;
-                    afterGridOffset += gridHeight - offset - kRowPitch;
-                } else {
-                    int cardY = rowBaseY + 48;
-                    int scroll = static_cast<int>(std::lround(rowScroll_[r].value));
-                    int firstCol = std::max(0, scroll / kCardPitch - 1);
-                    for (size_t col = static_cast<size_t>(firstCol); col < row.tiles.size(); ++col) {
-                        int cx = kMargin + static_cast<int>(col) * kCardPitch - scroll;
-                        if (cx > kW) break;
-                        if (x >= cx && x < cx + kCard && y >= cardY && y < cardY + kCard) {
-                            focusRow_ = static_cast<int>(r);
-                            focusCol_[r] = static_cast<int>(col);
-                            openDetails(row.tiles[col]);
-                            return ev;
-                        }
-                    }
-                }
-            }
-        } else if (tab_ == Tab::Library) {
+        if (tab_ == Tab::Library) {
             if (y >= 150 && y < kH - 80) {
                 constexpr int kGridW = kLibraryCols * kCardPitch - kCardGap;
                 const int left = (kW - kGridW) / 2;
@@ -1004,7 +892,6 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
             }
         }
     } else if (screen_ == Screen::Details) {
-        if (nimboxReturningHome_) return ev;
         if (gameSettingsOpen_) {
             constexpr int kModalW = 1140, kModalH = 960;
             constexpr int kRowH = 38, kGap = 4, kGroupGap = 7;
@@ -1036,7 +923,6 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
         if (achievementsOpen_) {
             return ev;
         }
-        // Decorative rotating CD has no additional touch action.
         const GameTile* g = &detail_;
         if (g->productId.empty() && g->titleId.empty()) return ev;
         bool isF2P = isFreeGame(*g);
@@ -2000,7 +1886,6 @@ UiEvent AppUi::handleLocked(const NavInput& in) {
             }
             break;
         case Screen::Details:
-            if (nimboxReturningHome_) break;
             if (achievementsOpen_) {
                 if (in.up && achScroll_ > 0) {
                     achScroll_--;
@@ -2063,12 +1948,7 @@ UiEvent AppUi::handleLocked(const NavInput& in) {
             if (in.back) {
                 syncHeroToRowsLocked(detail_.productId, detail_.titleId, detail_.heroUrl,
                                      detail_.description, detail_.publisher, detail_.categories);
-                if (nimboxCarousel_ && tab_ == Tab::GamePass && !nimboxReducedMotion_) {
-                    nimboxReturningHome_ = true;
-                    nimboxDetailIntro_.target = 0.0f;
-                } else {
-                    screen_ = Screen::Home;
-                }
+                screen_ = Screen::Home;
                 dirty_ = true;
             }
             break;
