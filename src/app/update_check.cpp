@@ -49,7 +49,7 @@ bool findLatestRelease(Release& out, std::string& err, const std::string& feedUr
     // A renamed repository answers 301: v1.6.3 and older never followed it and
     // stopped finding releases after the rename to psbox-cloud-gaming (#409).
     req.followRedirects = true;
-    req.headers = {{"Accept", "application/vnd.github+json"}, {"User-Agent", "Nimbox-Cloud-Gaming"}};
+    req.headers = {{"Accept", "application/vnd.github+json"}, {"User-Agent", "NimboPlay-Cloud-Gaming"}};
     req.timeoutMs = 10000;
     auto r = net::perform(req);
     if (!r.ok()) {
