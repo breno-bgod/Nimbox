@@ -4,6 +4,7 @@
 #include "ui/canvas.h"
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <vector>
 namespace xc::ui::horizon {
 constexpr int kCenterX = 960, kPitch = 210, kSideItems = 4;
