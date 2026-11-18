@@ -593,4 +593,11 @@ constexpr Column kFrench = {
     "À PROPOS DU JEU",  // DetailsAbout
     "SESSION",  // DetailsSession
     "JAQUETTE DU JEU",  // DetailsArtwork
+    "GAME PASS / EXPLORER",  // HorizonExplore
+    "COLLECTION %s SUR %s",  // HorizonCollectionPosition
+    "JEU %s SUR %s",  // HorizonGamePosition
+    "FIN DE COLLECTION · AVANCEZ ENCORE POUR RECOMMENCER",  // HorizonEndHint
+    "DÉBUT DE COLLECTION · RECULEZ ENCORE POUR ALLER À LA FIN",  // HorizonStartHint
+    "GAUCHE / DROITE  -  JEUX",  // HorizonHorizontalHint
+    "HAUT / BAS  -  COLLECTIONS",  // HorizonVerticalHint
 };
