@@ -600,4 +600,10 @@ constexpr Column kGerman = {
     "ANFANG DER SAMMLUNG · NOCHMALS ZURÜCK ZUM ENDE",  // HorizonStartHint
     "LINKS / RECHTS  -  SPIELE",  // HorizonHorizontalHint
     "HOCH / RUNTER  -  SAMMLUNGEN",  // HorizonVerticalHint
+    "QR vergrößern",  // SettingsExpandQr
+    "Scannen, um NimboPlay Web Control zu öffnen",  // SettingsQrInstructions
+    "Web-Steuerung verbinden",  // SettingsQrConnect
+    "QR-Code in dieser Sitzung nicht verfügbar.",  // SettingsQrUnavailable
+    "R3 / TIPPEN  -  QR VERGRÖSSERN",  // SettingsQrPointerHint
+    "L2  Einstellungen",  // SettingsDetailsShortcut
 };
