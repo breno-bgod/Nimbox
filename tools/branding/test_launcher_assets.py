@@ -57,5 +57,27 @@ class BrandingTests(unittest.TestCase):
             (ROOT / "assets/branding/nimboplay_internal.png").read_bytes())
 
 
+    def test_distribution_download_names(self):
+        ci = (ROOT / ".github/workflows/ci.yml").read_text()
+        android = (ROOT / ".github/workflows/android.yml").read_text()
+        linux = (ROOT / "tools/desktop/package-appimage.sh").read_text()
+        windows = (ROOT / "tools/desktop/package-windows.sh").read_text()
+        release = (ROOT / "tools/release.sh").read_text()
+        self.assertIn("NimboPlay-Android-Alpha.apk", ci)
+        self.assertIn("NimboPlay-Android-Alpha.apk", android)
+        self.assertIn("NimboPlay-$version-linux-x86_64.AppImage", linux)
+        self.assertIn("name=NimboPlay-$version-windows-x86_64", windows)
+        self.assertIn("NimboPlay[PS5]-", release)
+        self.assertIn("NimboPlay[PS4]-", release)
+        self.assertNotIn("Nimbox-Android-Alpha.apk", ci)
+        self.assertNotIn("PSBox-$version", linux)
+        self.assertNotIn("PSBox-$version", windows)
+        self.assertIn("set(_pkg NimboPlay)", (ROOT / "cmake/desktop_package.cmake").read_text())
+        self.assertIn("set(_pkg NimboPlay)", (ROOT / "cmake/windows_package.cmake").read_text())
+        self.assertIn("NimboPlay.exe", (ROOT / "cmake/windows_package.cmake").read_text())
+        self.assertIn("NimboPlay", (ROOT / "cmake/desktop_package.cmake").read_text())
+
+
+
 if __name__ == "__main__":
     unittest.main()
