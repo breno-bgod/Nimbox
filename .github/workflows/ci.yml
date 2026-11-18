@@ -11,6 +11,11 @@ on:
     branches: [main]
   pull_request:
 
+# Keep the newest PR head only; preserve all main-branch workflows.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 permissions:
   contents: read
 
@@ -267,6 +272,7 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '17'
+          cache: gradle
 
       - name: Install Android NDK 27.2.12479018
         run: |
