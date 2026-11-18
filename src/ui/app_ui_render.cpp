@@ -1043,9 +1043,12 @@ void AppUi::drawConsoles(Canvas& c, uint64_t nowMs) {
 
 // Nimbox Horizon — console-first view. Reuses the existing catalog and image cache.
 void AppUi::drawNimboxHorizon(Canvas& c, uint64_t nowMs) {
+    // Premium PS5 presentation, entirely in the existing software Canvas.
+    // No HTML, GPU backend changes or streaming/input pipeline dependencies.
     const auto& env = nimbox_theme::palette(settings_.nimboxTheme);
-    const Color deep = rgba(7, 17, 29);
-    const Color soft = rgba(205, 229, 236);
+    const Color deep = rgba(6, 15, 29);
+    const Color soft = rgba(201, 220, 230);
+    const Color accent = env.accent;
     c.clear(deep);
     const GameTile* focus = focusedTile();
     std::string hero = focus ? focus->heroUrl : std::string();
@@ -1055,22 +1058,25 @@ void AppUi::drawNimboxHorizon(Canvas& c, uint64_t nowMs) {
     }
     const bool wideArt = !hero.empty() && drawHero(c, nowMs, hero, true, true);
     if (!wideArt) {
-        c.gradientV({0, 122, kW, 830}, env.sky, deep);
+        c.gradientV({0, 122, kW, 825}, env.sky, deep);
         if (focus && !focus->tileUrl.empty()) {
             if (auto pic = images_.get(focus->tileUrl, 480, 480))
-                c.drawImage(*pic, 1332, 175, 84, 20);
+                c.drawImage(*pic, 1340, 185, 86, 20);
         }
     }
-    // Software-friendly fades rather than expensive blur or a new GPU pipeline.
-    c.gradientH({0, 124, 1130, kH - 124}, rgba(6, 16, 30, 176), rgba(6, 16, 30, 0));
-    c.gradientV({0, 475, kW, kH - 475}, rgba(8, 20, 34, 8), rgba(7, 17, 29, 135));
+
+    // Contrast follows the artwork, not an opaque panel covering the hero.
+    c.gradientH({0, 125, 1150, 630}, rgba(4, 13, 27, 164), rgba(4, 13, 27, 0));
+    c.gradientV({0, 535, kW, kH - 535}, rgba(5, 15, 28, 0), rgba(3, 11, 23, 190));
     drawTopBar(c);
     drawTabs(c);
-    fonts_.semibold.draw(c, tr(Str::HorizonExplore), 104, 179, 19, env.accent);
+
+    c.fillRect({104, 177, 34, 4}, accent, 2);
+    fonts_.semibold.draw(c, tr(Str::HorizonExplore), 151, 170, 20, accent);
+
     if (!focus || rows_.empty()) {
-        fonts_.semibold.draw(c, tr(Str::NoGames), 104, 354, 36, kWhite);
+        fonts_.semibold.draw(c, tr(Str::NoGames), 104, 352, 38, kWhite);
         drawHints(c, {{kIconOptions, tr(Str::Settings)}, {kIconTouchpad, tr(Str::HoldSignOut)}});
-        drawPads(c);
         drawToast(c, nowMs);
         return;
     }
@@ -1078,46 +1084,63 @@ void AppUi::drawNimboxHorizon(Canvas& c, uint64_t nowMs) {
     const GameRow& row = rows_[size_t(rowIndex)];
     const int count = int(row.tiles.size());
     if (count <= 0) {
+        fonts_.semibold.draw(c, tr(Str::NoGames), 104, 352, 38, kWhite);
         drawHints(c, {{kIconOptions, tr(Str::Settings)}, {kIconTouchpad, tr(Str::HoldSignOut)}});
-        drawPads(c);
         drawToast(c, nowMs);
         return;
     }
     const int selected = std::clamp(focusCol_[size_t(rowIndex)], 0, count - 1);
-    // The collection is part of navigation, not a tiny caption over the shelf.
+
+    // Strong editorial hierarchy: collection, game, metadata, two real actions.
     const std::string collection = row.title.empty() ? "GAME PASS" : row.title;
-    fonts_.semibold.draw(c, fonts_.semibold.fit(collection, 38, 1290),
-                         104, 221, 38, kWhite);
+    fonts_.semibold.draw(c, fonts_.semibold.fit(collection, 43, 1290), 104, 223, 43, kWhite);
     const std::string collectionPos = trf(Str::HorizonCollectionPosition,
         std::to_string(rowIndex + 1), std::to_string(rows_.size()));
-    fonts_.regular.draw(c, collectionPos,
-                        1814 - fonts_.regular.measure(collectionPos, 20),
-                        226, 20, soft);
-    fonts_.bold.draw(c, fonts_.bold.fit(focus->name, 57, 1070), 104, 326, 57, kWhite);
+    const Rect collectionChip{1490, 203, 325, 46};
+    c.fillRect(collectionChip, rgba(8, 24, 42, 153), 23);
+    c.strokeRect(collectionChip, rgba(205, 236, 247, 63), 1, 23);
+    const std::string chipLabel = fonts_.semibold.fit(collectionPos, 19, collectionChip.w - 30);
+    fonts_.semibold.draw(c, chipLabel,
+        collectionChip.x + (collectionChip.w - fonts_.semibold.measure(chipLabel, 19)) / 2,
+        fonts_.semibold.centeredY(collectionChip.y, collectionChip.h, 19), 19, soft);
+
+    fonts_.bold.draw(c, fonts_.bold.fit(focus->name, 61, 1080), 104, 325, 61, kWhite);
     std::string meta = focus->publisher;
     if (!focus->categories.empty()) {
         if (!meta.empty()) meta += "  -  ";
         meta += focus->categories.front();
     }
     if (!meta.empty())
-        fonts_.regular.draw(c, fonts_.regular.fit(meta, 22, 920), 108, 391, 22, soft);
+        fonts_.regular.draw(c, fonts_.regular.fit(meta, 23, 1040), 107, 408, 23, soft);
+
     const bool canPlay = isEffectivePlayableLocked(*focus);
-    const Color white = rgba(236, 249, 251);
-    c.fillRect(horizon::kPlayButton, white, 16);
+    const Color primary = rgba(238, 249, 253);
+    c.fillRect({horizon::kPlayButton.x, horizon::kPlayButton.y + 5,
+                horizon::kPlayButton.w, horizon::kPlayButton.h}, rgba(2, 9, 20, 100), 17);
+    c.fillRect(horizon::kPlayButton, primary, 16);
+    c.strokeRect(horizon::kPlayButton, rgba(255, 255, 255, 175), 1, 16);
     fonts_.semibold.draw(c, canPlay ? "R2  JOGAR" : "VER JOGO",
-                         horizon::kPlayButton.x + 23, horizon::kPlayButton.y + 18,
-                         26, rgba(12, 38, 49));
-    c.fillRect(horizon::kDetailsButton, rgba(12, 28, 43, 170), 16);
-    c.strokeRect(horizon::kDetailsButton, rgba(189, 230, 237, 127), 1, 16);
+        horizon::kPlayButton.x + 27,
+        fonts_.semibold.centeredY(horizon::kPlayButton.y, horizon::kPlayButton.h, 26),
+        26, rgba(12, 35, 51));
+
+    c.fillRect(horizon::kDetailsButton, rgba(8, 25, 45, 168), 16);
+    c.strokeRect(horizon::kDetailsButton, rgba(210, 237, 246, 134), 2, 16);
     fonts_.semibold.draw(c, "DETALHES", horizon::kDetailsButton.x + 37,
-                         horizon::kDetailsButton.y + 18, 26, white);
+        fonts_.semibold.centeredY(horizon::kDetailsButton.y, horizon::kDetailsButton.h, 26),
+        26, primary);
+
     if (horizonBoundary_.direction && nowMs >= horizonBoundary_.startedMs &&
         nowMs - horizonBoundary_.startedMs <= 1600) {
         fonts_.semibold.draw(c, fonts_.semibold.fit(
             tr(horizonBoundary_.direction > 0 ? Str::HorizonEndHint : Str::HorizonStartHint),
-            20, 1190), 104, 583, 20, env.accent);
-        animating_ = true; // redraw once to clear the hint when it expires
+            20, 1190), 104, 581, 20, accent);
+        animating_ = true;
     }
+
+    // A low, centered cinema shelf. All covers use shared hit-test geometry.
+    c.gradientV({96, 610, 1728, 306}, rgba(4, 13, 26, 0), rgba(4, 13, 26, 76));
+    c.line(96.0f, 882.0f, 1824.0f, 882.0f, 1.0f, rgba(192, 226, 240, 40));
     const auto order = horizon::drawOrder(selected, count, nimboxSlide_.value / 1000.0f);
     for (int offset : order) {
         const int index = horizon::indexForOffset(selected, count, offset);
@@ -1125,33 +1148,120 @@ void AppUi::drawNimboxHorizon(Canvas& c, uint64_t nowMs) {
         const GameTile& tile = row.tiles[size_t(index)];
         const Rect card = horizon::tileRect(float(offset) + nimboxSlide_.value / 1000.0f);
         const bool center = offset == 0;
-        c.fillRect({card.x-4, card.y+10, card.w+8, card.h+3},
-                   rgba(0, 0, 0, center ? 120 : 65), 14);
-        c.fillRect(card, rgba(25, 51, 63), 14);
+        if (center) c.fillRect({card.x - 10, card.y - 10, card.w + 20, card.h + 20},
+                               rgba(141, 212, 233, 39), 22);
+        c.fillRect({card.x - 5, card.y + 13, card.w + 10, card.h + 8},
+                   rgba(0, 5, 12, center ? 145 : 85), 18);
+        c.fillRect(card, rgba(28, 52, 72), 15);
         if (!tile.tileUrl.empty()) {
             if (auto art = images_.get(tile.tileUrl, card.w, card.h))
-                c.drawImage(*art, card.x, card.y, center ? 255 : 214, 14);
+                c.drawImage(*art, card.x, card.y, center ? 255 : 211, 15);
         }
-        if (center)
-            c.strokeRect({card.x-4, card.y-4, card.w+8, card.h+8},
-                         rgba(226, 248, 251), 3, 18);
-        else
-            c.fillRect(card, rgba(5, 16, 26, 30), 14);
+        if (center) {
+            c.strokeRect({card.x - 5, card.y - 5, card.w + 10, card.h + 10},
+                         rgba(229, 250, 255), 3, 19);
+            c.strokeRect({card.x - 8, card.y - 8, card.w + 16, card.h + 16},
+                         rgba(130, 210, 233, 125), 1, 21);
+        } else {
+            c.fillRect(card, rgba(3, 13, 25, 28), 15);
+        }
     }
     const std::string position = trf(Str::HorizonGamePosition,
-        std::to_string(selected+1), std::to_string(count));
-    fonts_.regular.draw(c, position, (kW - fonts_.regular.measure(position, 20)) / 2,
-                        897, 20, rgba(196, 222, 231));
-    fonts_.regular.draw(c, tr(Str::HorizonHorizontalHint), 104, 943, 19, soft);
+        std::to_string(selected + 1), std::to_string(count));
+    fonts_.semibold.draw(c, position, (kW - fonts_.semibold.measure(position, 20)) / 2,
+                         906, 20, rgba(221, 239, 246));
+    const Rect track{771, 943, 378, 3};
+    c.fillRect(track, rgba(214, 236, 245, 53), 2);
+    const int progress = std::max(5, (track.w * (selected + 1)) / count);
+    c.fillRect({track.x, track.y, progress, track.h}, accent, 2);
+
+    fonts_.regular.draw(c, tr(Str::HorizonHorizontalHint), 104, 972, 18, soft);
     const char* directions = tr(Str::HorizonVerticalHint);
-    fonts_.regular.draw(c, directions, 1816 - fonts_.regular.measure(directions, 19),
-                        943, 19, soft);
-    // Soft footer with the live wallpaper visible behind it.
-    c.gradientV({0, kH - 145, kW, 145}, rgba(3, 10, 19, 0), rgba(3, 10, 19, 184));
-    drawHints(c, {{kIconCross, "Detalhes"}, {kIconTriangle, tr(Str::TabSearch)},
-                  {kIconOptions, tr(Str::Settings)}, {kIconTouchpad, tr(Str::HoldSignOut)}});
-    drawPads(c);
+    fonts_.regular.draw(c, directions, 1816 - fonts_.regular.measure(directions, 18),
+                        972, 18, soft);
+
+    // On a console, show an understated status only for connected pads.
+    const int connected = static_cast<int>(std::count_if(pads_.begin(), pads_.end(),
+        [](const PadSlot& p) { return p.connected; }));
+    if (connected > 0) {
+        c.fillCircle(111.0f, 1028.0f, 6.0f, accent);
+        const std::string countLabel = std::to_string(connected) + " / " +
+            std::to_string(pads_.size());
+        fonts_.semibold.draw(c, countLabel, 132, 1017, 20, soft);
+    }
+    c.gradientV({0, kH - 82, kW, 82}, rgba(3, 10, 20, 0), rgba(3, 10, 20, 128));
+    drawHints(c, {{kIconCross, "Detalhes"}, {kIconR3, "Perfil"},
+                  {kIconTriangle, tr(Str::TabSearch)}, {kIconOptions, tr(Str::Settings)}});
     drawToast(c, nowMs);
+}
+
+void AppUi::drawProfilePanel(Canvas& c) {
+    // Real signed-in metadata only; no unsupported friends/online claims.
+    const bool english = language() == Language::English;
+    const Rect panel = horizon::kProfilePanel;
+    const Color bright = rgba(242, 250, 255);
+    const Color muted = rgba(193, 213, 228);
+    const Color accent = nimbox_theme::palette(settings_.nimboxTheme).accent;
+    c.fillRect({0, 0, kW, kH}, rgba(2, 8, 19, 214));
+    c.fillRect({panel.x + 10, panel.y + 16, panel.w, panel.h},
+               rgba(0, 4, 12, 150), 30);
+    c.fillRect(panel, rgba(12, 30, 51, 248), 28);
+    c.strokeRect(panel, rgba(187, 227, 245, 91), 2, 28);
+    c.gradientH({panel.x + 3, panel.y + 3, panel.w - 6, 204},
+                rgba(49, 91, 121, 86), rgba(12, 30, 51, 0));
+    fonts_.semibold.draw(c, english ? "PLAYER PROFILE" : "PERFIL DO JOGADOR",
+                         panel.x + 60, panel.y + 45, 24, accent);
+    c.line(float(panel.x + 60), float(panel.y + 105),
+           float(panel.x + panel.w - 60), float(panel.y + 105),
+           1.0f, rgba(187, 227, 245, 51));
+    c.fillCircle(float(panel.x + 130), float(panel.y + 206), 67.0f, rgba(51, 98, 128));
+    if (auto pic = images_.get(gamerpicUrl_, 124, 124))
+        c.drawImage(*pic, panel.x + 68, panel.y + 144, 255, -1);
+    c.strokeCircle(float(panel.x + 130), float(panel.y + 206), 66.0f, 2.0f, accent);
+    const std::string name = gamertag_.empty() ?
+        (english ? "Signed-in player" : "Jogador conectado") : gamertag_;
+    fonts_.bold.draw(c, fonts_.bold.fit(name, 46, 540), panel.x + 245, panel.y + 158,
+                     46, bright);
+    fonts_.regular.draw(c, english ? "Xbox account" : "Conta Xbox",
+                        panel.x + 248, panel.y + 220, 22, muted);
+
+    const std::string plan = subscription_.empty() ?
+        (english ? "Plan not available" : "Plano não informado") :
+        (subscription_ == "GamePass" ? "Game Pass" : subscription_);
+    fonts_.semibold.draw(c, english ? "SUBSCRIPTION" : "ASSINATURA",
+                         panel.x + 64, panel.y + 330, 19, accent);
+    fonts_.semibold.draw(c, fonts_.semibold.fit(plan, 27, 720),
+                         panel.x + 64, panel.y + 363, 27, bright);
+
+    const std::string values[3] = {
+        ownedKnown_ ? std::to_string(owned_.size()) : "--",
+        std::to_string(favorites_.size()),
+        consolesKnown_ ? std::to_string(consoles_.size()) : "--"
+    };
+    const char* labels[3] = {
+        english ? "IN LIBRARY" : "NA BIBLIOTECA",
+        english ? "FAVORITES" : "FAVORITOS",
+        english ? "MY CONSOLES" : "MEUS CONSOLES"
+    };
+    for (int i = 0; i < 3; ++i) {
+        const Rect stat{panel.x + 60 + i * 259, panel.y + 435, 242, 117};
+        c.fillRect(stat, rgba(28, 57, 82, 163), 17);
+        c.strokeRect(stat, rgba(195, 226, 240, 55), 1, 17);
+        fonts_.bold.draw(c, values[i], stat.x + 22, stat.y + 19, 36, bright);
+        fonts_.semibold.draw(c, labels[i], stat.x + 22, stat.y + 77, 17, muted);
+    }
+    c.fillRect(horizon::kProfileClose, rgba(235, 249, 253, 23), 24);
+    c.strokeRect(horizon::kProfileClose, rgba(224, 240, 248, 70), 1, 24);
+    const char* close = "X";
+    fonts_.bold.draw(c, close,
+        horizon::kProfileClose.x + (horizon::kProfileClose.w - fonts_.bold.measure(close, 23)) / 2,
+        fonts_.bold.centeredY(horizon::kProfileClose.y, horizon::kProfileClose.h, 23),
+        23, bright);
+
+    // Hide base-screen touch targets while this native modal has focus.
+    hintRects_.clear();
+    c.fillRect({0, kH - 82, kW, 82}, rgba(3, 11, 24, 246));
+    drawHints(c, {{kIconCircle, tr(Str::Back)}});
 }
 
 void AppUi::drawHome(Canvas& c, uint64_t nowMs) {
