@@ -212,6 +212,18 @@ int desktopSelftest(const std::string& dir) {
     ui.render(canvas, platform::nowMs());
     drawCanvas(canvas);
     check(screenshot(dir, "2-settings.png", shot) && varied(shot), "Settings screen (2-settings.png)");
+    ui::NavInput zoomQr;
+    zoomQr.r3 = true;
+    ui.handle(zoomQr);
+    ui.render(canvas, platform::nowMs());
+    drawCanvas(canvas);
+    check(screenshot(dir, "2g-settings-qr-expanded.png", shot) && varied(shot),
+          "NimboPlay enlarged Web Control QR is scannable (2g-settings-qr-expanded.png)");
+    ui::NavInput exitZoom;
+    exitZoom.back = true;
+    ui.handle(exitZoom);
+    check(ui.screen() == ui::Screen::Settings, "Closing the QR stays inside Settings");
+
     // Appearance controls are real: clicking a swatch persists a visual theme
     // without changing stream bitrate, region, controller or Play.
     {
@@ -427,6 +439,18 @@ int desktopSelftest(const std::string& dir) {
         check(ui.screen() == ui::Screen::Details &&
                   screenshot(dir, "6b-horizon-details.png", shot) && varied(shot),
               "PS5 Showcase game details (6b-horizon-details.png)");
+        ui::NavInput globalSettings;
+        globalSettings.l2 = true;
+        ui.handle(globalSettings);
+        ui.render(canvas, platform::nowMs());
+        drawCanvas(canvas);
+        check(ui.screen() == ui::Screen::Settings &&
+                  screenshot(dir, "6e-settings-from-game-details.png", shot) && varied(shot),
+              "Frosted Settings shows game detail context");
+        ui::NavInput returnToDetails;
+        returnToDetails.back = true;
+        ui.handle(returnToDetails);
+        check(ui.screen() == ui::Screen::Details, "Settings returns to the selected game detail");
         {
             const auto play = ui.onMouseDown(ui::showcase::kPlayButton.x + 34.0f,
                                              ui::showcase::kPlayButton.y + 25.0f, 1);
