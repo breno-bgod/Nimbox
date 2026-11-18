@@ -678,7 +678,11 @@ std::vector<std::string> AppUi::settingOptions(int row) const {
     } else if (row == 19) {
         out = {tr(Str::SupportKoFi)};
     } else if (row == 20) {
+        #if defined(__ANDROID__)
+        out = {tr(Str::VideoDecoderHw), tr(Str::VideoDecoderSw), "Surface Android (XStreaming)"};
+#else
         out = {tr(Str::VideoDecoderHw), tr(Str::VideoDecoderSw)};
+#endif
     } else if (row == 21) {
         out = {tr(Str::Off), tr(Str::SharpLow), tr(Str::SharpMedium), tr(Str::SharpHigh)};
     } else if (row == 23) {
@@ -715,7 +719,7 @@ int AppUi::settingSelected(int row) const {
     if (row == 13) return settings_.fullscreen ? 1 : 0;
     if (row == 15) return std::clamp(settings_.gyroMode, 0, 4);
     if (row == 16) return settings_.queueReadyAlert ? 1 : 0;
-    if (row == 20) return std::clamp(settings_.videoDecoder, 0, 1);
+    if (row == 20) return std::clamp(settings_.videoDecoder, 0, app::kMaxVideoDecoder);
     if (row == 21) return std::clamp(settings_.audioHaptics, 0, 3);
     if (row == 22) return settings_.previewFeatures ? 1 : 0;
     if (row == 24) return settings_.syncTrophies ? 1 : 0;
@@ -838,7 +842,7 @@ void AppUi::applySetting(int row, int index) {
     } else if (row == 16) {
         settings_.queueReadyAlert = (index == 1);
     } else if (row == 20) {
-        settings_.videoDecoder = index;
+        settings_.videoDecoder = std::clamp(index, 0, app::kMaxVideoDecoder);
     } else if (row == 21) {
         settings_.audioHaptics = std::clamp(index, 0, 3);
     } else if (row == 22) {
@@ -994,7 +998,7 @@ void AppUi::handleGameSettings(const NavInput& in, UiEvent& ev) {
             break;
         }
         case 15: // Video decoder (0 Hardware, 1 Software)
-            activeGameProfile_.videoDecoder = (activeGameProfile_.videoDecoder == 0 ? 1 : 0);
+            activeGameProfile_.videoDecoder = ((activeGameProfile_.videoDecoder + 1) % (app::kMaxVideoDecoder + 1));
             activeGameHasCustom_ = true;
             dirty_ = true;
             break;
@@ -1100,7 +1104,7 @@ void AppUi::handleGameSettings(const NavInput& in, UiEvent& ev) {
             break;
         }
         case 15:
-            activeGameProfile_.videoDecoder = (activeGameProfile_.videoDecoder == 0 ? 1 : 0);
+            activeGameProfile_.videoDecoder = ((activeGameProfile_.videoDecoder + 1) % (app::kMaxVideoDecoder + 1));
             activeGameHasCustom_ = true;
             dirty_ = true;
             break;
@@ -2478,7 +2482,12 @@ void AppUi::drawGameSettings(Canvas& c) {
         }
         case 15:
             label = tr(Str::VideoDecoder);
+            #if defined(__ANDROID__)
+            value = activeGameProfile_.videoDecoder == 2 ? "Surface Android (XStreaming)" :
+                    (activeGameProfile_.videoDecoder == 1 ? tr(Str::VideoDecoderSw) : tr(Str::VideoDecoderHw));
+#else
             value = activeGameProfile_.videoDecoder == 1 ? tr(Str::VideoDecoderSw) : tr(Str::VideoDecoderHw);
+#endif
             break;
         case 18:
             label = tr(Str::SyncTrophies);
