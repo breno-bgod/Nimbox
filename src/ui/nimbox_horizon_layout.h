@@ -8,12 +8,14 @@
 #include <vector>
 namespace xc::ui::horizon {
 // 1920x1080 PS5-safe stage: all visible covers stay within 96px side margins.
-constexpr int kCenterX = 960, kPitch = 194, kSideItems = 4;
+// Seven well-spaced covers, never overlapping in the 1080p TV safe area.
+constexpr int kCenterX = 960, kPitch = 218, kSideItems = 3;
 constexpr int kSelectedSide = 244, kNeighborSide = 176, kTileCenterY = 746;
 // Shared between Canvas rendering and native pointer hit testing.
 constexpr Rect kPlayButton{104, 500, 248, 66};
 constexpr Rect kDetailsButton{370, 500, 245, 66};
-constexpr Rect kProfileAvatarTap{1718, 30, 107, 84};
+// Avatar hit box is separate from the Settings gear at x=1834..1886.
+constexpr Rect kProfileAvatarTap{1744, 30, 65, 84};
 constexpr Rect kProfilePanel{510, 218, 900, 640};
 constexpr Rect kProfileClose{1332, 244, 48, 48};
 inline Rect tileRect(float offset) {
