@@ -7,6 +7,7 @@ import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.widget.FrameLayout;
+import android.widget.RelativeLayout;
 import android.view.ViewGroup;
 import java.nio.ByteBuffer;
 import java.util.concurrent.CountDownLatch;
@@ -53,6 +54,20 @@ public class MainActivity extends SDLActivity {
     private static AndroidSurfaceOverlayView sSurfaceOverlay;
     private static volatile AndroidSurfaceEngine sSurfaceEngine;
 
+    // Match SDL_LOGICAL_PRESENTATION_LETTERBOX (1920x1080) on wide Android displays.
+    private static void updateSurfaceBounds(MainActivity activity) {
+        if (activity.mLayout == null || sSurfaceView == null) return;
+        int parentW = activity.mLayout.getWidth();
+        int parentH = activity.mLayout.getHeight();
+        if (parentW <= 0 || parentH <= 0) return;
+        float scale = Math.min(parentW / 1920f, parentH / 1080f);
+        int videoW = Math.max(1, Math.round(1920f * scale));
+        int videoH = Math.max(1, Math.round(1080f * scale));
+        RelativeLayout.LayoutParams params = new RelativeLayout.LayoutParams(videoW, videoH);
+        params.addRule(RelativeLayout.CENTER_IN_PARENT);
+        sSurfaceView.setLayoutParams(params);
+    }
+
     private static void hideSurfaceVideoLayer() {
         MainActivity activity = sSurfaceActivity;
         if (activity != null) activity.runOnUiThread(() -> {
@@ -82,9 +97,17 @@ public class MainActivity extends SDLActivity {
                         }
                     }
                 });
-                activity.mLayout.addView(sSurfaceView, new FrameLayout.LayoutParams(
+                activity.mLayout.addView(sSurfaceView, new RelativeLayout.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+                activity.mLayout.addOnLayoutChangeListener((view, left, top, right, bottom,
+                                                            oldLeft, oldTop, oldRight, oldBottom) -> {
+                    if ((right - left) != (oldRight - oldLeft) ||
+                            (bottom - top) != (oldBottom - oldTop)) {
+                        updateSurfaceBounds(activity);
+                    }
+                });
             }
+            updateSurfaceBounds(activity);
             if (sSurfaceOverlay == null) {
                 sSurfaceOverlay = new AndroidSurfaceOverlayView(activity);
                 activity.mLayout.addView(sSurfaceOverlay, new FrameLayout.LayoutParams(
