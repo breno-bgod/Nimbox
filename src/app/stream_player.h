@@ -162,6 +162,10 @@ public:
         // The pictures' average quantiser since the last call (lower: finer); -1 none.
         double qpAvg = -1;
         bool isHwDecode = false;
+        // Android MediaCodec Surface: real frame-rendered callback counts.
+        bool androidSurfaceActive = false;
+        uint64_t surfaceSubmitted = 0, surfaceReleased = 0;
+        uint64_t surfaceRendered = 0, surfaceBusy = 0, surfaceErrors = 0;
     };
     Stats stats() const;
     // Before start(): H.264 decoder threads (more than 1 = frame threading).
@@ -180,6 +184,7 @@ public:
     // Android Surface is a third output engine. It never replaces the existing decoders.
     void setAndroidSurfaceOutput(bool enabled);
     void switchDecoderMode(int mode); // 0 hardware, 1 software, 2 Surface (Android only)
+    void setAndroidSurfaceSize(int width, int height); // Initial/renegotiated stream tier
     // Presentation pacing FPS limit: 0 unlimited, 30, 60, 120.
     void setFpsLimit(int fps);
     int fpsLimit() const;
