@@ -431,7 +431,11 @@ MenuAction StreamMenu::handle(const NavInput& navIn) {
         resolution_ = kResolutionOrder[pos];
     }
     if (selected_ == VideoDecoderItem && (in.left || in.right || in.accept)) {
+        #if defined(__ANDROID__)
+        videoDecoder_ = (videoDecoder_ + 1) % 3;
+#else
         videoDecoder_ = (videoDecoder_ == 0) ? 1 : 0;
+#endif
         return MenuAction::VideoDecoder;
     }
     if (selected_ == FpsLimiterItem && (in.left || in.right)) {
@@ -1034,7 +1038,12 @@ Canvas StreamMenu::renderMenu(const StreamInfo& info) const {
             if (sel) value = "< " + value + " >";
         }
         if (i == VideoDecoderItem) {
+            #if defined(__ANDROID__)
+            value = videoDecoder_ == 2 ? "Surface Android (XStreaming)" :
+                    (videoDecoder_ == 1 ? tr(Str::VideoDecoderSw) : tr(Str::VideoDecoderHw));
+#else
             value = (videoDecoder_ == 1) ? tr(Str::VideoDecoderSw) : tr(Str::VideoDecoderHw);
+#endif
             if (sel) value = "< " + value + " >";
         }
         if (i == FpsLimiterItem) {
