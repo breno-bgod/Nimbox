@@ -687,7 +687,7 @@ std::vector<std::string> AppUi::settingOptions(int row) const {
 #if defined(__ANDROID__)
         // Both are real selectable backends; choosing hardware does not
         // guarantee the driver accepts acceleration on every device.
-        out = {"GPU - MediaCodec (H.264)", "CPU - FFmpeg (H.264)", "Surface Android (XStreaming)"};
+        out = {"GPU - MediaCodec (H.264)", "CPU - FFmpeg (H.264)", "Surface Android"};
 #else
         out = {tr(Str::VideoDecoderHw), tr(Str::VideoDecoderSw)};
 #endif
@@ -2667,7 +2667,7 @@ void AppUi::drawGameSettings(Canvas& c) {
         case 15:
 #if defined(__ANDROID__)
             label = "Decodificador H.264";
-            value = activeGameProfile_.videoDecoder == 2 ? "Surface Android (XStreaming)" : (activeGameProfile_.videoDecoder == 1 ? "CPU / FFmpeg" : "GPU / MediaCodec");
+            value = activeGameProfile_.videoDecoder == 2 ? "Surface Android" : (activeGameProfile_.videoDecoder == 1 ? "CPU / FFmpeg" : "GPU / MediaCodec");
 #else
             label = tr(Str::VideoDecoder);
             value = activeGameProfile_.videoDecoder == 1 ? tr(Str::VideoDecoderSw) : tr(Str::VideoDecoderHw);
