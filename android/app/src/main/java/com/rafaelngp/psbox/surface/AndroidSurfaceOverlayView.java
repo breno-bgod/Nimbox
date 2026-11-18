@@ -22,6 +22,7 @@ public final class AndroidSurfaceOverlayView extends View {
     private int posX, posY;
     private int pixelWidth, pixelHeight;
     private int opacity;
+    private long lastFullFrameCopyNs;
 
     public AndroidSurfaceOverlayView(Context context) {
         super(context);
@@ -40,6 +41,13 @@ public final class AndroidSurfaceOverlayView extends View {
             return;
         }
         synchronized (frameLock) {
+            // A 1080p touch HUD is 8 MiB; cap large bitmap transfers near 30 Hz
+            // while keeping SDL touch/controller events at their native rate.
+            if ((long) width * height > 600_000L) {
+                long now = System.nanoTime();
+                if (lastFullFrameCopyNs != 0 && now - lastFullFrameCopyNs < 30_000_000L) return;
+                lastFullFrameCopyNs = now;
+            }
             if (bitmap == null || bitmap.getWidth() != width || bitmap.getHeight() != height) {
                 // The Canvas uint32 format 0xAABBGGRR is RGBA_8888 in little-endian memory.
                 bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
@@ -60,6 +68,7 @@ public final class AndroidSurfaceOverlayView extends View {
         synchronized (frameLock) {
             bitmap = null;
             pixelWidth = pixelHeight = 0;
+            lastFullFrameCopyNs = 0;
         }
         postInvalidate();
     }
