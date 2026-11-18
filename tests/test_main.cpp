@@ -1337,7 +1337,10 @@ static void testNimboxHorizonGeometry() {
     CHECK(index == 0 && gate.direction == -1);
     CHECK(horizon::navigate(index, 4, -1, 1090, gate) == horizon::MoveResult::Boundary);
     CHECK(index == 0);
-    CHECK(horizon::navigate(index, 4, -1, 1400, gate) == horizon::MoveResult::Wrapped);
+    // Repeating the held direction is not a second press.
+    CHECK(horizon::navigate(index, 4, -1, 1400, gate) == horizon::MoveResult::Boundary);
+    gate.noteNeutral(); // simulated button/stick release
+    CHECK(horizon::navigate(index, 4, -1, 1410, gate) == horizon::MoveResult::Wrapped);
     CHECK(index == 3 && gate.direction == 0);
     CHECK(horizon::navigate(index, 4, 1, 1500, gate) == horizon::MoveResult::Boundary);
     CHECK(index == 3);
@@ -1348,6 +1351,7 @@ static void testNimboxHorizonGeometry() {
     CHECK(horizon::navigate(index, 4, 1, 1650, gate) == horizon::MoveResult::Boundary);
     CHECK(horizon::navigate(index, 4, 1, 3400, gate) == horizon::MoveResult::Boundary); // stale intent expires
     CHECK(index == 3);
+    gate.noteNeutral();
     CHECK(horizon::navigate(index, 4, 1, 3820, gate) == horizon::MoveResult::Wrapped);
     CHECK(index == 0);
     CHECK(horizon::navigate(index, 1, 1, 3950, gate) == horizon::MoveResult::Unchanged);
@@ -1450,6 +1454,9 @@ static void testNimboxDefaultCarouselNavigation() {
     app.setRows({row});
     left.nowMs = 2000;
     app.handle(left);
+    ui::NavInput neutral;
+    neutral.nowMs = 2200;
+    app.handle(neutral);
     left.nowMs = 2440;
     app.handle(left);
     app.handle(accept);
