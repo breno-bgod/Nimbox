@@ -1434,9 +1434,20 @@ static void testNimboxDefaultCarouselNavigation() {
     }
     app.setRows({row});
     app.showHome();
-    ui::NavInput removedModeShortcut;
-    removedModeShortcut.r3 = true;
-    app.handle(removedModeShortcut);
+    // R3 now opens the native profile; it must trap carousel input until closed.
+    ui::NavInput profileKey;
+    profileKey.r3 = true;
+    app.handle(profileKey);
+    CHECK(app.profileOpen());
+    ui::NavInput lockedLeft;
+    lockedLeft.left = true;
+    lockedLeft.nowMs = 900;
+    app.handle(lockedLeft);
+    CHECK(app.focusDescription() == "Game Pass row 0 card 0");
+    ui::NavInput closeProfile;
+    closeProfile.back = true;
+    app.handle(closeProfile);
+    CHECK(!app.profileOpen());
 
     // Horizon is finite: first left push keeps the first item selected.
     ui::NavInput left;
@@ -7692,9 +7703,18 @@ static void testDesktopMouseNav() {
         CHECK(evWheel.action == ui::Action::None);
     }
 
-    // 7. Avatar / profile click opens Settings screen
+    // 7. Avatar is a distinct, clickable profile; Settings remains on the gear.
     {
-        auto evClick = uiApp.onMouseDown(1920 - 96 - 20, 60.0f, 1);
+        auto evAvatar = uiApp.onMouseDown(1804.0f, 60.0f, 1);
+        CHECK(evAvatar.action == ui::Action::None);
+        CHECK(uiApp.screen() == ui::Screen::Home);
+        CHECK(uiApp.profileOpen());
+        ui::NavInput back;
+        back.back = true;
+        uiApp.handle(back);
+        CHECK(!uiApp.profileOpen());
+        auto evGear = uiApp.onMouseDown(1860.0f, 60.0f, 1);
+        CHECK(evGear.action == ui::Action::None);
         CHECK(uiApp.screen() == ui::Screen::Settings);
     }
 
@@ -11910,10 +11930,22 @@ static void testWorkerMobileM4Features() {
 
         // Touch drag in Settings
         ui.showHome();
-        // Tap settings touch button at Rect{kW - kMargin - 52, 46, 52, 52} -> (1772, 46)
-        app::shell::TouchEvent evSettingsTapDown{app::shell::TouchEvent::Kind::Down, 1, 1780.0f, 60.0f};
+        // The avatar opens the profile on touch, without opening Settings.
+        app::shell::TouchEvent avatarDown{app::shell::TouchEvent::Kind::Down, 1, 1780.0f, 60.0f};
+        ui.onTouch(avatarDown);
+        app::shell::TouchEvent avatarUp{app::shell::TouchEvent::Kind::Up, 1, 1780.0f, 60.0f};
+        ui.onTouch(avatarUp);
+        CHECK(ui.screen() == xc::ui::Screen::Home);
+        CHECK(ui.profileOpen());
+        xc::ui::NavInput closeProfile;
+        closeProfile.back = true;
+        ui.handle(closeProfile);
+        CHECK(!ui.profileOpen());
+
+        // The separate Settings gear stays available at x=1834..1886.
+        app::shell::TouchEvent evSettingsTapDown{app::shell::TouchEvent::Kind::Down, 2, 1860.0f, 60.0f};
         ui.onTouch(evSettingsTapDown);
-        app::shell::TouchEvent evSettingsTapUp{app::shell::TouchEvent::Kind::Up, 1, 1780.0f, 60.0f};
+        app::shell::TouchEvent evSettingsTapUp{app::shell::TouchEvent::Kind::Up, 2, 1860.0f, 60.0f};
         ui.onTouch(evSettingsTapUp);
         CHECK(ui.screen() == xc::ui::Screen::Settings);
 
