@@ -1055,9 +1055,10 @@ static void testFreeAccountPlayability() {
     app.setRows({row});
     app.showHome();
     // This test verifies the legacy grid's game selection and Play pathway.
-    // Nimbox is the new default view; explicitly switch to classic via R3.
+    // Horizon -> Colecao Viva -> Classic: two R3 presses are required.
     ui::NavInput classicUi;
     classicUi.r3 = true;
+    app.handle(classicUi);
     app.handle(classicUi);
 
     // Paid game on free account: cannot launch
@@ -7439,10 +7440,11 @@ static void testDesktopMouseNav() {
     row.tiles.push_back(tile2);
     uiApp.setRows({row});
     uiApp.showHome();
-    // The coordinates below are those of the classic rectangular tile grid.
-    // Select classic mode explicitly; Nimbox has different case hitboxes.
+    // The coordinates below are the classic rectangular tile grid.
+    // Horizon -> Colecao Viva -> Classic via two R3 presses.
     ui::NavInput classicUi;
     classicUi.r3 = true;
+    uiApp.handle(classicUi);
     uiApp.handle(classicUi);
 
     // 1. Mouse cursor state, initial position, and clamping
@@ -8769,10 +8771,11 @@ static void testBlock1Corrections() {
         friendsRow.tiles = {friendTile};
         app.setRows({friendsRow});
         app.showHome();
-        // This test assumes immediate classic-mode back navigation.
-        // The new Nimbox shelf intentionally animates its return via render ticks.
+        // Classic returns immediately; the 3D Colecao Viva animates its exit.
+        // Horizon -> Colecao Viva -> Classic via two R3 presses.
         ui::NavInput classicUi;
         classicUi.r3 = true;
+        app.handle(classicUi);
         app.handle(classicUi);
 
         // 3a. On Home screen with tile focused, heroWanted requests the missing heroUrl
