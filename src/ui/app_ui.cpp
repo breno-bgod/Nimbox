@@ -1009,6 +1009,7 @@ std::string AppUi::focusDescription() const {
 void AppUi::showTab(Tab t) {
     std::lock_guard<std::mutex> lock(mutex_);
     tab_ = t;
+    profileOpen_ = false;
     searching_ = false;
     dirty_ = true;
 }
