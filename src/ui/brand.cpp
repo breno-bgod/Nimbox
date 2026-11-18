@@ -12,8 +12,8 @@
 
 // Generated from user-provided internal logo by cmake/embed_file.cmake.
 // External OS launcher and PS5 shell artwork remain separate.
-extern const unsigned char xc_internal_nimble_brand[];
-extern const std::size_t xc_internal_nimble_brand_size;
+extern const unsigned char xc_internal_nimboplay_brand[];
+extern const std::size_t xc_internal_nimboplay_brand_size;
 
 namespace xc::ui {
 
@@ -23,9 +23,9 @@ void drawInternalBrand(Canvas& c, Rect bounds) {
     if (bounds.w <= 0 || bounds.h <= 0) return;
     static const Image source = [] {
         Image logo;
-        if (xc_internal_nimble_brand_size > 1) {
-            const std::string bytes(reinterpret_cast<const char*>(xc_internal_nimble_brand),
-                                    xc_internal_nimble_brand_size - 1);
+        if (xc_internal_nimboplay_brand_size > 1) {
+            const std::string bytes(reinterpret_cast<const char*>(xc_internal_nimboplay_brand),
+                                    xc_internal_nimboplay_brand_size - 1);
             decodeImage(bytes, logo);
         }
         return logo;
