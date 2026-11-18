@@ -600,4 +600,10 @@ constexpr Column kItalian = {
     "INIZIO DELLA RACCOLTA · TORNA INDIETRO PER ANDARE ALLA FINE",  // HorizonStartHint
     "SINISTRA / DESTRA  -  GIOCHI",  // HorizonHorizontalHint
     "SU / GIÙ  -  RACCOLTE",  // HorizonVerticalHint
+    "Ingrandisci QR",  // SettingsExpandQr
+    "Scansiona per aprire il pannello NimboPlay",  // SettingsQrInstructions
+    "Connetti al pannello Web",  // SettingsQrConnect
+    "Codice QR non disponibile in questa sessione.",  // SettingsQrUnavailable
+    "R3 / TOCCA  -  INGRANDISCI QR",  // SettingsQrPointerHint
+    "L2  Impostazioni",  // SettingsDetailsShortcut
 };
