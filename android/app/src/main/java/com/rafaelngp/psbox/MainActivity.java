@@ -221,6 +221,14 @@ public class MainActivity extends SDLActivity {
     @Override
     protected void onDestroy() {
         surfaceVideoStop();
+        // A recreated Android Activity must not reuse SurfaceViews bound to
+        // the previous Activity/window (e.g. configuration changes).
+        if (mLayout != null) {
+            if (sSurfaceOverlay != null) mLayout.removeView(sSurfaceOverlay);
+            if (sSurfaceView != null) mLayout.removeView(sSurfaceView);
+        }
+        sSurfaceOverlay = null;
+        sSurfaceView = null;
         sSurfaceActivity = null;
         sStreamingActive = false;
         sIsForeground = false;
