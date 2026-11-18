@@ -3,6 +3,7 @@
 </p>
 
 <h1 align="center">NimboPlay</h1>
+<p align="center"><strong>Versão oficial do código: 1.7.7</strong></p>
 <p align="center"><em>Xbox Cloud Gaming, running natively on PlayStation 5, PlayStation 4, and Linux.</em></p>
 
 <p align="center">
