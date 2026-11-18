@@ -1899,7 +1899,33 @@ void AppUi::render(Canvas& c, uint64_t nowMs) {
             break;
         case Screen::Launching: drawLaunching(c, nowMs); break;
         case Screen::Error: drawError(c); break;
-        case Screen::Settings: drawSettings(c); break;
+        case Screen::Settings: {
+            // One-shot software frost: render the screen that opened Settings,
+            // downsample then enlarge it. No per-frame 1080p blur cost and no
+            // GPU/MediaCodec dependency on Android, desktop or PS5.
+            if (!settingsBackdropReady_) {
+                Canvas base(kW, kH, rgba(4, 12, 23));
+                if (settingsReturnScreen_ == Screen::Details)
+                    drawDetails(base, nowMs);
+                else if (settingsReturnScreen_ == Screen::Home)
+                    drawHome(base, nowMs);
+                else
+                    drawError(base);
+                Image capture;
+                capture.w = kW;
+                capture.h = kH;
+                capture.opaque = true;
+                capture.px.assign(base.data(), base.data() + static_cast<size_t>(kW) * kH);
+                const Image reduced = coverResize(capture, 320, 180);
+                settingsFrostedBackdrop_ = coverResize(reduced, kW, kH);
+                settingsBackdropReady_ = true;
+            }
+            if (settingsBackdropReady_) c.drawImage(settingsFrostedBackdrop_, 0, 0);
+            else drawBackground(c);
+            drawSettings(c);
+            if (settingsQrExpanded_) drawSettingsQrOverlay(c);
+            break;
+        }
         case Screen::Updating: drawUpdating(c, nowMs); break;
         case Screen::Streaming: break;
     }
