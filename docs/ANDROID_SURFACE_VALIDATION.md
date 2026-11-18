@@ -6,7 +6,7 @@ Origem AGPL-3.0: Geocld/XStreaming (detalhes em `third_party/XStreaming/NOTICE.m
 ## Escopo técnico
 
 - Este backend é **opcional e exclusivo do Android** (opção
-  `Surface Android (XStreaming)`).
+  `Surface Android`).
 - O decodificador tradicional (hardware/CPU) e o renderer SDL/Vulkan permanecem
   nos seus arquivos originais; não trocar autenticação, negociação, áudio,
   entrada, rede ou carrossel.
@@ -26,7 +26,7 @@ Origem AGPL-3.0: Geocld/XStreaming (detalhes em `third_party/XStreaming/NOTICE.m
 1. O workflow `Android APK` deve compilar arm64-v8a e x86_64 no PR (não
    distribuir uma revisão cujo último commit falhou).
 2. Verificar que configurações mostram **Hardware**, **Software** e
-   **Surface Android (XStreaming)** apenas no APK Android.
+   **Surface Android** apenas no APK Android.
 3. Iniciar o mesmo jogo em hardware/software e repetir em Surface. Verificar
    vídeo, áudio, controle físico, controles virtuais, menu e painel de
    estatísticas, incluindo abrir/fechar menu durante streaming.
