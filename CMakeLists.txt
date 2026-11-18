@@ -154,6 +154,19 @@ add_custom_command(
     COMMENT "Embedding NimboPlay internal logo"
 )
 
+# The launcher icon is intentionally distinct from the transparent internal
+# NimboPlay wordmark. Embed it to keep C++ xcloud-cli render-icon consistent.
+set(XC_EXTERNAL_LAUNCHER "${CMAKE_CURRENT_BINARY_DIR}/generated/nimboplay_launcher.cpp")
+add_custom_command(
+    OUTPUT "${XC_EXTERNAL_LAUNCHER}"
+    COMMAND ${CMAKE_COMMAND}
+            -DIN=${CMAKE_CURRENT_SOURCE_DIR}/assets/branding/nimboplay_launcher_256.png
+            -DOUT=${XC_EXTERNAL_LAUNCHER} -DNAME=xc_nimboplay_external_launcher
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/embed_file.cmake
+    DEPENDS assets/branding/nimboplay_launcher_256.png cmake/embed_file.cmake
+    COMMENT "Embedding NimboPlay EXTERNAL launcher icon"
+)
+
 # The icons drawn from SVG (src/ui/svg_icon.h), inside the binary as well.
 set(XC_BUILTIN_ICONS)
 foreach(icon guitar)
@@ -175,6 +188,7 @@ endif()
 
 add_library(xcloud_ui STATIC
     ${XC_INTERNAL_BRAND}
+    ${XC_EXTERNAL_LAUNCHER}
     ${XC_BUILTIN_FONTS}
     ${XC_BUILTIN_ICONS}
     ${XC_CRASH_GUARD_SRC}
@@ -454,8 +468,25 @@ if(XC_DESKTOP_APP)
         target_compile_options(psbox PRIVATE -Wall -Wextra -Wno-unused-parameter)
     endif()
     if(WIN32)
+        # Windows RC uses a generated PNG-compressed ICO from the approved icon.
+        # The original windows/psbox.ico is not packaged or referenced.
+        find_package(Python3 REQUIRED COMPONENTS Interpreter)
+        set(NIMBOPLAY_WINDOWS_ICO "${CMAKE_CURRENT_BINARY_DIR}/nimboplay_launcher.ico")
+        execute_process(
+            COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tools/branding/make_launcher_assets.py"
+                --source "${CMAKE_CURRENT_SOURCE_DIR}/assets/branding/nimboplay_launcher_256.png"
+                --ico "${NIMBOPLAY_WINDOWS_ICO}"
+            RESULT_VARIABLE NIMBOPLAY_ICO_STATUS
+        )
+        if(NOT NIMBOPLAY_ICO_STATUS EQUAL 0)
+            message(FATAL_ERROR "Unable to generate NimboPlay Windows launcher ICO")
+        endif()
+        set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+            "${CMAKE_CURRENT_SOURCE_DIR}/assets/branding/nimboplay_launcher_256.png"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/branding/make_launcher_assets.py")
         target_sources(psbox PRIVATE windows/psbox.rc)
-        target_include_directories(psbox PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/windows")
+        target_include_directories(psbox PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/windows"
+                                                     "${CMAKE_CURRENT_BINARY_DIR}")
         if(TARGET SDL3::SDL3-shared)
             add_custom_command(TARGET psbox POST_BUILD
                 COMMAND ${CMAKE_COMMAND} -E copy_if_different
