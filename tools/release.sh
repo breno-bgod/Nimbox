@@ -216,7 +216,7 @@ echo "    \"$out/PSBoxCloudGaming[[]PS5]-$tag.zip.sha256#PSBoxCloudGaming[PS5]-$
 echo "    \"$out/PSBoxCloudGaming[[]PS5]-$tag.zip.sig#PSBoxCloudGaming[PS5]-$tag.zip.sig\" \\"
 echo "    \"$out/PSBoxCloudGaming[[]PS4]-$tag.pkg#PSBoxCloudGaming[PS4]-$tag.pkg\" \\"
 echo "    \"$out/PSBoxCloudGaming[[]PS4]-$tag.pkg.sha256#PSBoxCloudGaming[PS4]-$tag.pkg.sha256\"$linux_assets \\"
-echo "    --target $(git rev-parse HEAD) --title \"PSBox Cloud Gaming $tag\" --notes-file notes.md"
+echo "    --target $(git rev-parse HEAD) --title \"NimboPlay Cloud Gaming $tag\" --notes-file notes.md"
 echo
 echo "== post-release steps (Mandatory Tri-Platform Standard):"
 echo "  1. GitHub Actions will build Linux AppImage via .github/workflows/release-linux.yml."
@@ -227,6 +227,6 @@ echo "     tools/release-verify.sh $tag --verify-sigs"
 echo
 echo "== catalog record (apps/PPSA99810.json):"
 echo "  \"version\": \"$version\","
-echo "  \"artifact_url\": \"https://github.com/RafaelNGP/psbox-cloud-gaming/releases/download/$tag/PPSA99810.zip\","
+echo "  \"artifact_url\": \"https://github.com/breno-bgod/Nimbox/releases/download/$tag/PPSA99810.zip\","
 echo "  \"sha256\": \"$sha\","
-echo "  \"icon_url\": \"https://raw.githubusercontent.com/RafaelNGP/psbox-cloud-gaming/$tag/ps5/sce_sys/icon0.png\""
+echo "  \"icon_url\": \"https://raw.githubusercontent.com/breno-bgod/Nimbox/$tag/assets/branding/nimboplay_launcher_256.png\""
