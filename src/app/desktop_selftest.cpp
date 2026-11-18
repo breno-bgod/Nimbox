@@ -18,6 +18,7 @@
 #include "media/audio_out.h"
 #include "platform/platform.h"
 #include "ui/app_ui.h"
+#include "ui/nimbox_detail_showcase.h"
 #include "ui/canvas.h"
 #include "ui/font.h"
 #include "ui/image_cache.h"
@@ -372,6 +373,12 @@ int desktopSelftest(const std::string& dir) {
             tile.titleId = "cv-title-" + std::to_string(i);
             tile.name = names[i];
             tile.publisher = "Nimbox Horizon selftest";
+            tile.description = "Explore um universo cinematografico com novos mundos, personagens e desafios. Uma apresentacao de teste para validar a leitura e os espacos do Nimbox Showcase.";
+            tile.categories = {"Aventura", "Acao"};
+            tile.ratingAge = "16+";
+            tile.ratingSystem = "ClassInd";
+            tile.mouseKeyboard = true;
+            tile.xboxTitleId = "showcase-test-" + std::to_string(i);
             tile.playable = true;
             showcase.tiles.push_back(std::move(tile));
         }
@@ -418,7 +425,20 @@ int desktopSelftest(const std::string& dir) {
         drawCanvas(canvas);
         check(ui.screen() == ui::Screen::Details &&
                   screenshot(dir, "6b-horizon-details.png", shot) && varied(shot),
-              "Horizon game details (6b-horizon-details.png)");
+              "PS5 Showcase game details (6b-horizon-details.png)");
+        {
+            const auto play = ui.onMouseDown(ui::showcase::kPlayButton.x + 34.0f,
+                                             ui::showcase::kPlayButton.y + 25.0f, 1);
+            check(play.action == ui::Action::Play,
+                  "PS5 Showcase native Play hit target dispatches Action::Play");
+            ui::NavInput focusAwards;
+            focusAwards.right = true;
+            ui.handle(focusAwards);
+            ui.render(canvas, platform::nowMs());
+            drawCanvas(canvas);
+            check(screenshot(dir, "6d-ps5-showcase-awards-focused.png", shot) && varied(shot),
+                  "PS5 Showcase controller focus on Achievements");
+        }
 
         ui.setRows({});
         ui.setSettings(savedSettings);
