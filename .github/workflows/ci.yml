@@ -147,14 +147,14 @@ jobs:
 
       - uses: actions/upload-artifact@v7
         with:
-          name: psbox-linux-x86_64
-          path: build-app/pkg/PSBox-*-linux-x86_64.AppImage
+          name: nimboplay-linux-x86_64
+          path: build-app/pkg/NimboPlay-*-linux-x86_64.AppImage
           if-no-files-found: error
 
       - uses: actions/upload-artifact@v7
         if: always()
         with:
-          name: psbox-selftest
+          name: nimboplay-selftest
           path: ${{ runner.temp }}/psbox-selftest
           if-no-files-found: ignore
 
@@ -231,20 +231,20 @@ jobs:
 
       - uses: actions/upload-artifact@v7
         with:
-          name: psbox-windows-x86_64
-          path: build-win/pkg/PSBox-*-windows-x86_64.zip
+          name: nimboplay-windows-x86_64
+          path: build-win/pkg/NimboPlay-*-windows-x86_64.zip
           if-no-files-found: error
 
       - uses: actions/upload-artifact@v7
         with:
-          name: psbox-windows-x86_64-sha256
-          path: build-win/pkg/PSBox-*-windows-x86_64.zip.sha256
+          name: nimboplay-windows-x86_64-sha256
+          path: build-win/pkg/NimboPlay-*-windows-x86_64.zip.sha256
           if-no-files-found: error
 
       - uses: actions/upload-artifact@v7
         if: always()
         with:
-          name: psbox-windows-selftest
+          name: nimboplay-windows-selftest
           path: ${{ runner.temp }}/psbox-selftest
           if-no-files-found: ignore
 
@@ -334,7 +334,7 @@ jobs:
 
       # Reject accidentally uploaded PSBox builds before publishing an APK.
       # The Nimbox experimental package coexists with the original PSBox.
-      - name: Verify Nimbox Alpha APK identity
+      - name: Verify NimboPlay Alpha APK identity
         shell: bash
         run: |
           set -euo pipefail
@@ -343,14 +343,14 @@ jobs:
           test -n "$aapt_bin" && test -f "$apk"
           "$aapt_bin" dump badging "$apk" > "$RUNNER_TEMP/nimbox-apk-identity.txt"
           grep -Fq "package: name='com.rafaelngp.psbox.nimboxalpha'" "$RUNNER_TEMP/nimbox-apk-identity.txt"
-          grep -Fq "application-label:'Nimbox Alpha'" "$RUNNER_TEMP/nimbox-apk-identity.txt"
-          cp "$apk" "android/app/build/outputs/apk/debug/Nimbox-Android-Alpha.apk"
+          grep -Fq "application-label:'NimboPlay Alpha'" "$RUNNER_TEMP/nimbox-apk-identity.txt"
+          cp "$apk" "android/app/build/outputs/apk/debug/NimboPlay-Android-Alpha.apk"
 
       - name: Upload Android APK Artifact
         uses: actions/upload-artifact@v7
         with:
-          name: nimbox-android-alpha
-          path: android/app/build/outputs/apk/debug/Nimbox-Android-Alpha.apk
+          name: nimboplay-android-alpha
+          path: android/app/build/outputs/apk/debug/NimboPlay-Android-Alpha.apk
           if-no-files-found: error
 
 
@@ -366,11 +366,11 @@ jobs:
         run: |
           python3 tools/nimbox/export_preview.py \
             docs/prototypes/nimbox-preview-3.1.html \
-            "$RUNNER_TEMP/Nimbox_Preview_3_1_CPP_WASM.html"
-          grep -q "NIMBOX_CPP_WASM_BASE64" "$RUNNER_TEMP/Nimbox_Preview_3_1_CPP_WASM.html"
-          grep -q "nimboxCppExports.nimbox_pose_value" "$RUNNER_TEMP/Nimbox_Preview_3_1_CPP_WASM.html"
+            "$RUNNER_TEMP/NimboPlay_Preview_3_1_CPP_WASM.html"
+          grep -q "NIMBOX_CPP_WASM_BASE64" "$RUNNER_TEMP/NimboPlay_Preview_3_1_CPP_WASM.html"
+          grep -q "nimboxCppExports.nimbox_pose_value" "$RUNNER_TEMP/NimboPlay_Preview_3_1_CPP_WASM.html"
       - uses: actions/upload-artifact@v7
         with:
-          name: nimbox-cpp-wasm-preview
-          path: ${{ runner.temp }}/Nimbox_Preview_3_1_CPP_WASM.html
+          name: nimboplay-cpp-wasm-preview
+          path: ${{ runner.temp }}/NimboPlay_Preview_3_1_CPP_WASM.html
           if-no-files-found: error
