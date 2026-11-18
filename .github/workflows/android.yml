@@ -13,6 +13,8 @@ on:
       - feature/nimbox-default-ptbr-v1
       - feature/nimbox-ps5-showcase-details-v1
       - feature/nimble-play-internal-brand-v1
+      - feature/nimboplay-external-launcher-icons-v1
+      - feature/nimboplay-horizon-finite-navigation-v1
     paths:
       - 'android/**'
       - 'assets/branding/**'
