@@ -1185,6 +1185,7 @@ void AppUi::drawNimboxHorizon(Canvas& c, uint64_t nowMs) {
     fonts_.regular.draw(c, directions, 1816 - fonts_.regular.measure(directions, 18),
                         972, 18, soft);
 
+    c.gradientV({0, kH - 82, kW, 82}, rgba(3, 10, 20, 0), rgba(3, 10, 20, 128));
     // On a console, show an understated status only for connected pads.
     const int connected = static_cast<int>(std::count_if(pads_.begin(), pads_.end(),
         [](const PadSlot& p) { return p.connected; }));
@@ -1194,9 +1195,9 @@ void AppUi::drawNimboxHorizon(Canvas& c, uint64_t nowMs) {
             std::to_string(pads_.size());
         fonts_.semibold.draw(c, countLabel, 132, 1017, 20, soft);
     }
-    c.gradientV({0, kH - 82, kW, 82}, rgba(3, 10, 20, 0), rgba(3, 10, 20, 128));
     drawHints(c, {{kIconCross, "Detalhes"}, {kIconR3, "Perfil"},
-                  {kIconTriangle, tr(Str::TabSearch)}, {kIconOptions, tr(Str::Settings)}});
+                  {kIconTriangle, tr(Str::TabSearch)}, {kIconOptions, tr(Str::Settings)},
+                  {kIconTouchpad, tr(Str::HoldSignOut)}});
     drawToast(c, nowMs);
 }
 
