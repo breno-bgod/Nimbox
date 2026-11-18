@@ -1062,8 +1062,8 @@ void AppUi::drawNimboxHorizon(Canvas& c, uint64_t nowMs) {
         }
     }
     // Software-friendly fades rather than expensive blur or a new GPU pipeline.
-    c.gradientH({0, 124, 1130, 480}, rgba(6, 16, 30, 180), rgba(6, 16, 30, 0));
-    c.gradientV({0, 475, kW, 520}, rgba(8, 20, 34, 8), rgba(7, 17, 29, 121));
+    c.gradientH({0, 124, 1130, kH - 124}, rgba(6, 16, 30, 176), rgba(6, 16, 30, 0));
+    c.gradientV({0, 475, kW, kH - 475}, rgba(8, 20, 34, 8), rgba(7, 17, 29, 135));
     drawTopBar(c);
     drawTabs(c);
     fonts_.semibold.draw(c, tr(Str::HorizonExplore), 104, 179, 19, env.accent);
@@ -1146,7 +1146,8 @@ void AppUi::drawNimboxHorizon(Canvas& c, uint64_t nowMs) {
     const char* directions = tr(Str::HorizonVerticalHint);
     fonts_.regular.draw(c, directions, 1816 - fonts_.regular.measure(directions, 19),
                         943, 19, soft);
-    preview31::footerBackdrop(c);
+    // Soft footer with the live wallpaper visible behind it.
+    c.gradientV({0, kH - 145, kW, 145}, rgba(3, 10, 19, 0), rgba(3, 10, 19, 184));
     drawHints(c, {{kIconCross, "Detalhes"}, {kIconTriangle, tr(Str::TabSearch)},
                   {kIconOptions, tr(Str::Settings)}, {kIconTouchpad, tr(Str::HoldSignOut)}});
     drawPads(c);
