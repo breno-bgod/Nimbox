@@ -608,7 +608,7 @@ void StreamScreen::update(const input::ControllerState& pad, ui::NavInput nav, b
                     snapshot = g_settings;
                 }
                 app::SettingsManager::instance().syncFrom(snapshot);
-                if (g_player) g_player->switchDecoder(dec == 0);
+                if (g_player) g_player->switchDecoderMode(dec);
                 break;
             }
             case ui::MenuAction::FpsLimiter: {
