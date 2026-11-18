@@ -1234,7 +1234,7 @@ void AppUi::drawDetails(Canvas& c, uint64_t nowMs) {
            rgba(208, 232, 239, 90));
     fonts_.semibold.draw(c, tr(Str::DetailsAbout), showcase::kTextX, 580, 24, kWhite);
     int descY = 622;
-    for (const auto& line : fonts_.regular.wrap(g->description, 23, 905, 4)) {
+    for (const auto& line : fonts_.regular.wrap(g->description, 23, 905, needsPurchase ? 2 : 4)) {
         fonts_.regular.draw(c, line, showcase::kTextX, descY, 23,
                             rgba(207, 222, 231));
         descY += 34;
@@ -1301,6 +1301,7 @@ void AppUi::drawDetails(Canvas& c, uint64_t nowMs) {
         fonts_.regular.draw(c, fonts_.regular.fit(g->publisher, 21, 353), rx, lineY, 21, kGray);
 
     panel(showcase::kArtworkPanel);
+    if (!needsPurchase || isF2P) {
     const Rect artwork{showcase::kRailX + 24, 659, 174, 194};
     c.fillRect(artwork, rgba(31, 52, 65), 12);
     if (auto image = images_.get(g->tileUrl, artwork.w, artwork.h))
@@ -1317,6 +1318,8 @@ void AppUi::drawDetails(Canvas& c, uint64_t nowMs) {
     if (g->mouseKeyboard)
         fonts_.regular.draw(c, fonts_.regular.fit(tr(Str::MouseKeyboardSupport), 18, 170),
                             mediaX, 790, 18, kGray);
+
+    }
 
     // Premium action states retain the exact account entitlement logic and
     // event mapping already implemented by the Nimbox controller handler.
