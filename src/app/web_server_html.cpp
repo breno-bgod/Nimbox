@@ -1036,7 +1036,7 @@ body:has(#tab-gamepad.active) .remote-hero { display:none; }
           <option value="best">Auto (melhor)</option>
           <option value="1080p">1080p</option>
           <option value="720p">720p</option>
-          <option value="1440p" id="optRes1440">1440p (experimental)</option>
+          <option value="1440p" id="optRes1440">1440p (QHD)</option>
         </select>
       </div>
 
@@ -2603,8 +2603,7 @@ function applyLoadedSettings(s) {
   }
   applyGyroResponse(s);
   if (s.resolution !== undefined) {
-    const opt1440 = document.getElementById('optRes1440');
-    if (opt1440) opt1440.hidden = opt1440.disabled = (s.allow1440 === false && s.resolution !== '1440p');
+    // Always offer explicit 1440p; the streaming service decides the effective tier.
     const el = document.getElementById('selectResolution');
     if (el) el.value = s.resolution;
   }
