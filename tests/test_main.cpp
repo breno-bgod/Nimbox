@@ -251,6 +251,20 @@ static void testLoginCountry() {
     CHECK(!gssv.loginRefused() && gssv.loginStatus() == 0);
 }
 
+static void testNimboPlayInternalBrand() {
+    using namespace ui;
+    Canvas canvas(440, 220, rgba(9, 22, 38));
+    const uint32_t untouched = rgba(9, 22, 38);
+    drawInternalBrand(canvas, 20, 20, 400, 170);
+    CHECK(canvas.data()[0] == untouched);
+    size_t changed = 0;
+    for (int y = 20; y < 190; ++y)
+        for (int x = 20; x < 420; ++x)
+            if (canvas.data()[size_t(y) * canvas.width() + x] != untouched) ++changed;
+    CHECK(changed > 1000);  // Embedded original logo decoded; transparent pixels preserved.
+    CHECK(canvas.data()[size_t(219) * canvas.width() + 439] == untouched);
+}
+
 static void testPtBrDefaultOnFirstRun() {
     using namespace ui;
     // Before any test changes the global language, Nimbox starts in pt-BR.
@@ -11786,6 +11800,7 @@ static void testWorkerMobileM4Features() {
 }
 
 int main() {
+    testNimboPlayInternalBrand();
     testPtBrDefaultOnFirstRun();
     testMilestone1TouchOverlayCanvasAndHaptics();
     testHwPictureContract();

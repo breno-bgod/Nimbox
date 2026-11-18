@@ -11,6 +11,7 @@ on:
       - feature/android-surface-third-engine
       - feature/nimbox-horizon-native-v1
       - feature/nimbox-default-ptbr-v1
+      - feature/nimbox-ps5-showcase-details-v1
     paths:
       - 'android/**'
       - 'src/app/**'

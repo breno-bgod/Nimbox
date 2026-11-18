@@ -13,9 +13,18 @@ namespace xc::ui {
 
 constexpr Color kBrandGreen = rgba(16, 124, 16);
 
-// The sphere of radius `r` centred at (cx, cy), in `color`; the swooshes are
-// see-through (whatever is behind shows).
+// User-provided NimboPlay wordmark; embedded PNG, transparent and platform-neutral.
+// Draws to a contained rectangle without stretching, cropping or network access.
+void drawInternalBrand(Canvas& c, int x, int y, int w, int h);
+
+// The old technical mark is retained solely for the existing external
+// launcher / PS5 sce_sys icon generation until a separate icon is approved.
 void drawBrandMark(Canvas& c, float cx, float cy, float r, Color color = rgba(255, 255, 255));
+
+// User-provided NimboPlay cloud + wordmark. INTERNAL menus only; embedded
+// as PNG in the native executable and drawn without any network request.
+// The external launcher icon is intentionally separate.
+void drawInternalBrand(Canvas& c, Rect bounds);
 
 // The square app icon (green field, mark, "PSBox" wordmark).
 void drawAppIcon(Canvas& c, const Fonts& fonts);

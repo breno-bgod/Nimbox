@@ -1,13 +1,55 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Nimbox experimental visual identity; the original project's GPL credit is preserved.
-#include <cstddef>
-#include <cstdint>
+// NimboPlay internal visual identity; original project GPL credit preserved.
 #include "ui/brand.h"
-
+#include "ui/image_cache.h"
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
+#include <map>
+#include <mutex>
+#include <string>
+#include <utility>
+
+// Generated from user-provided internal logo by cmake/embed_file.cmake.
+// External OS launcher and PS5 shell artwork remain separate.
+extern const unsigned char xc_internal_nimboplay_brand[];
+extern const std::size_t xc_internal_nimboplay_brand_size;
 
 namespace xc::ui {
+
+// Decode the bundled transparent wordmark only once. Each requested display
+// size is fitted and cached so there is no repeated PNG decoding per frame.
+void drawInternalBrand(Canvas& c, Rect bounds) {
+    if (bounds.w <= 0 || bounds.h <= 0) return;
+    static const Image source = [] {
+        Image logo;
+        if (xc_internal_nimboplay_brand_size > 1) {
+            const std::string bytes(reinterpret_cast<const char*>(xc_internal_nimboplay_brand),
+                                    xc_internal_nimboplay_brand_size - 1);
+            decodeImage(bytes, logo);
+        }
+        return logo;
+    }();
+    if (source.w <= 0 || source.h <= 0) return;
+    const double aspect = static_cast<double>(source.w) / source.h;
+    const int w = std::max(1, std::min(bounds.w, static_cast<int>(bounds.h * aspect + 0.5)));
+    const int h = std::max(1, std::min(bounds.h, static_cast<int>(w / aspect + 0.5)));
+    const int x = bounds.x + (bounds.w - w) / 2;
+    const int y = bounds.y + (bounds.h - h) / 2;
+
+    static std::mutex mutex;
+    static std::map<std::pair<int, int>, Image> scaled;
+    std::lock_guard<std::mutex> lock(mutex);
+    const auto key = std::make_pair(w, h);
+    auto it = scaled.find(key);
+    if (it == scaled.end())
+        it = scaled.emplace(key, coverResize(source, w, h)).first;
+    c.drawImage(it->second, x, y, 255, 0);
+}
+
+void drawInternalBrand(Canvas& c, int x, int y, int w, int h) {
+    drawInternalBrand(c, Rect{x, y, w, h});
+}
 
 // An original geometric N mark, replacing the PSBox swoosh icon in the
 // experimental UI. Uses Canvas primitives so it works on every platform.
