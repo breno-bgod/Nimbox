@@ -600,4 +600,10 @@ constexpr Column kSpanish = {
     "INICIO DE LA COLECCIÓN · RETROCEDE OTRA VEZ PARA IR AL FINAL",  // HorizonStartHint
     "IZQUIERDA / DERECHA  -  JUEGOS",  // HorizonHorizontalHint
     "ARRIBA / ABAJO  -  COLECCIONES",  // HorizonVerticalHint
+    "Ampliar QR",  // SettingsExpandQr
+    "Escanea para abrir el panel de NimboPlay",  // SettingsQrInstructions
+    "Conectar al panel web",  // SettingsQrConnect
+    "El código QR no está disponible en esta sesión.",  // SettingsQrUnavailable
+    "R3 / TOCAR  -  AMPLIAR QR",  // SettingsQrPointerHint
+    "L2  Configuración",  // SettingsDetailsShortcut
 };
