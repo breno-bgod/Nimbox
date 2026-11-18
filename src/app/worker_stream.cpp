@@ -119,6 +119,11 @@ std::string stream(xcloud::GssvClient& gssv, const auth::CloudTimeQuery& cloudQu
         bool hasCustom = false;
         GameProfile prof = g_settings.profileForGame(g_stageProduct, g_stageTitle, &hasCustom);
         bool preferHw = true;
+        const int decoderMode = hasCustom ? prof.videoDecoder : g_settings.videoDecoder;
+#if defined(__ANDROID__)
+        // Video only: existing Nimbox streaming, audio and input remain unchanged.
+        player.setAndroidSurfaceOutput(!g_autoplay.swDecode && decoderMode == 2);
+#endif
         if (g_autoplay.gyroLevel > 0) g_settings.gyroLevel = std::clamp(g_autoplay.gyroLevel, 1, 10);  // the settings are guarded under autoplay
         if (g_autoplay.gyroCurve == "fortnite") g_settings.gyroCurveStart = 15, g_settings.gyroCurveExp = 24;
         if (g_autoplay.swDecode) {
@@ -132,7 +137,7 @@ std::string stream(xcloud::GssvClient& gssv, const auth::CloudTimeQuery& cloudQu
                 it->second.videoDecoder = 1;
             }
         } else if (g_autoplay.preferHwDecode) {
-            preferHw = (hasCustom ? (prof.videoDecoder == 0) : (g_settings.videoDecoder == 0));
+            preferHw = (decoderMode != 1);
         } else {
             preferHw = false;
         }
