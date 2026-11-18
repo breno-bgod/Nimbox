@@ -30,6 +30,15 @@ struct Rect {
     int x = 0, y = 0, w = 0, h = 0;
 };
 
+// Convex screen-space rectangle used for angled physical box art.
+// Corners are ordered clockwise, starting at the top-left.
+struct Point {
+    float x = 0, y = 0;
+};
+struct Quad {
+    Point tl, tr, br, bl;
+};
+
 class Canvas {
 public:
     Canvas(int w, int h, Color initialColor = rgba(0, 0, 0, 0)) : w_(w), h_(h), px_(static_cast<size_t>(w) * h, initialColor) { resetClip(); }
@@ -60,11 +69,19 @@ public:
     // 1:1 copy (no scaling) with opacity and optional rounded corners;
     // radius < 0 clips to a circle (avatars).
     void drawImage(const Image& img, int x, int y, uint8_t opacity = 255, int radius = 0);
+    // Software-rendered trapezoids; respects the Canvas clip rectangle.
+    // Used only by the opt-in Nimbox box-carousel screen.
+    void fillQuad(const Quad& quad, Color color);
+    void drawImageQuad(const Image& img, const Quad& quad, uint8_t opacity = 255);
+    // Rotated artwork clipped to a genuine circle for the virtual optical disc.
+    void drawImageDisc(const Image& img, float cx, float cy, float radius,
+                       float radians, uint8_t opacity = 255);
     // Blends a single colour through an 8-bit coverage mask (text, QR).
     void drawMask(const uint8_t* mask, int mw, int mh, int stride, int x, int y, Color c);
 
 private:
     void blend(uint32_t& dst, Color src, uint32_t alpha /*0..255*/) const;
+    void drawQuadImpl(const Quad& q, Color solid, const Image* image, uint8_t opacity);
     // Coverage (0..255) of a rounded rectangle at pixel (px, py).
     static uint32_t cornerCoverage(Rect r, int radius, int px, int py);
 

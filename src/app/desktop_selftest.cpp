@@ -211,6 +211,26 @@ int desktopSelftest(const std::string& dir) {
     ui.render(canvas, platform::nowMs());
     drawCanvas(canvas);
     check(screenshot(dir, "2-settings.png", shot) && varied(shot), "Settings screen (2-settings.png)");
+    // Appearance controls are real: clicking a swatch persists a visual theme
+    // without changing stream bitrate, region, controller or Play.
+    {
+        auto before = ui.settings();
+        const auto original = shot.rgb;
+        ui.onMouseDown(1682.0f, 385.0f, 1); // Emerald, row 2 / col 2
+        auto next = ui.settings();
+        check(next.nimboxTheme == 3 && next.region == before.region &&
+              next.maxBitrateMbps == before.maxBitrateMbps &&
+              next.padMap == before.padMap, "Emerald theme changes appearance only");
+        ui.onMouseDown(1690.0f, 550.0f, 1); // floor reflection
+        check(ui.settings().nimboxReflection > 50, "Reflection slider responds to touch");
+        ui.onMouseDown(1660.0f, 604.0f, 1); // reduced motion
+        check(ui.settings().nimboxReducedMotion, "Reduced motion toggle responds to touch");
+        ui.render(canvas, platform::nowMs());
+        drawCanvas(canvas);
+        check(screenshot(dir, "2f-settings-emerald.png", shot) && varied(shot) &&
+              shot.rgb != original, "Settings environment swatches change native pixels");
+        ui.setSettings(before);
+    }
     // The PS5's Settings, every row shown (the console's own capabilities).
     ui.setCaps(ui::UiCaps{});
     ui.render(canvas, platform::nowMs());
@@ -336,6 +356,76 @@ int desktopSelftest(const std::string& dir) {
         back.nowMs = platform::nowMs();
         ui.handle(back);
         ui.handle(back);
+    }
+
+    // Colecao Viva: render the native projected 3D cases with synthetic local
+    // catalog data. No network, account or xCloud stream is used by this
+    // visual regression capture; real game art is validated separately.
+    {
+        ui::GameRow showcase;
+        showcase.title = "Colecao de teste";
+        // Nine synthetic titles expose all +/-4 profile zones of the arc.
+        // No external artwork or console account is needed for the capture.
+        const char* names[] = {"Aurora Nexus", "Ember Realms", "Polaris Siege",
+                               "Lumen Falls", "Void Drifter", "Deep Orbit",
+                               "Neon Tides", "Crystal Trail", "Iron Valley"};
+        for (int i = 0; i < 9; ++i) {
+            ui::GameTile tile;
+            tile.productId = "cv-test-" + std::to_string(i);
+            tile.titleId = "cv-title-" + std::to_string(i);
+            tile.name = names[i];
+            tile.publisher = "Nimbox visual selftest";
+            // Exercise branded packaging by generation, not by guessing it
+            // in the production catalog when metadata is missing.
+            tile.platform = i == 0 ? "ONE" : (i == 1 ? "XS" : (i == 2 ? "360" : ""));
+            tile.playable = true;
+            showcase.tiles.push_back(std::move(tile));
+        }
+        // Synthetic history renders the "Continue jogando" visual rail.
+        // Preserve every real setting and restore it after the screenshots.
+        const ui::SettingsChoice savedLayoutSettings = ui.settings();
+        ui::SettingsChoice shelfSettings = savedLayoutSettings;
+        for (int i = 0; i < 5; ++i) {
+            shelfSettings.titlePlaytime["cv-test-" + std::to_string(i)] = 1800u + 600u * i;
+        }
+        ui.setSettings(shelfSettings);
+        ui.setRows({showcase});
+        ui.showHome();
+        ui.render(canvas, platform::nowMs());
+        drawCanvas(canvas);
+        check(ui.screen() == ui::Screen::Home &&
+                  screenshot(dir, "6-colecao-viva-home.png", shot) && varied(shot),
+              "Colecao Viva native carousel (6-colecao-viva-home.png)");
+        // The chosen theme must actually paint a different studio behind
+        // the same cases, not merely highlight a settings swatch.
+        const auto auroraShot = shot.rgb;
+        ui::SettingsChoice cinemaSettings = shelfSettings;
+        cinemaSettings.nimboxTheme = 4;
+        cinemaSettings.nimboxReflection = 0;
+        ui.setSettings(cinemaSettings);
+        ui.render(canvas, platform::nowMs());
+        drawCanvas(canvas);
+        check(screenshot(dir, "6c-colecao-viva-cinema-home.png", shot) && varied(shot) &&
+              shot.rgb != auroraShot, "Cinema Dark changes native Home background");
+        ui.setSettings(shelfSettings);
+
+        // The old CTA zone is visually blank AND must no longer react to touch.
+        ui.onMouseDown(960.0f, 830.0f, 1);
+        check(ui.screen() == ui::Screen::Home,
+              "Removed VER DETALHES button has no invisible touch target");
+
+        // The centred physical cover is the ONLY pointer entry to Details.
+        ui.onMouseDown(960.0f, 418.0f, 1);
+        check(ui.screen() == ui::Screen::Details,
+              "Colecao Viva centre-case tap opens the game's real details");
+        ui.render(canvas, platform::nowMs());
+        drawCanvas(canvas);
+        check(ui.screen() == ui::Screen::Details &&
+                  screenshot(dir, "6b-colecao-viva-details.png", shot) && varied(shot),
+              "Colecao Viva disc-only details (6b-colecao-viva-details.png)");
+        ui.setRows({});
+        ui.setSettings(savedLayoutSettings);
+        ui.showHome();
     }
 
     // A video frame through the mailbox, then under the game menu.

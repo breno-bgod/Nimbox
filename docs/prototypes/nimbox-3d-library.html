@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Nimbox 3D Library — Protótipo Fase 0</title>
+<style>
+:root{color-scheme:dark;--bg:#090e19;--stroke:#ffffff23;--txt:#f6f8fc;--muted:#a9b3c5;--accent:#65dff1}
+*{box-sizing:border-box}html,body{margin:0;min-height:100%;font-family:system-ui,-apple-system,Segoe UI,sans-serif;background:var(--bg);color:var(--txt)}body{overflow-x:hidden}
+body::before{content:"";position:fixed;inset:0;z-index:-1;background:radial-gradient(ellipse 65% 40% at 51% 50%,#163f59 0%,transparent 75%),linear-gradient(140deg,#0c1221,#090c16 75%)}body::after{content:"";position:fixed;left:-15%;right:-15%;top:50%;height:1px;background:linear-gradient(90deg,transparent,#c9f3ff34,transparent);box-shadow:0 5px 70px 16px #2c8db32a;pointer-events:none}
+header{display:flex;align-items:center;justify-content:space-between;padding:24px clamp(20px,5vw,72px);gap:12px}.brand{font-weight:900;letter-spacing:.13em;font-size:clamp(22px,3vw,30px)}.brand b{color:var(--accent)}.tag{border:1px solid var(--stroke);border-radius:30px;padding:9px 15px;font-size:12px;color:var(--muted)}.topnav{display:flex;gap:22px;color:var(--muted);font-size:13px}.topnav strong{color:#fff;border-bottom:2px solid var(--accent);padding-bottom:7px}
+main{min-height:calc(100dvh - 93px);display:flex;flex-direction:column;justify-content:center;align-items:center;padding:0 16px 34px}.eyebrow{text-transform:uppercase;color:var(--accent);letter-spacing:.22em;font-weight:700;font-size:11px;margin:10px 0}.heading{text-align:center;margin:0;font-size:clamp(28px,4vw,48px);font-weight:800;letter-spacing:-.04em}.sub{text-align:center;color:var(--muted);font-size:13px;margin:9px 0 0}
+.shelf{width:100%;max-width:1300px;height:clamp(320px,45vw,505px);position:relative;perspective:1100px;overflow:hidden;touch-action:pan-y}.stage{width:100%;height:100%;position:relative;transform-style:preserve-3d}
+.case{position:absolute;top:50%;left:50%;width:clamp(138px,20vw,217px);height:clamp(206px,30vw,326px);transform-style:preserve-3d;transition:transform .42s cubic-bezier(.2,.75,.2,1),opacity .3s,filter .3s;cursor:pointer;outline:none}.case:focus-visible .front{outline:3px solid var(--accent);outline-offset:7px}.case.hidden{opacity:0;pointer-events:none}.front,.side{position:absolute;inset:0;border:1px solid #d5f6ff44;border-radius:5px;background:var(--cover);box-shadow:inset 0 0 0 5px #ffffff0c,0 16px 30px #000a;backface-visibility:hidden;overflow:hidden}.front:before{content:"";position:absolute;inset:0;background:linear-gradient(113deg,#ffffff3e 0%,transparent 28%,transparent 70%,#0008 100%);pointer-events:none}.front:after{content:"";position:absolute;inset:0;border-radius:5px;box-shadow:inset 0 0 0 6px #0003;pointer-events:none}
+.case-band{display:flex;align-items:center;justify-content:space-between;height:13%;padding:0 8%;background:linear-gradient(90deg,#edf9ff,#a8dce7);color:#09202e;font-size:clamp(8px,1.1vw,12px);font-weight:900;letter-spacing:.1em}.case-band span{font-size:10px;border:1px solid #09202e66;padding:1px 3px;border-radius:2px}
+.cover-inner{height:87%;display:flex;flex-direction:column;justify-content:space-between;padding:12%;background:radial-gradient(circle at 74% 23%,#ffffff44,transparent 42%),linear-gradient(145deg,transparent,#0008);text-shadow:0 3px 9px #000b}.cover-symbol{font-size:clamp(46px,7vw,86px);line-height:1;text-align:center;margin:auto;filter:drop-shadow(0 8px 8px #0006)}.cover-title{font-weight:950;line-height:1.04;letter-spacing:-.06em;text-transform:uppercase;font-size:clamp(17px,2.4vw,28px)}.cover-edition{font-size:10px;letter-spacing:.16em;margin-top:6px;color:#fff9}
+.spine{position:absolute;left:0;top:0;bottom:0;width:13px;transform:translateX(-7px) rotateY(-90deg);background:linear-gradient(#c4eaf3,#223c4e);border:1px solid #ffffff55}.disc{display:none}
+.floor{height:2px;width:min(86%,1050px);background:linear-gradient(90deg,transparent,#a1e9f34d,transparent);margin-top:-18px;filter:blur(1px)}
+.selected{display:flex;align-items:center;gap:12px;flex-direction:column;text-align:center;min-height:115px}.selected h2{font-size:clamp(21px,3vw,30px);letter-spacing:-.03em;margin:10px 0 2px}.selected p{margin:0;color:var(--muted);font-size:13px}.actions{display:flex;gap:9px;flex-wrap:wrap;justify-content:center;margin-top:14px}.button{border:1px solid var(--stroke);background:#ffffff10;border-radius:13px;padding:12px 17px;color:white;font:600 13px system-ui;cursor:pointer}.button.primary{background:var(--accent);color:#05202a;border-color:transparent}.button:hover{border-color:var(--accent)}.button:focus-visible{outline:2px solid var(--accent);outline-offset:3px}.foot{margin-top:20px;color:#96a4b7;font-size:11px;text-align:center;line-height:1.7}.arrows{display:flex;gap:12px;align-items:center}.round{width:43px;height:43px;border-radius:50%;background:#ffffff13;border:1px solid var(--stroke);color:#fff;font-size:24px;cursor:pointer}.round:hover{background:#ffffff2a}
+@media(max-width:640px){header{padding:17px 18px}.topnav{display:none}.shelf{height:370px}.case{width:156px;height:236px}.heading{font-size:28px}.case-band{font-size:9px}.cover-title{font-size:21px}.cover-symbol{font-size:62px}.foot{padding:0 20px}}
+@media(prefers-reduced-motion:reduce){.case{transition:none}}
+</style></head>
+<body>
+<header><div class="brand">NIM<b>BOX</b></div><nav class="topnav"><strong>Biblioteca</strong><span>Recentes</span><span>Favoritos</span><span>Configurações</span></nav><div class="tag">PROTÓTIPO · FASE 0</div></header>
+<main><p class="eyebrow">Sua coleção, seu universo</p><h1 class="heading">Biblioteca de jogos</h1><p class="sub">Explore uma coleção virtual de caixas físicas</p>
+<div class="shelf" id="shelf" aria-label="Carrossel de jogos demonstrativos"><div class="stage" id="stage"></div></div><div class="floor"></div>
+<div class="selected"><h2 id="name">—</h2><p id="info">—</p>
+<div class="actions"><div class="arrows"><button class="round" id="prev" aria-label="Jogo anterior">‹</button><button class="round" id="next" aria-label="Próximo jogo">›</button></div><button class="button primary" id="details">Ver detalhes</button><button class="button" id="rotate">Girar caixa</button></div></div>
+<div class="foot">← → / A D para navegar · Arraste para os lados no celular · Enter para selecionar<br>Protótipo visual com jogos fictícios. Sem conexão com Microsoft ou streaming.</div>
+</main>
+<script>
+"use strict";
+const games=[
+{title:"Horizonte Zero",genre:"Aventura · Ficção científica",symbol:"✦",color:"#135b77"},
+{title:"Cidade Neon",genre:"Ação · Mundo aberto",symbol:"◈",color:"#793c91"},
+{title:"Ruínas Eternas",genre:"RPG · Fantasia",symbol:"♜",color:"#5b6942"},
+{title:"Velocidade Máxima",genre:"Corrida · Arcade",symbol:"➤",color:"#99552d"},
+{title:"Oceano Profundo",genre:"Exploração · Aventura",symbol:"≈",color:"#146d7a"},
+{title:"Estação Lunar",genre:"Estratégia · Espaço",symbol:"☾",color:"#4d618e"},
+{title:"Lendas do Norte",genre:"RPG · Aventura",symbol:"⚔",color:"#785b59"}];
+const stage=document.getElementById("stage"),name=document.getElementById("name"),info=document.getElementById("info"),shelf=document.getElementById("shelf");
+let selected=2,back=false,startX=null;
+const nodes=games.map((g,i)=>{const el=document.createElement("button");el.type="button";el.className="case";el.setAttribute("aria-label",g.title);el.style.setProperty("--cover",`linear-gradient(142deg,${g.color},#0b1425)`);el.innerHTML=`<span class="spine"></span><span class="front"><span class="case-band">NIMBOX <span>GAME</span></span><span class="cover-inner"><span class="cover-symbol">${g.symbol}</span><span class="cover-title">${g.title}</span><span class="cover-edition">DIGITAL COLLECTION</span></span></span>`;el.addEventListener("click",()=>{selected=i;back=false;render()});stage.append(el);return el});
+function render(){const small=matchMedia("(max-width:640px)").matches,spacing=small?94:148;nodes.forEach((el,i)=>{let d=i-selected,abs=Math.abs(d),visible=abs<4;el.classList.toggle("hidden",!visible);el.style.zIndex=String(20-abs);el.style.opacity=visible?String(Math.max(.30,1-abs*.19)):"0";const scale=abs===0?1.15:Math.max(.58,.86-abs*.095),ry=(d===0?(back?165:0):(d<0?44:-44));el.style.transform=`translate(-50%,-50%) translateX(${d*spacing}px) translateZ(${abs===0?90:-abs*35}px) rotateY(${ry}deg) scale(${scale})`;el.setAttribute("aria-current",i===selected?"true":"false");el.tabIndex=i===selected?0:-1});name.textContent=games[selected].title;info.textContent=games[selected].genre;document.getElementById("rotate").textContent=back?"Ver frente":"Girar caixa"}
+function move(d){selected=(selected+d+games.length)%games.length;back=false;render()}
+document.getElementById("prev").addEventListener("click",()=>move(-1));document.getElementById("next").addEventListener("click",()=>move(1));document.getElementById("rotate").addEventListener("click",()=>{back=!back;render()});
+document.getElementById("details").addEventListener("click",()=>alert(games[selected].title+"\n"+games[selected].genre+"\n\nDemonstração: a integração com os detalhes reais do Nimbox será feita na fase nativa."));
+window.addEventListener("keydown",e=>{if(["ArrowRight","ArrowLeft"].includes(e.key)){e.preventDefault();move(e.key==="ArrowRight"?1:-1)}else if(e.target.tagName!=="BUTTON"&&["a","d"].includes(e.key.toLowerCase()))move(e.key.toLowerCase()==="d"?1:-1)});
+shelf.addEventListener("touchstart",e=>{startX=e.touches[0].clientX},{passive:true});shelf.addEventListener("touchend",e=>{if(startX===null)return;const dx=e.changedTouches[0].clientX-startX;if(Math.abs(dx)>35)move(dx<0?1:-1);startX=null},{passive:true});window.addEventListener("resize",render);
+render();
+</script></body></html>

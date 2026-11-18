@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 RafaelNGP
 constexpr Column kSpanish = {
-    "PSBox Cloud Gaming",
-    "PSBOX CLOUD GAMING",
+    "Nimbox",
+    "NIMBOX",
     "Iniciando sesión...",
     "Obteniendo un código de inicio de sesión...",
     "Cargando tus juegos...",
@@ -152,7 +152,7 @@ constexpr Column kSpanish = {
     "Actualizar ahora",
     "Ahora no",
     "Actualizaciones",
-    "Al día (%s)",
+    "Instalado: %s", // UpToDate
     "%s disponible: actualizar",
     "Comprobando...",
     "Actualizando a %s",
@@ -160,7 +160,7 @@ constexpr Column kSpanish = {
     "Comprobando la firma...",
     "Instalando...",
     "Actualizado. Reiniciando...",
-    "PSBox actualizado: abre la app de nuevo",
+    "Nimbox actualizado: abre la app de nuevo",
     "La actualización falló: no se cambió nada",
     "Color del juego",
     "Color personalizado",
@@ -216,7 +216,7 @@ constexpr Column kSpanish = {
     "Informar de un problema",
     "Escanéalo con el móvil: se abre el formulario de errores de GitHub, ya rellenado. Lo revisas antes de enviarlo.",
     "Incluye la versión de la app, el error y líneas del registro, sin datos personales.",
-    "PSBox se cerró inesperadamente la última vez",
+    "Nimbox se cerró inesperadamente la última vez",
     "País de inicio de sesión",
     "Desactivado (el de la consola)",
     "Entrar como otro país",
@@ -267,7 +267,7 @@ constexpr Column kSpanish = {
     "Modo de pantalla", // DisplayMode
     "Ventana", // DisplayWindow
     "Pantalla completa", // DisplayFullscreen
-    "¿Salir de PSBox?", // QuitTitle
+    "¿Salir de Nimbox?", // QuitTitle
     "Salir", // QuitConfirm
     "Botones del mando", // ControllerButtons
     "Pulsa el botón para %s", // PadPressButton
@@ -338,11 +338,11 @@ constexpr Column kSpanish = {
     "Quitado de lista de deseos",                     // RemovedFromWishlist
     "¡%s está en oferta!",                            // WishlistOnSale
     "¡%s llegó a Game Pass!",                         // WishlistInGamePass
-    "Apoya el proyecto",                              // SupportProject
-    "Apoya el Desarrollo de PSBox",                   // SupportTitle
-    "PSBox es un proyecto de código abierto desarrollado con dedicación para brindar la mejor experiencia de Xbox Cloud Gaming en PlayStation 5. Si disfrutas de la app y deseas apoyar el desarrollo continuo y nuevas funciones, ¡considera invitarme un café en Ko-Fi!", // SupportMessage
-    "Ko-fi",                                          // SupportKoFi
-    "Escanea con tu teléfono para donar",             // ScanToDonate
+    "Soporte Nimbox", // SupportProject
+    "Soporte Nimbox", // SupportTitle
+    "Abre el repositorio oficial de Nimbox en GitHub para información y soporte. Los créditos y licencias originales del código abierto permanecen conservados.", // SupportMessage
+    "GitHub", // SupportKoFi
+    "Escanea para abrir el GitHub de Nimbox", // ScanToDonate
     "Probar sonido",                                  // TestSound
     "La lista de deseos está vacía",                  // WishlistEmpty
     // Loading tips
@@ -350,7 +350,7 @@ constexpr Column kSpanish = {
     "Teclado y ratón USB conectados a la consola son compatibles con juegos de la nube habilitados", // TipKeyboardMouse
     "Reclama juegos gratis, demos y descubre promociones de la tienda directamente desde la aplicación", // TipFreeStore
     "¿Encontraste un problema? Abre Notificar problema para escanear un QR con registros de la consola", // TipBugReportQr
-    "¿Disfrutas del proyecto? ¡Apoya su desarrollo futuro a través de Ko-fi en Configuración!", // TipSupportKofi
+    "¿Necesitas ayuda? Encuentra el GitHub de Nimbox en Configuración.", // TipSupportKofi
     "Activa salida de vídeo a 120 Hz en Configuración para menor latencia y respuesta más fluida", // Tip120HzVideo
     "Calibra la zona muerta de los sticks en Configuración para eliminar deriva y mejorar la precisión", // TipAnalogDeadzone
     "Usa el micrófono integrado del DualSense para chat de voz en grupos y partidas multijugador", // TipDualSenseMic
@@ -374,7 +374,7 @@ constexpr Column kSpanish = {
     "Activa o desactiva la vibración de gatillos adaptativos L2 y R2 en juegos compatibles", // SettingDescTriggerRumble
     "Alterna la función de confirmar y volver entre Cruz (estilo occidental) y Círculo (estilo japonés)", // SettingDescConfirmButton
     "Configura el color y comportamiento de la barra luminosa del DualSense en menús y durante el juego", // SettingDescLightBar
-    "Comprueba e instala automáticamente actualizaciones oficiales de la aplicación directamente en la consola", // SettingDescUpdates
+    "Consulta las versiones Nimbox en GitHub; las actualizaciones firmadas se instalan solo en plataformas compatibles.", // SettingDescUpdates
     "Permite iniciar sesión en tu cuenta de Xbox mediante otra región geográfica para acceder a catálogos alternativos", // SettingDescLoginCountry
     "Activa salida de vídeo a 120 Hz en tu consola para reducir el retardo de pantalla y la latencia de entrada", // SettingDescHighRefresh
     "Automático usa el límite del perfil Xbox; Sin límite quita el tope de la app hasta el máximo real del servidor. Más de 15 Mbps es experimental.", // SettingDescBitrateCap
@@ -386,7 +386,7 @@ constexpr Column kSpanish = {
     "Reproduce un aviso sonoro cuando termina la espera en cola de xCloud y el juego está listo", // SettingDescQueueReady
     "Ejecuta un diagnóstico completo del inicio de sesión de Xbox Live, validando tokens, perfil y suscripciones", // SettingDescCheckSignIn
     "Mide el ping (RTT) y la fluctuación (jitter) a centros de datos de juegos en la nube en múltiples regiones", // SettingDescNetworkTest
-    "Muestra un código QR para apoyar al desarrollador mediante Ko-fi y mantener el proyecto activo", // SettingDescSupportProject
+    "Abre el GitHub oficial de Nimbox para información y soporte.", // SettingDescSupportProject
     "Novedades",                                      // WhatsNew
     "Novedades",                                      // WhatsNewTitle
     "Altavoz del mando",                              // PadSpeakerVolume
@@ -450,9 +450,9 @@ constexpr Column kSpanish = {
     "Estoy al tanto",                                 // TrophiesDisclaimerAware
     "Cancelar",                                       // TrophiesDisclaimerCancel
     "Eliminar Trofeos Sincronizados",                 // RemoveTrophies
-    "Elimina todos los trofeos añadidos por PSBox del perfil local para evitar riesgos con PSN. Podrás volver a sincronizarlos cuando quieras desde tu cuenta Xbox.", // SettingDescRemoveTrophies
+    "Elimina todos los trofeos añadidos por Nimbox del perfil local para evitar riesgos con PSN. Podrás volver a sincronizarlos cuando quieras desde tu cuenta Xbox.", // SettingDescRemoveTrophies
     "¿Eliminar Trofeos Sincronizados?",               // RemoveTrophiesConfirmTitle
-    "Esto borrará los paquetes locales de trofeos de PSBox para este perfil. Tus logros permanecen seguros en tu cuenta Microsoft/Xbox.", // RemoveTrophiesConfirmBody
+    "Esto borrará los paquetes locales de trofeos de Nimbox para este perfil. Tus logros permanecen seguros en tu cuenta Microsoft/Xbox.", // RemoveTrophiesConfirmBody
     "Eliminar",                                       // RemoveTrophiesConfirm
     "Se han eliminado %s título(s) de trofeos de este perfil.", // TrophiesRemovedToast
     "Sincronizando logros...",                        // SyncingTrophies
@@ -467,7 +467,7 @@ constexpr Column kSpanish = {
     "Pestañas",                                       // MenuTabsLabel
     "Configuraciones guardadas",                      // SettingsSavedToast
     "Configuraciones del juego guardadas",            // GameSettingsSavedToast
-    "PSBox: conexiones seguras no disponibles",       // SecureConnUnavailableToast
+    "Nimbox: conexiones seguras no disponibles",       // SecureConnUnavailableToast
     "Error al sincronizar trofeos: %s",               // TrophySyncFailedToast
     "Telemetría activada",                            // TelemetryOnToast
     "Telemetría desactivada",                         // TelemetryOffToast

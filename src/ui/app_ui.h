@@ -122,6 +122,9 @@ struct SettingsChoice {
     int language = 0;      // ui::Language
     int resolution = 0;    // 0 = 1080p, 1 = 720p, 2 = 1440p (experimental)
     std::string region;    // gssv region name; empty = automatic
+    int nimboxTheme = 0;          // visual-only studio theme
+    int nimboxReflection = 44;    // local virtual floor reflection (0..100)
+    bool nimboxReducedMotion = false; // visual animation preference
     std::string storeCountry;  // store offers; empty = the cloud session’s market
     std::string loginCountry;  // "Sign in as another country" (kLoginCountries); empty = off
     int deadzone[2] = {15, 15};  // left, right stick: percent of the travel, 0..kMaxDeadzone
@@ -211,7 +214,7 @@ std::vector<SettingsRowPos> visibleGameSettingsRows(const UiCaps& caps, bool cus
 
 // The largest stick dead zone Settings offers, in percent of the travel.
 constexpr int kMaxDeadzone = 30;
-constexpr int kSettingRows = 28;  // language, resolution, region, dead zone, triggers, confirm, light bar, updates,
+constexpr int kSettingRows = 35;  // 0..27 legacy settings, 28..30 appearance, 31..34 shared video/audio quality  // language, resolution, region, dead zone, triggers, confirm, light bar, updates,
                                   // sign-in country, 120 Hz output, bitrate cap, game volume, keyboard keys,
                                   // display mode (a desktop's window), controller buttons, gyro aiming, queue chime,
                                   // check sign-in, network test, support project, video decoder, audio-to-haptics,
@@ -561,6 +564,8 @@ private:
     void drawSplash(Canvas& c, uint64_t nowMs);
     void drawSignIn(Canvas& c, uint64_t nowMs);
     void drawHome(Canvas& c, uint64_t nowMs);
+    void drawNimboxCarousel(Canvas& c, uint64_t nowMs);
+    void drawNimboxDisc(Canvas& c, const GameTile& tile, uint64_t nowMs);
     void drawTabs(Canvas& c);
     void drawConsoles(Canvas& c, uint64_t nowMs);
     void drawLibrary(Canvas& c, uint64_t nowMs);
@@ -687,7 +692,16 @@ private:
     std::vector<int> focusCol_;
     std::vector<Anim> rowScroll_;
     Anim rowY_;
+    // Scaled to 1000 because Anim::step uses a 0.5-unit snap threshold.
+    // Signed visual displacement of newly selected case while it slides into place.
+    Anim nimboxSlide_;
+    // R2 toggles reduced motion only in the experimental carousel.
+    bool nimboxReducedMotion_ = false;
+    Anim nimboxDetailIntro_;  // cinematic library-to-details transition
+    bool nimboxReturningHome_ = false; // finish exit before switching screens
     Tab tab_ = Tab::GamePass;
+    // Experimental, opt-in, session-only visual mode. R3 toggles in Game Pass home.
+    bool nimboxCarousel_ = true; // approved Nimbox Home; R3 restores original UI
     std::vector<ConsoleTile> consoles_;
     bool allow1440_ = false;
     bool consolesKnown_ = false;

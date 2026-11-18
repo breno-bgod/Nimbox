@@ -16,8 +16,7 @@ class Value;
 }
 
 namespace xc::app {
-
-// Third output backend is available only in Android builds.
+// Android only: additional Surface engine, preserving Nimbox hardware/software.
 #if defined(__ANDROID__)
 inline constexpr int kMaxVideoDecoder = 2;
 #else
@@ -35,7 +34,7 @@ struct GameProfile {
     int deband = 3;              // 0 off, 1 low, 2 high, 3 auto
     int upscaler = 2;            // 0 FSR 1, 1 Anime4K, 2 FSR + clean, 3 Anime4K + clean
     int resolution = 0;          // 0 1080p, 1 720p, 2 1440p
-    int videoDecoder = 0;        // 0 Hardware, 1 Software, 2 Android Surface (Android only)
+    int videoDecoder = 0;        // 0 Hardware, 1 Software, 2 Android Surface
     int fpsLimit = 0;            // 0 Unlimited, 30, 60, 120
     // Controller: dead zone (percent), triggers, confirm button
     int deadzoneLeft = 15, deadzoneRight = 15;
@@ -91,6 +90,10 @@ struct Settings {
     std::string language = "en";     // ui::languageCode()
     std::string resolution = "1080p";  // "1080p", "720p" or "1440p" (experimental)
     std::string region;                // gssv region name; empty = automatic
+    // Nimbox display-only preferences. Never sent to the streaming service.
+    int nimboxTheme = 0;               // Aurora, Infinity, Blue, Emerald, Cinema
+    int nimboxReflection = 44;         // local collection-floor reflection, 0-100
+    bool nimboxReducedMotion = false;  // local UI animation only
     // "Sign in as another country" (xcloud::loginCountryAddress): "" off.
     std::string loginCountry;
     std::string storeCountry;  // catalog/store only; never changes the streaming datacenter
@@ -124,7 +127,7 @@ struct Settings {
     // Anime4K after Anime4K Restore (the clean-up of compression artefacts).
     int upscaler = 2;
 #endif
-    int videoDecoder = 0;  // 0 Hardware, 1 Software, 2 Android Surface (Android only)
+    int videoDecoder = 0;  // 0 Hardware, 1 Software, 2 Android Surface
     // Controller: stick dead zone (percent), vibration in the triggers,
     // Circle as the confirm button (Xbox A).
     int deadzoneLeft = 15, deadzoneRight = 15;  // percent, each stick's own

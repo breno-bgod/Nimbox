@@ -194,7 +194,7 @@ private:
 // What main() kept on its stack when it ran the loop itself: made by
 // coreStartup(), carried from one pass to the next.
 struct Core {
-    bool quitAsked_ = false;  // desktop: "Close PSBox?" confirmed on the home screen
+    bool quitAsked_ = false;  // desktop: close confirmation on the home screen
     explicit Core(bool withDisplay) : haveDisplay(withDisplay) {}
     bool frame();
     void dispatchUiAction(const ui::UiEvent& ev);
@@ -295,8 +295,8 @@ bool coreStartup() {
         XC_LOGI("data folder %s: %s", dataDir.c_str(), platform::dataDirNote().c_str());
     if (!logOk)
         XC_LOGW("could not open xcloud.log in %s: log kept in memory", dataDir.c_str());
-    XC_LOGI("=== PSBox Cloud Gaming starting ===");
-    XC_LOGI("firmware %s, PSBox %s (build %s, %s)", platform::firmwareVersion().c_str(), XC_APP_VERSION, XC_BUILD_ID,
+    XC_LOGI("=== Nimbox starting ===");
+    XC_LOGI("firmware %s, Nimbox %s (build %s, %s)", platform::firmwareVersion().c_str(), XC_APP_VERSION, XC_BUILD_ID,
             platform::platformName().c_str());
     if (std::string res = platform::diagnostics(); !res.empty()) XC_LOGI("resources at start: %s", res.c_str());
     // Did the last session go down? (A crash leaves a marker; being closed
@@ -1872,7 +1872,7 @@ void coreShutdown() {
     // bounded (a request may hang on the network); the caller leaves with
     // _exit() afterwards, so no static destructor races a thread still
     // running.
-    XC_LOGI("=== PSBox Cloud Gaming closing ===");
+    XC_LOGI("=== Nimbox closing ===");
     stopWebServer();
     const uint64_t start = platform::nowMs();
     requestQuit();

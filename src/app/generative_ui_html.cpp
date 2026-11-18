@@ -14,7 +14,7 @@ const char* kGenerativeUiHtml = R"rawhtml(<!DOCTYPE html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>PSBox - Interactive UI Layout Editor & Replica</title>
+  <title>Nimbox - Interactive UI Layout Studio</title>
   <style>
     * {
       box-sizing: border-box;
@@ -396,7 +396,7 @@ const char* kGenerativeUiHtml = R"rawhtml(<!DOCTYPE html>
   <!-- Top Navigation & Controls -->
   <header>
     <div class="logo-area">
-      <div class="logo-badge">PSBox UI</div>
+      <div class="logo-badge">NIMBOX UI</div>
       <div class="title">Visual Layout & Coordinate Editor</div>
     </div>
 

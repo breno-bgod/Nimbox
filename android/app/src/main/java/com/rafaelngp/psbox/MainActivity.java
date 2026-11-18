@@ -18,6 +18,8 @@ import com.rafaelngp.psbox.surface.AndroidSurfaceOverlayView;
 import android.app.Activity;
 import android.content.Context;
 import android.content.pm.PackageManager;
+import android.media.MediaCodecInfo;
+import android.media.MediaCodecList;
 import android.net.wifi.WifiManager;
 import android.os.Build;
 import android.os.Bundle;
@@ -40,7 +42,81 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class MainActivity extends SDLActivity {
-    private static final String TAG = "PSBox";
+    private static final String TAG = "Nimbox";
+
+    /**
+     * Recommend an AVC decoder to the C++ MediaCodec pipeline.
+     * Prefer actual hardware codecs with advertised low-latency support.
+     * The native backend still validates configuration and falls back to
+     * AMediaCodec_createDecoderByType or FFmpeg when unavailable.
+     *
+     * This runs once per decoder initialization, never in the frame loop.
+     */
+    public static String preferredAvcDecoder() {
+        final String mime = "video/avc";
+        String selected = "";
+        int bestScore = 0;
+
+        try {
+            for (MediaCodecInfo info :
+                    new MediaCodecList(MediaCodecList.ALL_CODECS).getCodecInfos()) {
+                if (info.isEncoder()) continue;
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && info.isAlias()) continue;
+
+                boolean supportsAvc = false;
+                for (String type : info.getSupportedTypes()) {
+                    if (mime.equalsIgnoreCase(type)) {
+                        supportsAvc = true;
+                        break;
+                    }
+                }
+                if (!supportsAvc) continue;
+
+                // Before API 29 there is no public hardware-acceleration flag.
+                // Exclude the known platform software families as a fallback.
+                boolean hardware;
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    hardware = info.isHardwareAccelerated();
+                } else {
+                    String name = info.getName().toLowerCase(java.util.Locale.ROOT);
+                    hardware = !(name.startsWith("omx.google.")
+                            || name.startsWith("omx.ffmpeg.")
+                            || name.startsWith("c2.android.")
+                            || name.startsWith("avcdecoder"));
+                }
+                if (!hardware) continue;
+
+                boolean lowLatency = false;
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    try {
+                        MediaCodecInfo.CodecCapabilities caps = info.getCapabilitiesForType(mime);
+                        lowLatency = caps != null && caps.isFeatureSupported(
+                                MediaCodecInfo.CodecCapabilities.FEATURE_LowLatency);
+                    } catch (RuntimeException ignored) {
+                        // A few vendor implementations fail capabilities queries.
+                    }
+                }
+                int score = lowLatency ? 2 : 1;
+                if (score > bestScore) {
+                    bestScore = score;
+                    selected = info.getName();
+                    if (lowLatency) break;
+                }
+            }
+        } catch (RuntimeException e) {
+            Log.w(TAG, "AVC decoder enumeration unavailable, using platform default", e);
+            return "";
+        }
+
+        if (selected.isEmpty()) {
+            Log.i(TAG, "AVC decoder selector: no explicitly identified hardware codec; default fallback");
+        } else {
+            Log.i(TAG, "AVC decoder selector: " + selected
+                    + " (lowLatencyAdvertised=" + (bestScore == 2) + ")");
+        }
+        return selected;
+    }
+
     private static final int PERMISSION_REQUEST_BT = 1001;
     private static final int PERMISSION_REQUEST_AUDIO = 1002;
 
@@ -186,6 +262,7 @@ public class MainActivity extends SDLActivity {
         });
     }
 
+
     @Override
     protected String[] getLibraries() {
         return new String[] { "SDL3", "main" };
@@ -236,7 +313,7 @@ public class MainActivity extends SDLActivity {
     @Override
     protected void onPause() {
         sIsForeground = false;
-        surfaceVideoStop(); // Never keep MediaCodec bound to a suspended Surface.
+        surfaceVideoStop(); // Release additional decoder when the Activity pauses.
         updateWifiLock();
         super.onPause();
     }
@@ -244,8 +321,6 @@ public class MainActivity extends SDLActivity {
     @Override
     protected void onDestroy() {
         surfaceVideoStop();
-        // A recreated Android Activity must not reuse SurfaceViews bound to
-        // the previous Activity/window (e.g. configuration changes).
         if (mLayout != null) {
             if (sSurfaceOverlay != null) mLayout.removeView(sSurfaceOverlay);
             if (sSurfaceView != null) mLayout.removeView(sSurfaceView);
@@ -364,10 +439,10 @@ public class MainActivity extends SDLActivity {
                         mode = WifiManager.WIFI_MODE_FULL_LOW_LATENCY;
                     }
                     try {
-                        sWifiLock = wm.createWifiLock(mode, "PSBox:StreamingLock");
+                        sWifiLock = wm.createWifiLock(mode, "Nimbox:StreamingLock");
                     } catch (Exception ex) {
                         Log.w(TAG, "Failed creating low-latency wifi lock, falling back to high-perf: " + ex.getMessage());
-                        sWifiLock = wm.createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF, "PSBox:StreamingLock");
+                        sWifiLock = wm.createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF, "Nimbox:StreamingLock");
                     }
                     if (sWifiLock != null) {
                         sWifiLock.setReferenceCounted(false);

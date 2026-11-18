@@ -29,6 +29,8 @@ body:
         - PlayStation 4
         - PlayStation 5
         - Linux
+        - Windows
+        - Android
         - Other
     validations:
       required: true
@@ -42,10 +44,10 @@ body:
   - type: input
     id: firmware
     attributes:
-      label: PlayStation Firmware
+      label: Console firmware (if applicable)
       placeholder: e.g. 4.03
     validations:
-      required: true
+      required: false
   - type: input
     id: game
     attributes:
@@ -65,8 +67,8 @@ body:
   - type: textarea
     id: log
     attributes:
-      label: xcloud.log
-      description: Paste the full contents of /data/psbox/xcloud.log (or /data/homebrew/PPSA99810/xcloud.log before v0.9.7, or attach the file).
+      label: Diagnostic logs (optional)
+      description: Attach logs if available. Legacy PS5 log path may be /data/psbox/xcloud.log. Do not share account.json or access tokens.
       render: text
     validations:
-      required: true
+      required: false

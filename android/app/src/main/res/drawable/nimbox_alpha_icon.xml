@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Nimbox Alpha original vector launcher art; experimental builds only. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <path android:fillColor="#0B1A27" android:pathData="M0,0 L108,0 L108,108 L0,108 Z"/>
+    <path android:fillColor="#153D50" android:pathData="M11,11 L97,11 L97,97 L11,97 Z"/>
+    <path android:strokeColor="#70D8EA" android:strokeWidth="3"
+        android:fillColor="#00000000"
+        android:pathData="M54,13 A41,41 0,1 1,54,95 A41,41 0,1 1,54,13"/>
+    <path android:fillColor="#EAF9FB"
+        android:pathData="M29,25 L40,25 L70,65 L70,25 L81,25 L81,83 L70,83 L40,43 L40,83 L29,83 Z"/>
+</vector>

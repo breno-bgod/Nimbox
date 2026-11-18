@@ -10,7 +10,8 @@ namespace xc::ui {
 std::vector<SettingsRowPos> visibleSettingsRows(const UiCaps& caps) {
     return filterRows(kSettingsOrder, kSettingsGroupStart, [&](int row) {
 #if defined(__ANDROID__)
-        if (row == 20) return false; // Hardware video decoder
+        // Android has an H.264 MediaCodec backend and an FFmpeg software fallback.
+        // Keep the native decoder preference visible, as in the remote Web UI.
         if (row == 5) return false;  // Confirm button (Cross/Circle swap)
         if (row == 4) return false;  // Trigger rumble
         if (row == 21) return false; // Audio haptics
@@ -24,6 +25,9 @@ std::vector<SettingsRowPos> visibleSettingsRows(const UiCaps& caps) {
         case 15: return caps.gyro;
         case 24: return caps.trophies;
         case 25: return caps.trophies;
+        case 31: return caps.upscalers;
+        case 32: return caps.deband;
+        case 33: return caps.sharpen;
         default: return true;
         }
     });
@@ -39,7 +43,8 @@ int settingsRowPosition(const UiCaps& caps, int row) {
 std::vector<SettingsRowPos> visibleGameSettingsRows(const UiCaps& caps, bool custom, bool mouseSupported) {
     return filterRows(kGameRowOrder, kGameGroupStart, [&](int row) {
 #if defined(__ANDROID__)
-        if (row == 15) return false; // Video decoder in game settings
+        // Android supports both MediaCodec and FFmpeg H.264. Do not hide the
+        // per-game decoder choice: users need it without a second device.
         if (row == 7) return false;  // Confirm button in game settings
         if (row == 6) return false;  // Trigger rumble in game settings
         if (row == 16) return false; // Audio haptics in game settings
@@ -1042,6 +1047,11 @@ void AppUi::openDetails(const GameTile& tile) {
     playRect_ = {};
     achRect_ = {};
     claimRect_ = {};
+    // Original Play and metadata stay unchanged; only the decorative media moves.
+    const bool nimboxDetails = nimboxCarousel_ && tab_ == Tab::GamePass;
+    nimboxReturningHome_ = false;
+    nimboxDetailIntro_.value = nimboxDetails && !nimboxReducedMotion_ ? 0.0f : 1000.0f;
+    nimboxDetailIntro_.target = 1000.0f;
     screen_ = Screen::Details;
     refreshDetail();
     dirty_ = true;
@@ -1380,6 +1390,7 @@ void AppUi::setUpdateStatus(const std::string& status, float fraction) {
 void AppUi::setSettings(const SettingsChoice& choice) {
     std::lock_guard<std::mutex> lock(mutex_);
     settings_ = choice;
+    nimboxReducedMotion_ = choice.nimboxReducedMotion;
     gyroMode_ = choice.gyroMode;
     gyroLevel_ = choice.gyroLevel;
     dirty_ = true;

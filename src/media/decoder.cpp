@@ -580,13 +580,17 @@ bool VideoDecoder::init(int threads, bool preferHw) {
     qpSampleCounter_ = 0;
     h264Parser_.reset();
 
-    // 1. Hardware video decoder (PS5 libSceVideodec2 via HwDecoder)
+    // 1. Platform-native H.264 decoder (PS5 Videodec2 / Android MediaCodec).
     if (preferHw_) {
         if (hw_.init(1920, 1088)) {
             isHw_ = true;
-            XC_LOGI("h264 decoder: hardware decoder (libSceVideodec2) active");
+#if defined(__ANDROID__)
+            XC_LOGI("h264 decoder: Android MediaCodec path active (see component name above)");
+#else
+            XC_LOGI("h264 decoder: native hardware decoder active");
+#endif
         } else {
-            XC_LOGI("h264 decoder: hardware decoder not available");
+            XC_LOGI("h264 decoder: native hardware decoder not available, trying FFmpeg");
         }
     }
 

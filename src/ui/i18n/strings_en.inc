@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 RafaelNGP
 constexpr Column kEnglish = {
-    "PSBox Cloud Gaming",                             // AppName
-    "PSBOX CLOUD GAMING",                             // CloudGaming
+    "Nimbox",                             // AppName
+    "NIMBOX",                             // CloudGaming
     "Signing in...",                                  // SigningIn
     "Getting a sign-in code...",                      // RequestingCode
     "Loading your games...",                          // LoadingGames
@@ -152,7 +152,7 @@ constexpr Column kEnglish = {
     "Update now",                                    // UpdateNow
     "Not now",                                       // NotNow
     "Updates",                                       // Updates
-    "Up to date (%s)",                               // UpToDate
+    "Installed: %s", // UpToDate
     "%s available: update",                          // UpdateReady
     "Checking...",                                   // UpdateChecking
     "Updating to %s",                                // UpdatingTo
@@ -160,7 +160,7 @@ constexpr Column kEnglish = {
     "Checking the signature...",                     // UpdateVerifying
     "Installing...",                                 // UpdateInstalling
     "Updated. Restarting...",                        // UpdateRestarting
-    "PSBox updated: open the app again",             // UpdateReopen
+    "Nimbox updated: open the app again",             // UpdateReopen
     "Update failed: nothing was changed",            // UpdateFailed
     "Game colour",                                   // LightBarGame
     "Custom colour",                                 // LightBarCustom
@@ -216,7 +216,7 @@ constexpr Column kEnglish = {
     "Report a problem",                              // ReportProblem
     "Scan it with your phone: GitHub's bug form opens, filled in. You review it before sending it.", // ReportScan
     "It includes the app's version, the error and lines of its log, without personal data.", // ReportIncludes
-    "PSBox closed unexpectedly last time",           // CrashedLastTime
+    "Nimbox closed unexpectedly last time",           // CrashedLastTime
     "Sign-in country",                                // LoginCountry
     "Off (this console's)",                           // LoginCountryOff
     "Sign in as another country",                     // TryOtherCountry
@@ -267,7 +267,7 @@ constexpr Column kEnglish = {
     "Display mode", // DisplayMode
     "Window", // DisplayWindow
     "Fullscreen", // DisplayFullscreen
-    "Quit PSBox?", // QuitTitle
+    "Quit Nimbox?", // QuitTitle
     "Quit", // QuitConfirm
     "Controller buttons", // ControllerButtons
     "Press the button for %s", // PadPressButton
@@ -338,11 +338,11 @@ constexpr Column kEnglish = {
     "Removed from wishlist",                          // RemovedFromWishlist
     "%s is on sale!",                                 // WishlistOnSale
     "%s joined Game Pass!",                           // WishlistInGamePass
-    "Support the project",                            // SupportProject
-    "Support PSBox Development",                      // SupportTitle
-    "PSBox is an open-source project passionately maintained to bring the best Xbox Cloud Gaming experience to PlayStation 5. If you enjoy the app and would like to support ongoing development, frequent updates and new features, consider buying me a coffee on Ko-Fi!", // SupportMessage
-    "Ko-fi",                                          // SupportKoFi
-    "Scan with your phone to support",                // ScanToDonate
+    "Nimbox support", // SupportProject
+    "Nimbox Support", // SupportTitle
+    "Visit the official Nimbox GitHub repository for project information and support. The project keeps the original open-source credits and licenses in its source files.", // SupportMessage
+    "GitHub", // SupportKoFi
+    "Scan to open Nimbox GitHub", // ScanToDonate
     "Test sound",                                     // TestSound
     "Wishlist is empty",                              // WishlistEmpty
     // Loading tips
@@ -350,7 +350,7 @@ constexpr Column kEnglish = {
     "USB keyboard and mouse plugged into the console are supported in enabled cloud games", // TipKeyboardMouse
     "Claim free games, trials, and discover store promotions directly from the app library", // TipFreeStore
     "Encountered an issue? Open Bug Report to scan a QR code with auto-attached console logs", // TipBugReportQr
-    "Enjoying the project? Support future development via Ko-fi in the Settings tab!", // TipSupportKofi
+    "Need help or want to follow the project? Find Nimbox support in Settings.", // TipSupportKofi
     "Enable 120 Hz display output in Settings for reduced frame latency and smoother response", // Tip120HzVideo
     "Calibrate DualSense stick dead zones in Settings to eliminate stick drift and improve precision", // TipAnalogDeadzone
     "Use the DualSense built-in microphone for party and multiplayer game voice chat", // TipDualSenseMic
@@ -374,7 +374,7 @@ constexpr Column kEnglish = {
     "Enables or disables impulse trigger vibration emulation on DualSense L2 and R2 adaptive triggers", // SettingDescTriggerRumble
     "Toggles the confirm and back button layout between Cross (Western style) and Circle (Japanese style)", // SettingDescConfirmButton
     "Configures the light bar color and behavior of your DualSense controller during browsing and gameplay", // SettingDescLightBar
-    "Checks for and automatically installs official app updates directly on your console without needing a PC", // SettingDescUpdates
+    "Checks new Nimbox releases on GitHub; signed updates are installed only on supported platforms.", // SettingDescUpdates
     "Allows signing in to your Xbox account via a different geographic region to access alternative catalogs", // SettingDescLoginCountry
     "Enables 120 Hz video output on your console for lower display lag and reduced input latency", // SettingDescHighRefresh
     "Automatic uses Xbox's profile cap; Unlimited removes the app ceiling up to the server maximum. Above 15 Mbps is experimental.", // SettingDescBitrateCap
@@ -386,7 +386,7 @@ constexpr Column kEnglish = {
     "Plays a distinctive chime when your wait in the xCloud queue finishes and your game is ready", // SettingDescQueueReady
     "Runs a complete diagnostic on your Xbox Live sign-in, validating access tokens, profile, and subscriptions", // SettingDescCheckSignIn
     "Measures ping (RTT) and jitter to cloud gaming datacenters across multiple global regions", // SettingDescNetworkTest
-    "Displays a QR Code to support the developer via Ko-fi and help keep the project actively maintained", // SettingDescSupportProject
+    "Shows the official Nimbox GitHub repository for support information.", // SettingDescSupportProject
     "What's New",                                     // WhatsNew
     "What's New",                                     // WhatsNewTitle
     "Controller speaker",                             // PadSpeakerVolume
@@ -450,9 +450,9 @@ constexpr Column kEnglish = {
     "I understand",                                   // TrophiesDisclaimerAware
     "Cancel",                                         // TrophiesDisclaimerCancel
     "Remove Synced Trophies",                         // RemoveTrophies
-    "Removes all trophies added by PSBox from this local profile, eliminating ban risk. You can re-sync them anytime from your Xbox account.", // SettingDescRemoveTrophies
+    "Removes all trophies added by Nimbox from this local profile, eliminating ban risk. You can re-sync them anytime from your Xbox account.", // SettingDescRemoveTrophies
     "Remove Synced Trophies?",                        // RemoveTrophiesConfirmTitle
-    "This will delete local trophy packages added by PSBox for this profile. Your achievements remain safe on your Microsoft/Xbox account.", // RemoveTrophiesConfirmBody
+    "This will delete local trophy packages added by Nimbox for this profile. Your achievements remain safe on your Microsoft/Xbox account.", // RemoveTrophiesConfirmBody
     "Remove",                                         // RemoveTrophiesConfirm
     "Removed %s trophy title(s) from this profile.",  // TrophiesRemovedToast
     "Syncing achievements...",                        // SyncingTrophies
@@ -467,7 +467,7 @@ constexpr Column kEnglish = {
     "Tabs",                                           // MenuTabsLabel
     "Settings saved",                                 // SettingsSavedToast
     "Game settings saved",                            // GameSettingsSavedToast
-    "PSBox: secure connections unavailable",          // SecureConnUnavailableToast
+    "Nimbox: secure connections unavailable",          // SecureConnUnavailableToast
     "Trophy sync failed: %s",                         // TrophySyncFailedToast
     "Telemetry enabled",                              // TelemetryOnToast
     "Telemetry disabled",                             // TelemetryOffToast
