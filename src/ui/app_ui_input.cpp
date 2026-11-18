@@ -135,48 +135,37 @@ void AppUi::handleHome(const NavInput& in, UiEvent& ev) {
             int& col = focusCol_[static_cast<size_t>(focusRow_)];
             int count = static_cast<int>(curRow.tiles.size());
 
-            // Horizon wraps cover navigation while preserving existing game actions.
+            // Horizon is a console-first, finite carousel for every Game Pass
+            // shelf (including rows stored as grids in the legacy catalog).
             if (count > 0 && (in.left || in.right)) {
-                col = (col + (in.right ? 1 : -1) + count) % count;
-                nimboxSlide_.value = nimboxReducedMotion_ ? 0.0f : (in.right ? 1000.0f : -1000.0f);
-                nimboxSlide_.target = 0.0f;
-                retarget();
-                dirty_ = true;
+                const int direction = in.right ? 1 : -1;
+                const uint64_t at = in.nowMs ? in.nowMs : platform::nowMs();
+                const auto result = horizon::navigate(col, count, direction, at, horizonBoundary_);
+                if (result == horizon::MoveResult::Moved) {
+                    nimboxSlide_.value = nimboxReducedMotion_ ? 0.0f :
+                        (direction > 0 ? 1000.0f : -1000.0f);
+                    nimboxSlide_.target = 0.0f;
+                    retarget();
+                } else if (result == horizon::MoveResult::Wrapped) {
+                    // Deliberate second push: jump cleanly, no ghost animation
+                    // that would suggest adjacent items wrap continuously.
+                    nimboxSlide_.value = nimboxSlide_.target = 0.0f;
+                    retarget();
+                }
+                dirty_ = true; // also redraw the first-edge feedback message
                 return;
             }
 
-            if (curRow.isGrid) {
-                if (in.up && col < kLibraryCols) {
-                    if (focusRow_ > 0) {
-                        --focusRow_;
-                        int upCols = static_cast<int>(rows_[static_cast<size_t>(focusRow_)].tiles.size());
-                        focusCol_[static_cast<size_t>(focusRow_)] = std::clamp(focusCol_[static_cast<size_t>(focusRow_)], 0, upCols - 1);
-                    }
-                } else if (in.down && col + kLibraryCols >= count && col / kLibraryCols == (count - 1) / kLibraryCols) {
-                    if (focusRow_ + 1 < rows) {
-                        ++focusRow_;
-                        int downCols = static_cast<int>(rows_[static_cast<size_t>(focusRow_)].tiles.size());
-                        focusCol_[static_cast<size_t>(focusRow_)] = std::clamp(focusCol_[static_cast<size_t>(focusRow_)], 0, downCols - 1);
-                    }
-                } else {
-                    moveInGrid(col, count, kLibraryCols, in);
+            if (in.up || in.down) {
+                const int next = std::clamp(focusRow_ + (in.down ? 1 : -1), 0, rows - 1);
+                if (next != focusRow_) {
+                    focusRow_ = next;
+                    horizonBoundary_.reset();
+                    nimboxSlide_.value = nimboxSlide_.target = 0.0f;
+                    retarget();
+                    dirty_ = true;
                 }
-            } else {
-                if (in.down && focusRow_ + 1 < rows) {
-                    ++focusRow_;
-                    if (rows_[static_cast<size_t>(focusRow_)].isGrid) {
-                        int gCols = static_cast<int>(rows_[static_cast<size_t>(focusRow_)].tiles.size());
-                        int targetCol = std::min(col % kLibraryCols, gCols - 1);
-                        focusCol_[static_cast<size_t>(focusRow_)] = std::max(0, targetCol);
-                    }
-                }
-                if (in.up && focusRow_ > 0) --focusRow_;
-                if (in.right && col + 1 < count) ++col;
-                if (in.left && col > 0) --col;
-            }
-            if (in.up || in.down || in.left || in.right) {
-                retarget();
-                dirty_ = true;
+                return;
             }
             if (in.accept && focusedTile()) openDetails(*focusedTile());
             if (in.square && focusedTile()) toggleHidden(*focusedTile(), ev);
