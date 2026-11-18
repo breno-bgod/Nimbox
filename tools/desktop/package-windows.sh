@@ -4,8 +4,8 @@
 # Builds or packages the Windows portable zip of the desktop app.
 #
 #   tools/desktop/package-windows.sh <build-dir> [out-dir]
-#       -> <out-dir>/PSBox-<version>-windows-x86_64.zip
-#       -> <out-dir>/PSBox-<version>-windows-x86_64.zip.sha256
+#       -> <out-dir>/NimboPlay-<version>-windows-x86_64.zip
+#       -> <out-dir>/NimboPlay-<version>-windows-x86_64.zip.sha256
 set -euo pipefail
 
 build=${1:?usage: package-windows.sh <build-dir> [out-dir]}
@@ -55,7 +55,7 @@ trap 'rm -rf "$stage"' EXIT
 echo "== install into stage directory"
 cmake --install "$build" --prefix "$stage" >/dev/null
 pkgdir=$stage/NimboPlay
-[[ -d "$pkgdir" ]] || fail "cmake --install failed to create PSBox folder"
+[[ -d "$pkgdir" ]] || fail "cmake --install failed to create NimboPlay folder"
 
 # Fallback copy if cmake --install did not bundle SDL3.dll
 if [[ ! -f "$pkgdir/SDL3.dll" ]]; then
@@ -121,7 +121,7 @@ with zipfile.ZipFile("$zipfile", 'r') as zf:
     
     exe_info = zf.getinfo("NimboPlay/NimboPlay.exe")
     if exe_info.file_size == 0:
-        print("Error: NimboPlay/psbox.exe is 0 bytes (dummy file forbidden)", file=sys.stderr)
+        print("Error: NimboPlay/NimboPlay.exe is 0 bytes (dummy file forbidden)", file=sys.stderr)
         sys.exit(1)
         
     sdl_info = zf.getinfo("NimboPlay/SDL3.dll")
