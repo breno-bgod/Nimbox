@@ -35,6 +35,13 @@
 #include "stream/input_packet.h"
 #include "stream/stream_session.h"
 #include "ui/app_ui.h"
+#include "ui/nimbox_pose_core.h"
+#include "ui/box_carousel.h"
+#include "ui/nimbox_horizon_layout.h"
+#include "ui/nimbox_detail_showcase.h"
+#include "ui/preview_visual_layout.h"
+#include "ui/nimbox_visual_theme.h"
+#include "ui/collection_case_finish.h"
 #include "app/shell.h"
 #include "ui/touch_pad_overlay.h"
 #include "ui/accent_color.h"
@@ -244,6 +251,39 @@ static void testLoginCountry() {
     CHECK(!gssv.loginRefused() && gssv.loginStatus() == 0);
 }
 
+static void testNimboPlayInternalBrand() {
+    using namespace ui;
+    Canvas canvas(440, 220, rgba(9, 22, 38));
+    const uint32_t untouched = rgba(9, 22, 38);
+    drawInternalBrand(canvas, 20, 20, 400, 170);
+    CHECK(canvas.data()[0] == untouched);
+    size_t changed = 0;
+    for (int y = 20; y < 190; ++y)
+        for (int x = 20; x < 420; ++x)
+            if (canvas.data()[size_t(y) * canvas.width() + x] != untouched) ++changed;
+    CHECK(changed > 1000);  // Embedded original logo decoded; transparent pixels preserved.
+    CHECK(canvas.data()[size_t(219) * canvas.width() + 439] == untouched);
+}
+
+static void testPtBrDefaultOnFirstRun() {
+    using namespace ui;
+    // Before any test changes the global language, Nimbox starts in pt-BR.
+    CHECK(language() == Language::PortugueseBR);
+    CHECK(std::string(tr(Str::SignInTitle)) == "Entre para jogar");
+    CHECK(std::string(tr(Str::SignInOpenBrowser)) == "Abrir navegador para fazer login");
+    CHECK(std::string(catalogLanguage()) == "pt-br");
+    CHECK(std::string(gameLocale()) == "pt-BR");
+
+    app::Settings fresh;
+    CHECK(fresh.language == "pt-BR");
+    CHECK(SettingsChoice{}.language == static_cast<int>(Language::PortugueseBR));
+    CHECK(choiceFromSettings(fresh).language == static_cast<int>(Language::PortugueseBR));
+
+    // An existing saved language preference is not silently overwritten.
+    fresh.language = "en";
+    CHECK(choiceFromSettings(fresh).language == static_cast<int>(Language::English));
+}
+
 static void testStrings() {
     using namespace ui;
     auto placeholders = [](const std::string& t) {
@@ -401,6 +441,7 @@ static void testSettingsMigration() {
     };
     auto old = loadFrom(R"({"deband":1,"upscaler":0})");
     CHECK(old.deband == 3 && old.upscaler == 2);
+    CHECK(old.nimboxTheme == 0 && old.nimboxReflection == 44 && !old.nimboxReducedMotion);
     auto chosen = loadFrom(R"({"deband":2,"upscaler":1})");
     CHECK(chosen.deband == 2 && chosen.upscaler == 1);
     auto current = loadFrom(R"({"deband":1,"upscaler":0,"settingsVersion":2})");
@@ -421,11 +462,17 @@ static void testSettingsMigration() {
     xc::app::Settings custom;
     custom.lightBarMode = 1;
     custom.lightBarColour = xc::ui::rgba(0x12, 0x34, 0x56);
+    custom.nimboxTheme = 3;
+    custom.nimboxReflection = 67;
+    custom.nimboxReducedMotion = true;
     CHECK(custom.save(path));
     std::string text;
     CHECK(xc::platform::readFile(path, text) && text.find("\"#123456\"") != std::string::npos);
     xc::app::Settings back;
     CHECK(back.load(path) && back.lightBarMode == 1 && back.lightBarColour == xc::ui::rgba(0x12, 0x34, 0x56));
+    CHECK(back.nimboxTheme == 3 && back.nimboxReflection == 67 && back.nimboxReducedMotion);
+    CHECK(loadFrom(R"({"nimboxTheme":99,"nimboxReflection":-15})").nimboxTheme == 4);
+    CHECK(loadFrom(R"({"nimboxTheme":-2,"nimboxReflection":188})").nimboxReflection == 100);
     std::remove(path.c_str());
 }
 
@@ -439,6 +486,9 @@ static void testSettingsChoiceRoundTrip() {
     s.language = "pt-BR";
     s.resolution = "720p";
     s.region = "Brazil South";
+    s.nimboxTheme = 4;
+    s.nimboxReflection = 73;
+    s.nimboxReducedMotion = true;
     s.loginCountry = "jp";
     s.deadzoneLeft = 7, s.deadzoneRight = 21;
     s.triggerStrength = 4, s.triggerHz = 2, s.triggerResistance = 3, s.triggerPulses = true, s.triggerProfile = 2;
@@ -467,6 +517,7 @@ static void testSettingsChoiceRoundTrip() {
     CHECK(c.resolution == 1 && c.triggerProfile == 2 && c.lightBarColour == 0xFF112233u && !c.fullscreen);
     CHECK(c.videoDecoder == 1);
     CHECK(c.fpsLimit == 60);
+    CHECK(c.nimboxTheme == 4 && c.nimboxReflection == 73 && c.nimboxReducedMotion);
     CHECK(!c.queueReadyAlert && c.titlePlaytime.at("game1") == 3600);
 
     xc::app::Settings back;  // defaults, then what the screen carries
@@ -477,6 +528,7 @@ static void testSettingsChoiceRoundTrip() {
     CHECK(back.language == s.language);
     CHECK(back.resolution == s.resolution);
     CHECK(back.region == s.region && back.loginCountry == s.loginCountry);
+    CHECK(back.nimboxTheme == 4 && back.nimboxReflection == 73 && back.nimboxReducedMotion);
     CHECK(back.deadzoneLeft == s.deadzoneLeft && back.deadzoneRight == s.deadzoneRight);
     CHECK(back.triggerStrength == s.triggerStrength && back.triggerHz == s.triggerHz &&
           back.triggerResistance == s.triggerResistance && back.triggerPulses == s.triggerPulses &&
@@ -500,17 +552,20 @@ static void testSettingsChoiceRoundTrip() {
     CHECK(ui::formatPlaytime(3600) == "1 h");
     CHECK(ui::formatPlaytime(3660) == "1 h 1 min");
     CHECK(ui::formatPlaytime(8100) == "2 h 15 min");
-    // Every resolution, both ways ("1440p" from older versions reads as the top tier).
-    for (const char* res : {"1080p", "720p", "best"}) {
+    // All four choices survive settings -> shared UI -> settings, independently.
+    for (const char* res : {"1080p", "720p", "1440p", "best"}) {
         xc::app::Settings r;
         r.resolution = res;
         xc::app::Settings out;
         ui::applyChoice(ui::choiceFromSettings(r), out);
         CHECK(out.resolution == res);
     }
-    xc::app::Settings old;
-    old.resolution = "1440p";
-    CHECK(ui::choiceFromSettings(old).resolution == 2);
+    xc::app::Settings qhd;
+    qhd.resolution = "1440p";
+    CHECK(ui::choiceFromSettings(qhd).resolution == 3);
+    xc::app::Settings automatic;
+    automatic.resolution = "best";
+    CHECK(ui::choiceFromSettings(automatic).resolution == 2);
     // An incomplete controller map from the screen never replaces a valid one.
     ui::SettingsChoice broken = c;
     broken.padMap[0] = kPadNone;
@@ -667,6 +722,8 @@ static void testPerGameSettings() {
     // Default profile reflects global settings.
     s.resolution = "best";
     CHECK(s.defaultProfile().resolution == 2);
+    s.resolution = "1440p";
+    CHECK(s.defaultProfile().resolution == 3);
     s.resolution = "720p";
     CHECK(s.defaultProfile().resolution == 1);
     s.resolution = "1080p";
@@ -690,6 +747,7 @@ static void testPerGameSettings() {
     p1.deband = 0;
     p1.upscaler = 3;
     p1.videoDecoder = 1;  // override global HW with SW
+    p1.resolution = 3;    // explicit QHD per-game
     p1.deadzoneLeft = 5;
     p1.deadzoneRight = 8;
     p1.triggerStrength = 1;
@@ -705,7 +763,7 @@ static void testPerGameSettings() {
     CHECK(hasCustom);
     CHECK(prof1Custom.sharpness == 3 && prof1Custom.upscaler == 3 && prof1Custom.circleConfirms);
     CHECK(prof1Custom.deadzoneLeft == 5 && prof1Custom.triggerStrength == 1 && prof1Custom.touchpadMouse);
-    CHECK(prof1Custom.videoDecoder == 1);
+    CHECK(prof1Custom.videoDecoder == 1 && prof1Custom.resolution == 3);
     CHECK(prof1Custom.locale == "pt-BR");
 
     hasCustom = true;
@@ -732,6 +790,7 @@ static void testPerGameSettings() {
     CHECK(hasCustom);
     CHECK(loadedP1.sharpness == 3 && loadedP1.upscaler == 3 && loadedP1.circleConfirms);
     CHECK(loadedP1.highRefresh && loadedP1.touchpadMouse && loadedP1.locale == "pt-BR" && loadedP1.videoDecoder == 1);
+    CHECK(loadedP1.resolution == 3);
     CHECK(loadedP1.deadzoneLeft == 5 && loadedP1.deadzoneRight == 8 && loadedP1.triggerStrength == 1);
 
     // A game's trophies follow the general setting until the player chooses for
@@ -1029,6 +1088,7 @@ static void testFreeAccountPlayability() {
     row.tiles = {paidTile, f2pTile};
     app.setRows({row});
     app.showHome();
+    // Horizon is the only Game Pass collection; verify paid/free play flow.
 
     // Paid game on free account: cannot launch
     ui::NavInput in;
@@ -1048,6 +1108,384 @@ static void testFreeAccountPlayability() {
     ui::UiEvent evF2p = app.handle(in);
     CHECK(evF2p.action == ui::Action::Play);
     CHECK(evF2p.game.titleId == "Fortnite");
+}
+
+static void testNimboxSharedCppPose() {
+    using xc::ui::nimbox::previewPose;
+    using xc::ui::nimbox::previewRelativeOffset;
+    const auto center = previewPose(0);
+    const auto left = previewPose(-1);
+    const auto right = previewPose(2);
+    CHECK(center.x == 0.0f && center.z == 160.0f && center.scale == 1.0f);
+    CHECK(center.zIndex == 20 && center.opacity == 1.0f);
+    CHECK(left.x == -275.0f && left.y == 35.0f && left.z == -58.0f);
+    CHECK(left.rotationY == 36.0f && left.scale > 0.89f);
+    CHECK(right.x == 420.0f && right.rotationY == -67.0f && right.scale > 0.79f);
+    CHECK(previewPose(5).opacity == 0.0f);
+    CHECK(previewRelativeOffset(9, 0, 10) == -1);
+    CHECK(previewRelativeOffset(1, 9, 10) == 2);
+    CHECK(nimbox_pose_value(0, 2) == 160.0f);
+    CHECK(nimbox_relative_offset(9, 0, 10) == -1);
+}
+
+static void testNimboxProjected3DCase() {
+    using namespace xc::ui::nimbox;
+    // The same physical box uses shared HTML camera/pose values on all
+    // platforms. The selected one is nearest; the others rotate in depth.
+    const auto center = layout(0);
+    const auto left = layout(-1);
+    const auto right = layout(1);
+    CHECK(center.w > left.w && center.w > right.w);
+    CHECK(left.x < center.x && right.x > center.x);
+    CHECK(center.bounds.w > 0 && center.bounds.h > 0);
+    CHECK(center.bounds.x >= 0 && center.bounds.x + center.bounds.w <= 1920);
+    CHECK(center.bounds.y >= 0 && center.bounds.y + center.bounds.h <= 1080);
+    CHECK(hit(center, (center.front.tl.x + center.front.br.x) * 0.5f,
+                      (center.front.tl.y + center.front.br.y) * 0.5f));
+    CHECK(!hit(center, -1.0f, -1.0f));
+    // A side face is created from distinct projected near/back Z corners:
+    // this is a cuboid, not a manually positioned flat trapezoid.
+    CHECK(std::fabs(left.spine.tl.x - left.spine.tr.x) > 1.0f);
+    CHECK(std::fabs(right.spine.tl.x - right.spine.tr.x) > 1.0f);
+    // During an input transition the camera-space yaw, size and position
+    // interpolate continuously, so there is no sudden switch of flat quads.
+    const auto midway = layoutAnimated(0.5f);
+    CHECK(midway.x > center.x && midway.x < right.x);
+    CHECK(midway.w < center.w && midway.w > 0.0f);
+    CHECK(std::isfinite(midway.front.tl.x) && std::isfinite(midway.front.tl.y));
+    const auto malformed = layoutAnimated(std::numeric_limits<float>::quiet_NaN());
+    CHECK(malformed.bounds.w == center.bounds.w);
+}
+
+static void testNimboxCascadeArc() {
+    using namespace xc::ui::nimbox;
+    constexpr float kRadToDeg = 180.0f / kPi3D;
+    constexpr float expectedApparentYaw[] = {0.0f, 24.0f, 50.0f, 79.0f, 87.0f};
+    float priorFront = 10000.0f;
+    for (int d = 0; d <= kSideCases; ++d) {
+        const PreviewPose poseR = previewPose(d);
+        const PreviewPose poseL = previewPose(-d);
+        CHECK(std::fabs(poseR.rotationY + poseL.rotationY) < 0.001f);
+        const float viewingOffset = std::atan2(std::fabs(poseR.x),
+                                               kPerspective - poseR.z) * kRadToDeg;
+        const float apparentYaw = std::fabs(poseR.rotationY) - viewingOffset;
+        CHECK(std::fabs(apparentYaw - expectedApparentYaw[d]) < 1.3f);
+
+        const CaseGeometry right = layout(d);
+        const CaseGeometry left = layout(-d);
+        CHECK(right.bounds.w > 0 && right.bounds.h > 0);
+        CHECK(right.bounds.x >= 0 && right.bounds.x + right.bounds.w <= 1920);
+        CHECK(left.bounds.x >= 0 && left.bounds.x + left.bounds.w <= 1920);
+        CHECK(std::isfinite(right.front.tl.x) && std::isfinite(left.front.tl.x));
+        const float front = std::fabs(right.front.tr.x - right.front.tl.x);
+        const float spine = std::fabs(right.spine.tr.x - right.spine.tl.x);
+        CHECK(front < priorFront);
+        priorFront = front;
+        if (d == 1) CHECK(front > spine * 8.0f);
+        if (d == kSideCases) CHECK(spine > front * 1.5f);
+        if (d > 0) {
+            const CaseGeometry near = layout(d - 1);
+            // Partial overlap, but a distinguishable outer sliver remains.
+            const float x0 = std::max(near.bounds.x, right.bounds.x);
+            const float x1 = std::min(near.bounds.x + near.bounds.w,
+                                      right.bounds.x + right.bounds.w);
+            CHECK(x1 - x0 > 4.0f);
+            CHECK(right.bounds.x + right.bounds.w > near.bounds.x + near.bounds.w);
+        }
+    }
+
+    // The render stack and hit test must share the same ordering.
+    const auto order = caseDrawOrder(0, 9, 0.0f);
+    CHECK(order.size() == 9);
+    CHECK(order.front() == -4 && order.back() == 0);
+    const auto moving = caseDrawOrder(0, 9, 0.5f);
+    CHECK(moving.size() == 9);
+    CHECK(moving.back() == -1 || moving.back() == 0);
+    CHECK(caseDrawOrder(0, 0, 0.0f).empty());
+    // Touch can select a deep-profile case in one tap: stacking must still
+    // agree with rendering for +/-3 and +/-4 transitions.
+    const auto deepTap = caseDrawOrder(0, 9, 3.0f);
+    CHECK(deepTap.size() == 9 && deepTap.back() == -3);
+    const auto deepOtherSide = caseDrawOrder(0, 9, -4.0f);
+    CHECK(deepOtherSide.size() == 9 && deepOtherSide.back() == 4);
+
+    // All 3D coordinates stay finite throughout left/right interpolation.
+    for (int step = -4; step <= 4; ++step) {
+        const CaseGeometry tween = layoutAnimated(static_cast<float>(step) + 0.5f);
+        CHECK(std::isfinite(tween.front.tl.x));
+        CHECK(std::isfinite(tween.spine.bl.y));
+        CHECK(tween.bounds.w > 0);
+    }
+}
+
+static void testNimboxPreview3PageStructure() {
+    using namespace xc::ui::preview31;
+    // Details is entered by selecting the physical game case; the redundant
+    // Home CTA is neither painted nor tappable.
+    CHECK(kDetailsCta.w == 0 && kDetailsCta.h == 0);
+    CHECK(kFocusMetaY + 30 < kHeroShelfBoundary);
+    CHECK(kShelfHeaderY > kHeroShelfBoundary);
+    CHECK(kShelfTileY >= kShelfHeaderY + 28);
+    CHECK(kShelfBottom > kShelfTileY + 80);
+    CHECK(kFooterTop >= kShelfBottom);
+    CHECK(kFooterTop < 1080);
+
+    xc::ui::Canvas c(1920, 1080, xc::ui::rgba(0, 0, 0));
+    shelfBackdrop(c);
+    glassPanel(c, {kShelfLeft, kShelfTileY, kShelfTileW, kShelfTileH}, 12);
+    footerBackdrop(c);
+    const auto* pixels = c.data();
+    // The shelf and footer remain dark, unlike the brighter hero.
+    CHECK(pixels[static_cast<size_t>(kShelfHeaderY) * 1920u + 5u] !=
+          pixels[static_cast<size_t>(kFooterTop + 8) * 1920u + 5u]);
+}
+
+static void testNimboxAppearanceStudio() {
+    using namespace xc::ui::nimbox_theme;
+    CHECK(kThemeCount == 5);
+    CHECK(std::string(palette(0).name) == "Aurora");
+    CHECK(std::string(palette(3).name) == "Emerald");
+    CHECK(std::string(palette(4).name) == "Cinema Dark");
+    CHECK(std::string(palette(99).name) == "Cinema Dark");
+    for (int i = 0; i < kThemeCount; ++i) {
+        const xc::ui::Rect r = kThemeCards[i];
+        CHECK(r.w >= 200 && r.h >= 50);
+        CHECK(contains(r, r.x + r.w / 2, r.y + r.h / 2));
+        CHECK(!contains(r, -1, -1));
+    }
+    CHECK(reflectionFromX(static_cast<float>(kReflectionTrack.x)) == 0);
+    CHECK(reflectionFromX(static_cast<float>(kReflectionTrack.x + kReflectionTrack.w)) == 100);
+    CHECK(reflectionFromX(-300) == 0 && reflectionFromX(3000) == 100);
+}
+
+static void testNimboxXboxCaseFinish() {
+    using namespace xc::ui::nimbox;
+    // The plastic finish is projected onto the existing 3D box, and does not
+    // mutate the underlying geometry or change its pointer hit target.
+    const auto g = layout(0);
+    const auto slot = finish::imageSlot(g);
+    CHECK(finish::kArtTop > finish::kBannerBottom);
+    CHECK(finish::kArtBottom < finish::kFooterTop);
+    CHECK(slot.tl.x > g.front.tl.x && slot.tr.x < g.front.tr.x);
+    CHECK(slot.tl.y > g.front.tl.y && slot.bl.y < g.front.bl.y);
+    CHECK(hit(g, (g.front.tl.x + g.front.br.x) * 0.5f,
+                 (g.front.tl.y + g.front.br.y) * 0.5f));
+    ui::Canvas frame(1920, 1080, ui::rgba(2, 11, 21));
+    finish::drawShell(frame, g, true);
+    const ui::Point headerTop = between(g.front.tl, g.front.tr, 0.5f);
+    const ui::Point headerBottom = between(g.front.bl, g.front.br, 0.5f);
+    const ui::Point banner = between(headerTop, headerBottom, 0.07f);
+    const int x = static_cast<int>(banner.x);
+    const int y = static_cast<int>(banner.y);
+    CHECK(x >= 0 && x < 1920 && y >= 0 && y < 1080);
+    if (x >= 0 && x < 1920 && y >= 0 && y < 1080) {
+        const ui::Color pixel = frame.data()[static_cast<size_t>(y) * 1920u + static_cast<size_t>(x)];
+        CHECK(((pixel >> 8) & 255u) > (pixel & 255u)); // green > red
+        CHECK(((pixel >> 8) & 255u) > ((pixel >> 16) & 255u)); // green > blue
+    }
+    finish::drawGlaze(frame, g, true);
+    finish::drawXboxOrb(frame, banner.x, banner.y, 13.0f);
+}
+
+static void testNimboxPS5ShowcaseGeometry() {
+    using namespace xc::ui;
+    const Rect frame = showcase::kFrame;
+    const Rect play = showcase::kPlayButton;
+    const Rect awards = showcase::kAchievementsButton;
+    const Rect claim = showcase::kClaimButton;
+    const Rect rail = showcase::kAchievementsPanel;
+    CHECK(frame.x > 0 && frame.y >= 160 && frame.x + frame.w < 1920);
+    CHECK(frame.y + frame.h < 980);
+    CHECK(play.y > 780 && play.y + play.h < frame.y + frame.h);
+    CHECK(play.x + play.w < awards.x);
+    CHECK(play.x + play.w < showcase::kRailX);
+    CHECK(showcase::contains(play, play.x + 24, play.y + 22));
+    CHECK(showcase::contains(awards, awards.x + 20, awards.y + 20));
+    CHECK(showcase::contains(rail, rail.x + 20, rail.y + 20));
+    CHECK(!showcase::contains(play, 960, 400));
+    CHECK(!showcase::contains(claim, showcase::kRailX + 30, 825));
+    CHECK(showcase::kArtworkPanel.y + showcase::kArtworkPanel.h < frame.y + frame.h);
+}
+
+static void testNimboxHorizonGeometry() {
+    using namespace xc::ui;
+    const Rect middle = horizon::tileRect(0.0f);
+    const Rect left = horizon::tileRect(-1.0f);
+    const Rect right = horizon::tileRect(1.0f);
+    CHECK(middle.w > left.w && middle.h > right.h);
+    CHECK(left.x + left.w < middle.x);
+    CHECK(middle.x + middle.w < right.x);
+    CHECK(horizon::contains(middle, middle.x+10, middle.y+10));
+    CHECK(!horizon::contains(middle, 0, 0));
+    CHECK(horizon::contains(horizon::kPlayButton,
+                            horizon::kPlayButton.x + 10, horizon::kPlayButton.y + 10));
+    CHECK(horizon::indexForOffset(0, 3, -1) == -1); // no phantom item
+    CHECK(horizon::indexForOffset(0, 3, 1) == 1);
+    CHECK(horizon::indexForOffset(0, 3, 2) == 2);
+    CHECK(horizon::indexForOffset(2, 3, 1) == -1);
+    const auto order = horizon::drawOrder(0, 3, 0.0f);
+    CHECK(order.size() == 3 && order.back() == 0);
+    CHECK(horizon::drawOrder(2, 3, 0.0f).size() == 3);
+    CHECK(horizon::drawOrder(0, 1, 0.0f).size() == 1);
+    CHECK(horizon::indexForOffset(0, 1, -1) == -1);
+
+    // A first outward push only signals the edge, and repeated events inside
+    // the 320ms guard never auto-wrap during a held-stick burst.
+    horizon::BoundaryGate gate;
+    int index = 0;
+    CHECK(horizon::navigate(index, 4, -1, 1000, gate) == horizon::MoveResult::Boundary);
+    CHECK(index == 0 && gate.direction == -1);
+    CHECK(horizon::navigate(index, 4, -1, 1090, gate) == horizon::MoveResult::Boundary);
+    CHECK(index == 0);
+    // Repeating the held direction is not a second press.
+    CHECK(horizon::navigate(index, 4, -1, 1400, gate) == horizon::MoveResult::Boundary);
+    gate.noteNeutral(); // simulated button/stick release
+    CHECK(horizon::navigate(index, 4, -1, 1410, gate) == horizon::MoveResult::Wrapped);
+    CHECK(index == 3 && gate.direction == 0);
+    CHECK(horizon::navigate(index, 4, 1, 1500, gate) == horizon::MoveResult::Boundary);
+    CHECK(index == 3);
+    CHECK(horizon::navigate(index, 4, -1, 1550, gate) == horizon::MoveResult::Moved);
+    CHECK(index == 2 && gate.direction == 0);
+    CHECK(horizon::navigate(index, 4, 1, 1600, gate) == horizon::MoveResult::Moved);
+    CHECK(index == 3);
+    CHECK(horizon::navigate(index, 4, 1, 1650, gate) == horizon::MoveResult::Boundary);
+    CHECK(horizon::navigate(index, 4, 1, 3400, gate) == horizon::MoveResult::Boundary); // stale intent expires
+    CHECK(index == 3);
+    gate.noteNeutral();
+    CHECK(horizon::navigate(index, 4, 1, 3820, gate) == horizon::MoveResult::Wrapped);
+    CHECK(index == 0);
+    CHECK(horizon::navigate(index, 1, 1, 3950, gate) == horizon::MoveResult::Unchanged);
+}
+
+static void testNimboPlayFrostedSettingsAndQr() {
+    ui::Fonts fonts;
+    ui::ImageCache images([] {});
+    ui::AppUi app(fonts, images);
+    ui::GameRow row;
+    row.title = "Most popular on cloud";
+    ui::GameTile tile;
+    tile.productId = "FROSTED_HOME";
+    tile.titleId = "FROSTED_TITLE";
+    tile.name = "NimboPlay test game";
+    tile.playable = true;
+    row.tiles.push_back(tile);
+    app.setRows({row});
+    app.showHome();
+    ui::Canvas canvas(1920, 1080, ui::rgba(0, 0, 0));
+    app.render(canvas, 10000);
+
+    // The system menu is contextual, but its backdrop is only prepared once.
+    ui::NavInput options;
+    options.options = true;
+    app.handle(options);
+    CHECK(app.screen() == ui::Screen::Settings);
+    app.render(canvas, 10032);
+    auto ordinary = std::vector<uint32_t>(canvas.data(), canvas.data() + 1920 * 1080);
+
+    ui::NavInput qr;
+    qr.r3 = true;
+    app.handle(qr);
+    CHECK(app.screen() == ui::Screen::Settings);
+    app.render(canvas, 10064);
+    int changedPixels = 0;
+    for (size_t i = 0; i < ordinary.size(); i += 53)
+        if (ordinary[i] != canvas.data()[i]) ++changedPixels;
+    CHECK(changedPixels > 1000);
+
+    // Back closes only the large QR; a second Back leaves Settings.
+    ui::NavInput back;
+    back.back = true;
+    app.handle(back);
+    CHECK(app.screen() == ui::Screen::Settings);
+    app.onMouseDown(1420.0f, 775.0f, 1); // QR is a touch/click target
+    CHECK(app.screen() == ui::Screen::Settings);
+    app.onMouseDown(1170.0f, 460.0f, 1); // close expanded QR
+    CHECK(app.screen() == ui::Screen::Settings);
+    app.handle(back);
+    CHECK(app.screen() == ui::Screen::Home);
+
+    // Opening from Details via L2 must return to Details, not to Home.
+    ui::NavInput accept;
+    accept.accept = true;
+    app.handle(accept);
+    CHECK(app.screen() == ui::Screen::Details);
+    ui::NavInput systemSettings;
+    systemSettings.l2 = true;
+    app.handle(systemSettings);
+    CHECK(app.screen() == ui::Screen::Settings);
+    app.render(canvas, 10300);
+    app.handle(back);
+    CHECK(app.screen() == ui::Screen::Details);
+}
+
+static void testNimboxDefaultCarouselNavigation() {
+    ui::Fonts fonts;
+    ui::ImageCache images([] {});
+    ui::AppUi app(fonts, images);
+    ui::GameRow row;
+    row.title = "Recently added";
+    for (int i = 0; i < 3; ++i) {
+        ui::GameTile tile;
+        tile.name = "Game " + std::to_string(i + 1);
+        tile.titleId = "TITLE_" + std::to_string(i + 1);
+        tile.productId = "PRODUCT_" + std::to_string(i + 1);
+        tile.playable = true;
+        row.tiles.push_back(tile);
+    }
+    app.setRows({row});
+    app.showHome();
+    ui::NavInput removedModeShortcut;
+    removedModeShortcut.r3 = true;
+    app.handle(removedModeShortcut);
+
+    // Horizon is finite: first left push keeps the first item selected.
+    ui::NavInput left;
+    left.left = true;
+    left.nowMs = 1000;
+    app.handle(left);
+    ui::NavInput accept;
+    accept.accept = true;
+    app.handle(accept);
+    CHECK(app.screen() == ui::Screen::Details);
+    CHECK(app.detailWanted(100) == "PRODUCT_1");
+
+    // A new pair of outward presses is required to jump from first to last.
+    app.showHome();
+    app.setRows({row});
+    left.nowMs = 2000;
+    app.handle(left);
+    ui::NavInput neutral;
+    neutral.nowMs = 2200;
+    app.handle(neutral);
+    left.nowMs = 2440;
+    app.handle(left);
+    app.handle(accept);
+    CHECK(app.detailWanted(100) == "PRODUCT_3");
+
+    // Touch: one horizontal swipe = one cover, same as a D-pad press.
+    ui::AppUi touch(fonts, images);
+    touch.setRows({row});
+    touch.showHome();
+    touch.onTouch({app::shell::TouchEvent::Kind::Down, 1, 1180.0f, 710.0f});
+    touch.onTouch({app::shell::TouchEvent::Kind::Motion, 1, 1000.0f, 710.0f});
+    touch.onTouch({app::shell::TouchEvent::Kind::Up, 1, 1000.0f, 710.0f});
+    touch.handle(accept);
+    CHECK(touch.detailWanted(100) == "PRODUCT_2");
+
+    // Up/down always switch entire catalog shelves in Horizon, even when the
+    // underlying legacy row is flagged as a grid.
+    ui::AppUi shelves(fonts, images);
+    ui::GameRow second = row;
+    second.title = "Platform";
+    second.isGrid = true;
+    second.tiles[0].productId = "PLATFORM_FIRST";
+    shelves.setRows({row, second});
+    shelves.showHome();
+    ui::NavInput down;
+    down.down = true;
+    shelves.handle(down);
+    shelves.handle(accept);
+    CHECK(shelves.detailWanted(100) == "PLATFORM_FIRST");
 }
 
 static void testDetailsHydrationAndPlaytimeBadge() {
@@ -1179,8 +1617,14 @@ static void testStreamMenu() {
     press([](xc::ui::NavInput& n) { n.down = true; });
     press([](xc::ui::NavInput& n) { n.left = true; });  // 1080p -> 720p
     CHECK(menu.resolution() == 1);
-    press([](xc::ui::NavInput& n) { n.left = true; });  // wraps to 1440p
+    press([](xc::ui::NavInput& n) { n.left = true; });  // wraps to Best (Auto)
     CHECK(menu.resolution() == 2);
+    press([](xc::ui::NavInput& n) { n.right = true; });  // Best -> 720p
+    CHECK(menu.resolution() == 1);
+    press([](xc::ui::NavInput& n) { n.right = true; });  // 720p -> 1080p
+    CHECK(menu.resolution() == 0);
+    press([](xc::ui::NavInput& n) { n.right = true; });  // 1080p -> explicit QHD
+    CHECK(menu.resolution() == 3);
     CHECK(press([](xc::ui::NavInput& n) { n.accept = true; }) == MenuAction::Resolution);
     press([](xc::ui::NavInput& n) { n.down = true; }); // VideoDecoderItem
     CHECK(press([](xc::ui::NavInput& n) { n.right = true; }) == MenuAction::VideoDecoder);
@@ -1236,7 +1680,7 @@ static void testStreamMenu() {
     CHECK(!menu.isOpen());
     menu.open(1, true);
     CHECK(press([](xc::ui::NavInput& n) { n.back = true; }) == MenuAction::Close);
-    // Best (Auto) offered as resolution 2; cycling is 720p (1) -> 1080p (0) -> Best (2).
+    // Four options: Best (2) -> 720p (1) -> 1080p (0) -> QHD (3) -> Best (2).
     menu.open(2, false, 0, 1, 0, false, false);
     CHECK(menu.resolution() == 2);
     for (int i = 0; i < 5; ++i) press([](xc::ui::NavInput& n) { n.down = true; });  // to the resolution (Xbox -> Stats -> Upscaler -> Sharpness -> Deband -> Resolution)
@@ -1245,7 +1689,9 @@ static void testStreamMenu() {
     press([](xc::ui::NavInput& n) { n.right = true; });
     CHECK(menu.resolution() == 0);  // 720p -> 1080p
     press([](xc::ui::NavInput& n) { n.right = true; });
-    CHECK(menu.resolution() == 2);  // 1080p -> Best (2)
+    CHECK(menu.resolution() == 3);  // 1080p -> explicit 1440p QHD
+    press([](xc::ui::NavInput& n) { n.right = true; });
+    CHECK(menu.resolution() == 2);  // 1440p QHD -> Best (Auto)
 
     // Test stats indicator customization
     menu.open(0, true);
@@ -1581,8 +2027,9 @@ static void testSmartGlassInGameMenuInvariants() {
         int oy = box.y + 20 + mod;
         uint32_t modulePixel = testCanvas.data()[(oy + mod / 2) * testCanvas.width() + (ox + mod / 2)];
         CHECK(xc::ui::alphaOf(modulePixel) == 255);
-        // Finder pattern module is drawn with kBg = rgba(14, 14, 14)
-        CHECK(modulePixel == xc::ui::rgba(14, 14, 14));
+        // Finder pattern module follows the native theme background token.
+        // Compare with kBg rather than a hardcoded pre-Colecao-Viva grey.
+        CHECK(modulePixel == xc::ui::kBg);
 
         // Check quiet zone around the QR code (at ox - mod/2, oy - mod/2) is white
         uint32_t quietPixel = testCanvas.data()[(oy - mod / 2) * testCanvas.width() + (ox - mod / 2)];
@@ -4609,21 +5056,21 @@ static void testVisibleSettingsRows() {
     };
     const ui::UiCaps ps5;
     auto all = ui::visibleSettingsRows(ps5);
-    CHECK((ids(all) == std::vector<int>{0, 2, 8, 27, 17, 18, 24, 25, 1, 20, 9, 26, 10, 14, 12, 3, 15, 4, 21, 5, 6, 16, 22, 19, 7, 23}));
-    CHECK((groups(all) == std::vector<bool>{false, false, false, false, false, false, false, false, true, false, false, false, false, true, false, false, false, false, false, false, false, false, false, true, false, true}));
+    CHECK((ids(all) == std::vector<int>{0, 2, 8, 27, 17, 18, 24, 25, 1, 20, 31, 32, 33, 9, 26, 10, 11, 34, 14, 12, 3, 15, 4, 21, 5, 6, 16, 22, 19, 7, 23, 28, 29, 30}));
+    CHECK((groups(all) == std::vector<bool>{false, false, false, false, false, false, false, false, true, false, false, false, false, false, false, false, false, false, true, false, false, false, false, false, false, false, false, false, true, false, true, true, false, false}));
     ui::UiCaps pc;
     pc.lightBar = pc.triggerRumble = pc.adaptiveTriggers = pc.gyro = pc.touchpad = false;
     pc.upscalers = pc.sharpen = pc.deband = pc.highRefresh = pc.console = pc.selfUpdate = pc.trophies = false;
     pc.openUrl = true;
     auto desk = ui::visibleSettingsRows(pc);
-    CHECK((ids(desk) == std::vector<int>{0, 2, 8, 27, 17, 18, 1, 20, 26, 10, 14, 12, 3, 5, 16, 22, 19, 7, 23}));
-    CHECK((groups(desk) == std::vector<bool>{false, false, false, false, false, false, true, false, false, false, true, false, false, false, false, false, true, false, true}));
+    CHECK((ids(desk) == std::vector<int>{0, 2, 8, 27, 17, 18, 1, 20, 26, 10, 11, 34, 14, 12, 3, 5, 16, 22, 19, 7, 23, 28, 29, 30}));
+    CHECK((groups(desk) == std::vector<bool>{false, false, false, false, false, false, true, false, false, false, false, false, true, false, false, false, false, false, true, false, true, true, false, false}));
     // The desktop app's window: Display mode after the resolution, in the stream's group.
     ui::UiCaps win = pc;
     win.desktopWindow = true;
     auto w = ui::visibleSettingsRows(win);
-    CHECK((ids(w) == std::vector<int>{0, 2, 8, 27, 17, 18, 1, 20, 13, 26, 10, 14, 12, 3, 5, 16, 22, 19, 7, 23}));
-    CHECK((groups(w) == std::vector<bool>{false, false, false, false, false, false, true, false, false, false, false, true, false, false, false, false, false, true, false, true}));
+    CHECK((ids(w) == std::vector<int>{0, 2, 8, 27, 17, 18, 1, 20, 13, 26, 10, 11, 34, 14, 12, 3, 5, 16, 22, 19, 7, 23, 28, 29, 30}));
+    CHECK((groups(w) == std::vector<bool>{false, false, false, false, false, false, true, false, false, false, false, false, false, true, false, false, false, false, false, true, false, true, true, false, false}));
     auto deskIds = ids(desk);
     CHECK(std::find(deskIds.begin(), deskIds.end(), 24) == deskIds.end());
     CHECK(std::find(deskIds.begin(), deskIds.end(), 25) == deskIds.end());
@@ -4632,6 +5079,16 @@ static void testVisibleSettingsRows() {
     CHECK(std::find(allIds.begin(), allIds.end(), 25) != allIds.end());
     CHECK(ui::settingsRowPosition(pc, 24) == -1);
     CHECK(ui::settingsRowPosition(pc, 25) == -1);
+    // Web Control quality preferences are now also available in native Settings
+    // when their actual rendering capabilities are enabled.
+    CHECK(ui::settingsRowPosition(ps5, 20) >= 0);
+    for (int row : {31, 32, 33, 34}) {
+        CHECK(ui::settingsRowPosition(ps5, row) >= 0);
+    }
+    for (int row : {31, 32, 33}) {
+        CHECK(ui::settingsRowPosition(pc, row) == -1);
+    }
+    CHECK(ui::settingsRowPosition(pc, 34) >= 0);
     ui::UiCaps xbox = pc;  // an Xbox pad: impulse triggers, no light bar
     xbox.triggerRumble = true;
     auto x = ids(ui::visibleSettingsRows(xbox));
@@ -4681,14 +5138,14 @@ static void testVisibleSettingsRows() {
     // How far down the autoplay tests walk to each row (autoplay.cpp's downsTo).
     CHECK(ui::settingsRowPosition(ps5, 24) == 6);
     CHECK(ui::settingsRowPosition(ps5, 25) == 7);
-    CHECK(ui::settingsRowPosition(ps5, 27) == 3 && ui::settingsRowPosition(ps5, 1) == 8 && ui::settingsRowPosition(ps5, 3) == 15);
-    CHECK(ui::settingsRowPosition(ps5, 16) == 21);
-    CHECK(ui::settingsRowPosition(ps5, 5) == 19 && ui::settingsRowPosition(ps5, 6) == 20);
-    CHECK(ui::settingsRowPosition(ps5, 12) == 14 && ui::settingsRowPosition(ps5, 14) == 13);
-    CHECK(ui::settingsRowPosition(ps5, 22) == 22);
-    CHECK(ui::settingsRowPosition(ps5, 7) == 24 && ui::settingsRowPosition(ps5, 19) == 23 && ui::settingsRowPosition(ps5, 2) == 1);
-    CHECK(ui::settingsRowPosition(ps5, 21) == 18);
-    CHECK(ui::settingsRowPosition(pc, 5) == 13 && ui::settingsRowPosition(pc, 6) == -1 && ui::settingsRowPosition(pc, 4) == -1);
+    CHECK(ui::settingsRowPosition(ps5, 27) == 3 && ui::settingsRowPosition(ps5, 1) == 8 && ui::settingsRowPosition(ps5, 3) == 20);
+    CHECK(ui::settingsRowPosition(ps5, 16) == 26);
+    CHECK(ui::settingsRowPosition(ps5, 5) == 24 && ui::settingsRowPosition(ps5, 6) == 25);
+    CHECK(ui::settingsRowPosition(ps5, 12) == 19 && ui::settingsRowPosition(ps5, 14) == 18);
+    CHECK(ui::settingsRowPosition(ps5, 22) == 27);
+    CHECK(ui::settingsRowPosition(ps5, 7) == 29 && ui::settingsRowPosition(ps5, 19) == 28 && ui::settingsRowPosition(ps5, 2) == 1);
+    CHECK(ui::settingsRowPosition(ps5, 21) == 23);
+    CHECK(ui::settingsRowPosition(pc, 5) == 15 && ui::settingsRowPosition(pc, 6) == -1 && ui::settingsRowPosition(pc, 4) == -1);
 }
 
 // The controller's glyphs by pad kind (ui/pad_glyphs.h).
@@ -6002,7 +6459,7 @@ static void testBlock3Features() {
         auto htmlRes = ws.handleRequest("GET", "/", "");
         CHECK(htmlRes.status == 200);
         CHECK(htmlRes.contentType.find("text/html") != std::string::npos);
-        CHECK(htmlRes.body.find("PSBOX CLOUD GAMING") != std::string::npos);
+        CHECK(htmlRes.body.find("NIMBOPLAY") != std::string::npos);
         CHECK(htmlRes.body.find("logo-icon") != std::string::npos);
         CHECK(htmlRes.body.find("#107C41") != std::string::npos);
         CHECK(htmlRes.body.find("tabBtnGamePass") != std::string::npos);
@@ -7170,6 +7627,7 @@ static void testDesktopMouseNav() {
     row.tiles.push_back(tile2);
     uiApp.setRows({row});
     uiApp.showHome();
+    // Desktop mouse navigation uses Horizon's real shared card geometry.
 
     // 1. Mouse cursor state, initial position, and clamping
     CHECK(uiApp.mouseCursorX() == 960.0f);
@@ -7200,14 +7658,14 @@ static void testDesktopMouseNav() {
 
     // 3. Hovering over a card updates focus
     {
-        // First card is at kMargin (96) + 0, cardY = kRowTop (470) + 48 = 518
-        auto ev = uiApp.onMouseMove(120.0f, 550.0f);
+        // Centered Horizon cover at (960, 731).
+        auto ev = uiApp.onMouseMove(960.0f, 731.0f);
         CHECK(ev.action == ui::Action::None);
     }
 
     // 4. Clicking a card opens details
     {
-        auto ev = uiApp.onMouseDown(120.0f, 550.0f, 1);
+        auto ev = uiApp.onMouseDown(960.0f, 731.0f, 1);
         CHECK(ev.action == ui::Action::None);
         // AppUi should now be showing details
         CHECK(uiApp.detailWanted(100) == "GAME_001");
@@ -7242,13 +7700,15 @@ static void testDesktopMouseNav() {
 
     // 8. In Settings, clicking a dropdown setting opens the dropdown
     {
-        // Language row (row 0) at y = 190
-        auto evClick = uiApp.onMouseDown(200.0f, 200.0f, 1);
+        // Language row (row 0) starts at kSettingsListTop, currently 258.
+        // The header above it is not a selectable setting.
+        const float languageY = 272.0f;  // Settings visual row 0: top 258 + 14
+        auto evClick = uiApp.onMouseDown(200.0f, languageY, 1);
         // First right click closes the dropdown
-        auto evClose = uiApp.onMouseDown(200.0f, 200.0f, 3);
+        auto evClose = uiApp.onMouseDown(200.0f, languageY, 3);
         CHECK(uiApp.screen() == ui::Screen::Settings);
         // Second right click exits back to Home
-        auto evBack = uiApp.onMouseDown(200.0f, 200.0f, 3);
+        auto evBack = uiApp.onMouseDown(200.0f, languageY, 3);
         CHECK(uiApp.screen() == ui::Screen::Home);
     }
 }
@@ -7895,11 +8355,11 @@ static void testPlayerSwitchAndUnresolvedTiles() {
 
         auto resGenUi = srv.handleRequest("GET", "/generative_ui", "");
         CHECK(resGenUi.status == 200);
-        CHECK(resGenUi.body.find("PSBox - Interactive UI Layout Editor") != std::string::npos);
+        CHECK(resGenUi.body.find("Nimbox - Interactive UI Layout Studio") != std::string::npos);
 
         auto resGenUiHtml = srv.handleRequest("GET", "/generative_ui.html", "");
         CHECK(resGenUiHtml.status == 200);
-        CHECK(resGenUiHtml.body.find("PSBox - Interactive UI Layout Editor") != std::string::npos);
+        CHECK(resGenUiHtml.body.find("Nimbox - Interactive UI Layout Studio") != std::string::npos);
 
         // Verify USB / secondary controller deadzone with unpopulated raw sticks
         input::setDeadzone(0.15f, 0.15f);
@@ -8407,6 +8867,16 @@ static void testBlock1Corrections() {
         CHECK(abxyBlock.find("scale") == std::string::npos);
         CHECK(abxyBlock.find("translate") == std::string::npos);
         CHECK(htmlStr.find("-webkit-tap-highlight-color: transparent;") != std::string::npos);
+        // Native Settings and QR Web Control must present the same shared
+        // stream/image knobs. The page must not offer an unsupported codec
+        // switch while describing its H.264 hardware/software preference.
+        for (const char* id : {"selectVideoDecoder", "selectUpscaler", "selectDeband",
+                               "inputCas", "selectVoiceRouting", "selectFpsLimit"}) {
+            CHECK(htmlStr.find(id) != std::string::npos);
+        }
+        CHECK(htmlStr.find("GPU ou CPU não são codecs") != std::string::npos);
+        CHECK(htmlStr.find("NIMBOPLAY CONTROL CENTER V2") != std::string::npos);
+        CHECK(htmlStr.find("remote-hero") != std::string::npos);
     }
 
     // 2. Search cursor stability across background updates (pools, prices, delta-sync, setOwned, setRows)
@@ -8483,6 +8953,7 @@ static void testBlock1Corrections() {
         friendsRow.tiles = {friendTile};
         app.setRows({friendsRow});
         app.showHome();
+        // Horizon's details return immediately, preserving hero metadata.
 
         // 3a. On Home screen with tile focused, heroWanted requests the missing heroUrl
         CHECK(app.heroWanted(100) == "PROD_FRIEND_01");
@@ -11459,6 +11930,8 @@ static void testWorkerMobileM4Features() {
 }
 
 int main() {
+    testNimboPlayInternalBrand();
+    testPtBrDefaultOnFirstRun();
     testMilestone1TouchOverlayCanvasAndHaptics();
     testHwPictureContract();
     testTouchVirtualGamepadInjection();
@@ -11581,6 +12054,16 @@ int main() {
     testTitleListRetriesAndIncompleteLibrary();
     testFontsFallBackToBuiltin();
     testFreeAccountPlayability();
+    testNimboxSharedCppPose();
+    testNimboxProjected3DCase();
+    testNimboxCascadeArc();
+    testNimboxPreview3PageStructure();
+    testNimboxAppearanceStudio();
+    testNimboxXboxCaseFinish();
+    testNimboxPS5ShowcaseGeometry();
+    testNimboPlayFrostedSettingsAndQr();
+    testNimboxHorizonGeometry();
+    testNimboxDefaultCarouselNavigation();
     testDetailsHydrationAndPlaytimeBadge();
     testMilestone5TransmissionQualityAndStreamReload();
     testMilestone6UsbKeyboardMouseIsolation();

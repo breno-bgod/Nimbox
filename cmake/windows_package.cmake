@@ -5,11 +5,13 @@
 set(XC_PACKAGE_VERSION "v${PROJECT_VERSION}-dev" CACHE STRING
     "Version in the desktop package's name")
 
-set(_pkg PSBox)
+set(_pkg NimboPlay)
 set(_src "${CMAKE_CURRENT_SOURCE_DIR}")
 
 # The executable target
 install(TARGETS psbox RUNTIME DESTINATION ${_pkg})
+# Preserve the psbox CMake target and runtime IDs, but ship a NimboPlay.exe.
+install(CODE "file(RENAME \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${_pkg}/psbox.exe\" \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${_pkg}/NimboPlay.exe\")")
 
 # Bundle SDL3.dll beside psbox.exe
 if(TARGET SDL3::SDL3-shared)
@@ -21,11 +23,10 @@ install(DIRECTORY "${_src}/assets/" DESTINATION ${_pkg}/assets)
 
 # Documentation and icon
 install(FILES "${_src}/windows/README-windows.txt" DESTINATION ${_pkg})
-if(EXISTS "${_src}/psbox.png")
-    install(FILES "${_src}/psbox.png" DESTINATION ${_pkg})
-elseif(EXISTS "${CMAKE_CURRENT_BINARY_DIR}/psbox.png")
-    install(FILES "${CMAKE_CURRENT_BINARY_DIR}/psbox.png" DESTINATION ${_pkg})
-endif()
+# The portable EXE embeds its ICO via Windows RC. Keep the same launcher
+# art as an ordinary PNG alongside the executable for integrations/shortcuts.
+install(FILES "${_src}/assets/branding/nimboplay_launcher_256.png"
+        DESTINATION ${_pkg} RENAME "NimboPlay.png")
 
 # Licenses
 install(FILES "${_src}/LICENSE" "${_src}/THIRD_PARTY_NOTICES.md" DESTINATION ${_pkg}/licenses)

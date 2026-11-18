@@ -4,8 +4,8 @@
 # Builds or packages the Windows portable zip of the desktop app.
 #
 #   tools/desktop/package-windows.sh <build-dir> [out-dir]
-#       -> <out-dir>/PSBox-<version>-windows-x86_64.zip
-#       -> <out-dir>/PSBox-<version>-windows-x86_64.zip.sha256
+#       -> <out-dir>/NimboPlay-<version>-windows-x86_64.zip
+#       -> <out-dir>/NimboPlay-<version>-windows-x86_64.zip.sha256
 set -euo pipefail
 
 build=${1:?usage: package-windows.sh <build-dir> [out-dir]}
@@ -20,7 +20,7 @@ ok() { echo "  ok  $*"; }
 
 project=$(sed -n 's/^project(xcloud_ps5 VERSION \([0-9.]*\) .*/\1/p' "$root/CMakeLists.txt")
 version=${XC_VERSION:-v$project-dev}
-name=PSBox-$version-windows-x86_64
+name=NimboPlay-$version-windows-x86_64
 zipfile=$out/$name.zip
 shafile=$out/$name.zip.sha256
 
@@ -34,7 +34,7 @@ for candidate in "$build/psbox.exe" "$build/bin/psbox.exe"; do
 done
 [[ -n "$exe" ]] || fail "psbox.exe not found in $build; build the target first"
 [[ -s "$exe" ]] || fail "psbox.exe is an empty file (0 bytes)"
-ok "using binary: $exe -> psbox.exe"
+ok "using binary: $exe (packaged as NimboPlay.exe)"
 
 sdl=""
 for candidate in "$build/SDL3.dll" "$build/bin/SDL3.dll" \
@@ -54,8 +54,8 @@ trap 'rm -rf "$stage"' EXIT
 
 echo "== install into stage directory"
 cmake --install "$build" --prefix "$stage" >/dev/null
-pkgdir=$stage/PSBox
-[[ -d "$pkgdir" ]] || fail "cmake --install failed to create PSBox folder"
+pkgdir=$stage/NimboPlay
+[[ -d "$pkgdir" ]] || fail "cmake --install failed to create NimboPlay folder"
 
 # Fallback copy if cmake --install did not bundle SDL3.dll
 if [[ ! -f "$pkgdir/SDL3.dll" ]]; then
@@ -94,13 +94,13 @@ import zipfile
 import re
 
 required = [
-    "PSBox/psbox.exe",
-    "PSBox/SDL3.dll",
-    "PSBox/README-windows.txt",
-    "PSBox/assets/cacert.pem",
-    "PSBox/assets/fonts/Inter-Regular.ttf",
-    "PSBox/licenses/LICENSE",
-    "PSBox/licenses/THIRD_PARTY_NOTICES.md",
+    "NimboPlay/NimboPlay.exe",
+    "NimboPlay/SDL3.dll",
+    "NimboPlay/README-windows.txt",
+    "NimboPlay/assets/cacert.pem",
+    "NimboPlay/assets/fonts/Inter-Regular.ttf",
+    "NimboPlay/licenses/LICENSE",
+    "NimboPlay/licenses/THIRD_PARTY_NOTICES.md",
 ]
 
 forbidden = re.compile(r'(^|/)account\.json$|(^|/)autoplay\.txt$|\.log$|\.ppm$|\.aus$|\.h264$|\.key$|(^|/)settings\.json$')
@@ -112,21 +112,21 @@ with zipfile.ZipFile("$zipfile", 'r') as zf:
             print(f"Error: mandatory file missing from package: {r}", file=sys.stderr)
             sys.exit(1)
     for name in names:
-        if not name.startswith("PSBox/"):
-            print(f"Error: file outside PSBox/: {name}", file=sys.stderr)
+        if not name.startswith("NimboPlay/"):
+            print(f"Error: file outside NimboPlay/: {name}", file=sys.stderr)
             sys.exit(1)
         if forbidden.search(name) and not name.endswith("cacert.pem"):
             print(f"Error: forbidden file in package: {name}", file=sys.stderr)
             sys.exit(1)
     
-    exe_info = zf.getinfo("PSBox/psbox.exe")
+    exe_info = zf.getinfo("NimboPlay/NimboPlay.exe")
     if exe_info.file_size == 0:
-        print("Error: PSBox/psbox.exe is 0 bytes (dummy file forbidden)", file=sys.stderr)
+        print("Error: NimboPlay/NimboPlay.exe is 0 bytes (dummy file forbidden)", file=sys.stderr)
         sys.exit(1)
         
-    sdl_info = zf.getinfo("PSBox/SDL3.dll")
+    sdl_info = zf.getinfo("NimboPlay/SDL3.dll")
     if sdl_info.file_size == 0:
-        print("Error: PSBox/SDL3.dll is 0 bytes", file=sys.stderr)
+        print("Error: NimboPlay/SDL3.dll is 0 bytes", file=sys.stderr)
         sys.exit(1)
 
 print("  ok  clean package contents: all mandatory files verified, binary non-empty")

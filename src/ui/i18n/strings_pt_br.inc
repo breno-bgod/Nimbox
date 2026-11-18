@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 RafaelNGP
 constexpr Column kPortugueseBR = {
-    "PSBox Cloud Gaming",
-    "PSBOX CLOUD GAMING",
+    "NimboPlay",
+    "NIMBOPLAY",
     "Entrando...",
     "Gerando um código de login...",
     "Carregando seus jogos...",
@@ -152,7 +152,7 @@ constexpr Column kPortugueseBR = {
     "Atualizar agora",
     "Agora não",
     "Atualizações",
-    "Atualizado (%s)",
+    "Instalado: %s", // UpToDate
     "%s disponível: atualizar",
     "Verificando...",
     "Atualizando para %s",
@@ -160,7 +160,7 @@ constexpr Column kPortugueseBR = {
     "Conferindo a assinatura...",
     "Instalando...",
     "Atualizado. Reiniciando...",
-    "PSBox atualizado: abra o app de novo",
+    "NimboPlay atualizado: abra o app de novo",
     "A atualização falhou: nada foi alterado",
     "Cor do jogo",
     "Cor personalizada",
@@ -216,7 +216,7 @@ constexpr Column kPortugueseBR = {
     "Relatar problema",
     "Escaneie com o celular: o formulário de bug do GitHub abre preenchido. Você revisa antes de enviar.",
     "Inclui a versão do app, o erro e linhas do log, sem dados pessoais.",
-    "O PSBox fechou inesperadamente da última vez",
+    "O NimboPlay fechou inesperadamente da última vez",
     "País do login",
     "Desativado (o do console)",
     "Entrar como outro país",
@@ -267,7 +267,7 @@ constexpr Column kPortugueseBR = {
     "Modo de exibição", // DisplayMode
     "Janela", // DisplayWindow
     "Tela cheia", // DisplayFullscreen
-    "Sair do PSBox?", // QuitTitle
+    "Sair do NimboPlay?", // QuitTitle
     "Sair", // QuitConfirm
     "Botões do controle", // ControllerButtons
     "Aperte o botão para %s", // PadPressButton
@@ -338,11 +338,11 @@ constexpr Column kPortugueseBR = {
     "Removido da lista de desejos",                   // RemovedFromWishlist
     "%s está em promoção!",                           // WishlistOnSale
     "%s entrou no Game Pass!",                        // WishlistInGamePass
-    "Apoie o projeto",                                // SupportProject
-    "Apoie o Desenvolvimento do PSBox",               // SupportTitle
-    "O PSBox é um projeto de código aberto mantido com dedicação para trazer a melhor experiência do Xbox Cloud Gaming ao PlayStation 5. Se você curte o app e quer apoiar o desenvolvimento contínuo, atualizações e novos recursos, considere me pagar um café no Ko-Fi!", // SupportMessage
-    "Ko-fi",                                          // SupportKoFi
-    "Aponte a câmera do seu celular",                 // ScanToDonate
+    "Suporte NimboPlay", // SupportProject
+    "Suporte NimboPlay", // SupportTitle
+    "Acesse o GitHub oficial do NimboPlay para acompanhar o projeto e consultar as informações de suporte. Os créditos e licenças dos autores do código original continuam preservados no repositório.", // SupportMessage
+    "GitHub", // SupportKoFi
+    "Escaneie para abrir o GitHub do NimboPlay", // ScanToDonate
     "Testar som",                                     // TestSound
     "A lista de desejos está vazia",                  // WishlistEmpty
     // Loading tips
@@ -350,7 +350,7 @@ constexpr Column kPortugueseBR = {
     "Teclado e mouse USB conectados ao console são suportados em jogos compatíveis da nuvem", // TipKeyboardMouse
     "Adquira jogos gratuitos, demonstrações e confira promoções da loja direto pelo aplicativo", // TipFreeStore
     "Encontrou um problema? Abra Relatar Problema para escanear um QR code com logs do console", // TipBugReportQr
-    "Gostando do app? Apoie o desenvolvimento contínuo via Ko-fi na aba de Configurações!", // TipSupportKofi
+    "Precisa de ajuda? Encontre o GitHub oficial do NimboPlay em Configurações.", // TipSupportKofi
     "Ative a saída de vídeo em 120 Hz nas Configurações para menor latência e resposta mais rápida", // Tip120HzVideo
     "Ajuste a zona morta dos analógicos do DualSense nas Configurações para eliminar drift", // TipAnalogDeadzone
     "Use o microfone integrado do DualSense para bate-papo de voz em grupos e jogos multijogador", // TipDualSenseMic
@@ -374,7 +374,7 @@ constexpr Column kPortugueseBR = {
     "Ativa ou desativa a simulação dos motores de vibração nos gatilhos adaptáveis L2 e R2 em jogos compatíveis", // SettingDescTriggerRumble
     "Alterna a função de confirmar e voltar entre Cruz (padrão ocidental) e Círculo (padrão japonês)", // SettingDescConfirmButton
     "Configura a cor e o comportamento da barra de luz do DualSense durante a navegação e a jogatina", // SettingDescLightBar
-    "Verifica e instala automaticamente novas versões lançadas do aplicativo diretamente pelo console sem PC", // SettingDescUpdates
+    "Consulta lançamentos do NimboPlay no GitHub; atualizações assinadas são instaladas somente em plataformas compatíveis.", // SettingDescUpdates
     "Permite autenticar sua conta Xbox através de outra região geográfica para acessar catálogos alternativos", // SettingDescLoginCountry
     "Ativa saída de vídeo em 120 Hz no console para menor atraso de exibição e redução da latência de comando", // SettingDescHighRefresh
     "Automático usa o teto nativo do perfil Xbox; Sem Limite libera a trava do app até o máximo real do servidor. Acima de 15 Mbps é experimental.", // SettingDescBitrateCap
@@ -386,7 +386,7 @@ constexpr Column kPortugueseBR = {
     "Toca um aviso sonoro característico quando o tempo de espera na fila do xCloud terminar e o jogo iniciar", // SettingDescQueueReady
     "Realiza um diagnóstico completo da autenticação Xbox Live, validando tokens de acesso, perfil e assinaturas", // SettingDescCheckSignIn
     "Mede o ping (RTT) e a variação (jitter) para servidores de jogos em nuvem de várias regiões globais", // SettingDescNetworkTest
-    "Exibe um QR Code para você apoiar o desenvolvedor via Ko-fi e ajudar a manter o projeto ativo e atualizado", // SettingDescSupportProject
+    "Abre o GitHub do NimboPlay para informações do projeto e suporte.", // SettingDescSupportProject
     "Novidades",                                      // WhatsNew
     "Novidades",                                      // WhatsNewTitle
     "Alto-falante do controle",                       // PadSpeakerVolume
@@ -450,9 +450,9 @@ constexpr Column kPortugueseBR = {
     "Estou ciente",                                   // TrophiesDisclaimerAware
     "Cancelar",                                       // TrophiesDisclaimerCancel
     "Remover Troféus Sincronizados",                  // RemoveTrophies
-    "Remove todos os troféus adicionados pelo PSBox da conta local, evitando o risco de banimento. Você poderá adicioná-los novamente quando quiser a partir da conta Xbox.", // SettingDescRemoveTrophies
+    "Remove todos os troféus adicionados pelo NimboPlay da conta local, evitando o risco de banimento. Você poderá adicioná-los novamente quando quiser a partir da conta Xbox.", // SettingDescRemoveTrophies
     "Remover Troféus Sincronizados?",                 // RemoveTrophiesConfirmTitle
-    "Isso apagará os pacotes locais de troféus adicionados pelo PSBox para este perfil. Suas conquistas continuam salvas na sua conta Microsoft/Xbox.", // RemoveTrophiesConfirmBody
+    "Isso apagará os pacotes locais de troféus adicionados pelo NimboPlay para este perfil. Suas conquistas continuam salvas na sua conta Microsoft/Xbox.", // RemoveTrophiesConfirmBody
     "Remover",                                        // RemoveTrophiesConfirm
     "Removido(s) %s título(s) de troféus deste perfil.", // TrophiesRemovedToast
     "Sincronizando conquistas...",                    // SyncingTrophies
@@ -467,7 +467,7 @@ constexpr Column kPortugueseBR = {
     "Abas",                                           // MenuTabsLabel
     "Configurações salvas",                           // SettingsSavedToast
     "Configurações do jogo salvas",                   // GameSettingsSavedToast
-    "PSBox: conexões seguras indisponíveis",          // SecureConnUnavailableToast
+    "NimboPlay: conexões seguras indisponíveis",          // SecureConnUnavailableToast
     "Falha na sincronização de troféus: %s",          // TrophySyncFailedToast
     "Telemetria ativada",                             // TelemetryOnToast
     "Telemetria desativada",                          // TelemetryOffToast
@@ -589,4 +589,21 @@ constexpr Column kPortugueseBR = {
     "Salvar",                                                                         // Save
     "Abrir navegador para fazer login",                                               // SignInOpenBrowser
     "Toque aqui ou pressione A para abrir no navegador",                              // SignInOpenBrowserHint
+    "DETALHES DO JOGO",  // DetailsShowcase
+    "SOBRE O JOGO",  // DetailsAbout
+    "SESSÃO",  // DetailsSession
+    "CAPA DO JOGO",  // DetailsArtwork
+    "GAME PASS / EXPLORAR",  // HorizonExplore
+    "COLEÇÃO %s DE %s",  // HorizonCollectionPosition
+    "JOGO %s DE %s",  // HorizonGamePosition
+    "FIM DA COLEÇÃO · AVANCE NOVAMENTE PARA RECOMEÇAR",  // HorizonEndHint
+    "INÍCIO DA COLEÇÃO · VOLTE NOVAMENTE PARA IR AO FINAL",  // HorizonStartHint
+    "ESQUERDA / DIREITA  -  JOGOS",  // HorizonHorizontalHint
+    "CIMA / BAIXO  -  COLEÇÕES",  // HorizonVerticalHint
+    "Ampliar QR",  // SettingsExpandQr
+    "Escaneie para abrir o painel do NimboPlay",  // SettingsQrInstructions
+    "Conectar ao painel Web",  // SettingsQrConnect
+    "O QR Code não está disponível nesta sessão.",  // SettingsQrUnavailable
+    "R3 / TOQUE  -  AMPLIAR QR",  // SettingsQrPointerHint
+    "L2  Configurações",  // SettingsDetailsShortcut
 };

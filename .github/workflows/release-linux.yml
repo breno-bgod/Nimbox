@@ -109,7 +109,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           cd build-app/pkg
-          f="PSBox-$TAG-linux-x86_64.AppImage"
+          f="NimboPlay-$TAG-linux-x86_64.AppImage"
           [ -s "$f" ] || { echo "::error::$f was not made"; exit 1; }
           sha256sum "$f" > "$f.sha256"
           gh release upload "$TAG" "$f" "$f.sha256" --clobber --repo "$GITHUB_REPOSITORY"
@@ -118,7 +118,7 @@ jobs:
       # (tools/symbolize.sh); kept for 90 days.
       - uses: actions/upload-artifact@v7
         with:
-          name: psbox-symbols-${{ env.TAG }}
+          name: nimboplay-symbols-${{ env.TAG }}
           path: symbols/${{ env.TAG }}/psbox.debug
           retention-days: 90
           if-no-files-found: warn

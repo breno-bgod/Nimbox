@@ -94,12 +94,12 @@ public:
 
     explicit StreamMenu(const Fonts& fonts) : fonts_(fonts) {}
 
-    // `resolution` as SettingsChoice::resolution (0 = 1080p, 1 = 720p, 2 = 1440p).
+    // `resolution` as SettingsChoice::resolution (0 = 1080p, 1 = 720p, 2 = Best Auto, 3 = 1440p QHD).
     // `sharpness` 0 = off, 1..3 = low, medium, high; `deband` 0..2 = off,
     // low, high.
     // `upscaler` 0 = FSR, 1 = Anime4K.
     // `homeConsole`: the user's own Xbox ("End the stream" instead of "Leave the game").
-    // `allow1440`: offered only once a stream delivered it.
+    // `allow1440`: capability hint for Auto; the user can explicitly request QHD.
     void open(int resolution, bool stats, int sharpness = 0, int deband = 1, int upscaler = 0, bool homeConsole = false,
               bool allow1440 = true, bool hasCustomProfile = false, int triggerStrength = 2, int deadzone = 15,
               bool circleConfirms = false, float micLevel = 0.0f, bool micMuted = false, int padSpeakerVolume = 100);
@@ -414,13 +414,25 @@ private:
         TouchInvertSticksItem,
         MicMuteItem,
         Resolution,
+        VideoDecoderItem,  // H.264 MediaCodec/FFmpeg: selectable by gamepad while playing
         FpsLimiterItem,
         BitrateLimiterItem,
+        VrrItem,            // visible only when the active display supports it
+        Upscaler,           // same image controls as the native and Web settings
         Sharpness,
         Deband,
         ReloadStreamItem,
         Leave
     };
+    static_assert([] {
+        int decoderChoices = 0;
+        int upscalerChoices = 0;
+        for (int item : kAndroidOrder) {
+            if (item == VideoDecoderItem) ++decoderChoices;
+            if (item == Upscaler) ++upscalerChoices;
+        }
+        return decoderChoices == 1 && upscalerChoices == 1;
+    }(), "Android controller menu must expose one H.264 decoder and one upscaler row");
     void drawGuitarTab(Canvas& c) const;
     void drawGuitarPicker(Canvas& c, int rowY) const;
     int audioHaptics_ = 0;

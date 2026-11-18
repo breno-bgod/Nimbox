@@ -3,11 +3,16 @@
 #include <cstddef>
 #include "ui/app_ui_internal.h"
 #include "app/shell.h"
+#include "ui/nimbox_horizon_layout.h"
+#include "ui/nimbox_detail_showcase.h"
 
 namespace xc::ui {
 
 void AppUi::handleHome(const NavInput& in, UiEvent& ev) {
-    // Caller holds mutex_.
+    // Caller holds mutex_. Keep hold/release independent from repeat pulses.
+    if (!in.carouselHeldLeft && !in.carouselHeldRight &&
+        !in.left && !in.right && in.scrollCards == 0)
+        horizonBoundary_.noteNeutral();
     if ((in.scrollRows || in.scrollCards) && !(searching_ && searchOnKeys_)) {
         // Smooth scrolling: the rows and cards it moved by since the last
         // pass, one step at a time (the view glides after the focus).
@@ -32,9 +37,22 @@ void AppUi::handleHome(const NavInput& in, UiEvent& ev) {
         // Game Pass, Your games, My consoles, round.
         int n = static_cast<int>(tab_) + (in.r1 ? 1 : 2);
         tab_ = static_cast<Tab>(n % 3);
+        horizonBoundary_.reset();
         searching_ = false;
         dirty_ = true;
         if (tab_ == Tab::Consoles) ev.action = Action::ConsolesShown;
+        return;
+    }
+    if (tab_ == Tab::GamePass && !searching_ && in.r2) {
+        // Same eligibility as the Play button in Details.
+        if (const GameTile* tile = focusedTile()) {
+            if (isEffectivePlayableLocked(*tile)) {
+                ev.action = Action::Play;
+                ev.game = *tile;
+            } else {
+                openDetails(*tile);
+            }
+        }
         return;
     }
     if (in.l3 && !searching_) {
@@ -42,6 +60,9 @@ void AppUi::handleHome(const NavInput& in, UiEvent& ev) {
         return;
     }
     if (in.options) {
+        settingsReturnScreen_ = screen_;
+        settingsBackdropReady_ = false;
+        settingsQrExpanded_ = false;
         screen_ = Screen::Settings;
         settingsRow_ = 0;
         settingsFromError_ = false;
@@ -121,38 +142,37 @@ void AppUi::handleHome(const NavInput& in, UiEvent& ev) {
             int& col = focusCol_[static_cast<size_t>(focusRow_)];
             int count = static_cast<int>(curRow.tiles.size());
 
-            if (curRow.isGrid) {
-                if (in.up && col < kLibraryCols) {
-                    if (focusRow_ > 0) {
-                        --focusRow_;
-                        int upCols = static_cast<int>(rows_[static_cast<size_t>(focusRow_)].tiles.size());
-                        focusCol_[static_cast<size_t>(focusRow_)] = std::clamp(focusCol_[static_cast<size_t>(focusRow_)], 0, upCols - 1);
-                    }
-                } else if (in.down && col + kLibraryCols >= count && col / kLibraryCols == (count - 1) / kLibraryCols) {
-                    if (focusRow_ + 1 < rows) {
-                        ++focusRow_;
-                        int downCols = static_cast<int>(rows_[static_cast<size_t>(focusRow_)].tiles.size());
-                        focusCol_[static_cast<size_t>(focusRow_)] = std::clamp(focusCol_[static_cast<size_t>(focusRow_)], 0, downCols - 1);
-                    }
-                } else {
-                    moveInGrid(col, count, kLibraryCols, in);
+            // Horizon is a console-first, finite carousel for every Game Pass
+            // shelf (including rows stored as grids in the legacy catalog).
+            if (count > 0 && (in.left || in.right)) {
+                const int direction = in.right ? 1 : -1;
+                const uint64_t at = in.nowMs ? in.nowMs : platform::nowMs();
+                const auto result = horizon::navigate(col, count, direction, at, horizonBoundary_);
+                if (result == horizon::MoveResult::Moved) {
+                    nimboxSlide_.value = nimboxReducedMotion_ ? 0.0f :
+                        (direction > 0 ? 1000.0f : -1000.0f);
+                    nimboxSlide_.target = 0.0f;
+                    retarget();
+                } else if (result == horizon::MoveResult::Wrapped) {
+                    // Deliberate second push: jump cleanly, no ghost animation
+                    // that would suggest adjacent items wrap continuously.
+                    nimboxSlide_.value = nimboxSlide_.target = 0.0f;
+                    retarget();
                 }
-            } else {
-                if (in.down && focusRow_ + 1 < rows) {
-                    ++focusRow_;
-                    if (rows_[static_cast<size_t>(focusRow_)].isGrid) {
-                        int gCols = static_cast<int>(rows_[static_cast<size_t>(focusRow_)].tiles.size());
-                        int targetCol = std::min(col % kLibraryCols, gCols - 1);
-                        focusCol_[static_cast<size_t>(focusRow_)] = std::max(0, targetCol);
-                    }
-                }
-                if (in.up && focusRow_ > 0) --focusRow_;
-                if (in.right && col + 1 < count) ++col;
-                if (in.left && col > 0) --col;
+                dirty_ = true; // also redraw the first-edge feedback message
+                return;
             }
-            if (in.up || in.down || in.left || in.right) {
-                retarget();
-                dirty_ = true;
+
+            if (in.up || in.down) {
+                const int next = std::clamp(focusRow_ + (in.down ? 1 : -1), 0, rows - 1);
+                if (next != focusRow_) {
+                    focusRow_ = next;
+                    horizonBoundary_.reset();
+                    nimboxSlide_.value = nimboxSlide_.target = 0.0f;
+                    retarget();
+                    dirty_ = true;
+                }
+                return;
             }
             if (in.accept && focusedTile()) openDetails(*focusedTile());
             if (in.square && focusedTile()) toggleHidden(*focusedTile(), ev);
@@ -263,54 +283,9 @@ UiEvent AppUi::onMouseMove(float x, float y) {
         return ev;
     }
     if (screen_ == Screen::Home && !searching_ && !reportOpen_ && !updatePrompt_ && !quitPrompt_) {
-        if (tab_ == Tab::GamePass && y >= 140 && y < kH - 80) {
-            constexpr int kGridW = kLibraryCols * kCardPitch - kCardGap;
-            const int gridLeft = (kW - kGridW) / 2;
-            int afterGridOffset = 0;
-            for (size_t r = 0; r < rows_.size(); ++r) {
-                float rel = static_cast<float>(r) - rowY_.value;
-                int rowBaseY = kRowTop + static_cast<int>(std::lround(rel * kRowPitch)) + afterGridOffset;
-                const GameRow& row = rows_[r];
-                if (row.isGrid) {
-                    int offset = static_cast<int>(std::lround(rowScroll_[r].value));
-                    int cardY = rowBaseY - offset + 48;
-                    for (size_t i = 0; i < row.tiles.size(); ++i) {
-                        int c_col = static_cast<int>(i) % kLibraryCols;
-                        int c_row = static_cast<int>(i) / kLibraryCols;
-                        int cy = cardY + c_row * kGridPitchY;
-                        int cx = gridLeft + c_col * kCardPitch;
-                        if (x >= cx && x < cx + kCard && y >= cy && y < cy + kCard) {
-                            if (focusRow_ != static_cast<int>(r) || focusCol_[r] != static_cast<int>(i)) {
-                                focusRow_ = static_cast<int>(r);
-                                focusCol_[r] = static_cast<int>(i);
-                                retarget();
-                                dirty_ = true;
-                            }
-                            return ev;
-                        }
-                    }
-                    int gridHeight = 48 + ((static_cast<int>(row.tiles.size()) + kLibraryCols - 1) / kLibraryCols) * kGridPitchY;
-                    afterGridOffset += gridHeight - offset - kRowPitch;
-                } else {
-                    int cardY = rowBaseY + 48;
-                    int scroll = static_cast<int>(std::lround(rowScroll_[r].value));
-                    int firstCol = std::max(0, scroll / kCardPitch - 1);
-                    for (size_t col = static_cast<size_t>(firstCol); col < row.tiles.size(); ++col) {
-                        int cx = kMargin + static_cast<int>(col) * kCardPitch - scroll;
-                        if (cx > kW) break;
-                        if (x >= cx && x < cx + kCard && y >= cardY && y < cardY + kCard) {
-                            if (focusRow_ != static_cast<int>(r) || focusCol_[r] != static_cast<int>(col)) {
-                                focusRow_ = static_cast<int>(r);
-                                focusCol_[r] = static_cast<int>(col);
-                                retarget();
-                                dirty_ = true;
-                            }
-                            return ev;
-                        }
-                    }
-                }
-            }
-        } else if (tab_ == Tab::Library && y >= 150 && y < kH - 80) {
+        // Horizon uses explicit clickable covers, not the classic grid hover.
+        if (tab_ == Tab::GamePass) return ev;
+        if (tab_ == Tab::Library && y >= 150 && y < kH - 80) {
             constexpr int kGridW = kLibraryCols * kCardPitch - kCardGap;
             const int left = (kW - kGridW) / 2;
             const LibraryLayout& L = libraryLayout();
@@ -335,7 +310,7 @@ UiEvent AppUi::onMouseMove(float x, float y) {
         for (const auto& [i, groupStart] : visibleSettingsRows(caps_)) {
             if (groupStart) curY += kSettingsGroupGap;
             if (x >= kMargin && x < kMargin + kSettingsRowW && y >= curY && y < curY + kSettingsRowH &&
-                y >= kSettingsClipTop && y < kH - 80) {
+                y >= kSettingsClipTop && y < kSettingsListBottom) {
                 if (settingsRow_ != i) {
                     settingsRow_ = i;
                     dirty_ = true;
@@ -377,13 +352,14 @@ UiEvent AppUi::onMouseMove(float x, float y) {
         auto inRect = [&](const Rect& r) {
             return r.w > 0 && r.h > 0 && x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h;
         };
-        Rect play = playRect_.w > 0 ? playRect_ : Rect{kMargin, 620, 300, 76};
+        const Rect play = playRect_;
         if (inRect(play) || inRect(claimRect_)) {
             if (detailButtonFocus_ != 0) {
                 detailButtonFocus_ = 0;
                 dirty_ = true;
             }
-        } else if (inRect(achRect_)) {
+        } else if (!detail_.xboxTitleId.empty() &&
+                   (inRect(achRect_) || showcase::contains(showcase::kAchievementsPanel, x, y))) {
             if (detailButtonFocus_ != 1) {
                 detailButtonFocus_ = 1;
                 dirty_ = true;
@@ -411,6 +387,11 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
     }
     dirty_ = true;
     if (screen_ == Screen::Streaming || screen_ == Screen::Splash) {
+        return ev;
+    }
+    if (button == 3 && screen_ == Screen::Settings && settingsQrExpanded_) {
+        settingsQrExpanded_ = false;
+        dirty_ = true;
         return ev;
     }
     if (button == 3) {
@@ -482,14 +463,17 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
         }
         if (screen_ == Screen::Settings) {
             resetSettingsHoldStart_ = 0;
-            screen_ = settingsFromError_ ? Screen::Error : Screen::Home;
+            screen_ = settingsReturnScreen_;
+            settingsBackdropReady_ = false;
+            settingsFrostedBackdrop_.px.clear();
             dirty_ = true;
             ev.action = settings_.loginCountry != settingsCountry_ ? Action::LoginCountry : Action::SettingsChanged;
             ev.settings = settings_;
             return ev;
         }
         if (screen_ == Screen::Details) {
-            syncHeroToRowsLocked(detail_.productId, detail_.titleId, detail_.heroUrl, detail_.description, detail_.publisher, detail_.categories);
+            syncHeroToRowsLocked(detail_.productId, detail_.titleId, detail_.heroUrl,
+                                 detail_.description, detail_.publisher, detail_.categories);
             screen_ = Screen::Home;
             dirty_ = true;
             return ev;
@@ -532,6 +516,12 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
             return ev;
         }
 #endif
+    }
+
+    if (screen_ == Screen::Settings && settingsQrExpanded_) {
+        settingsQrExpanded_ = false;
+        dirty_ = true;
+        return ev;
     }
 
     if (reportOpen_) {
@@ -615,11 +605,15 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
     }
 
     // Check avatar / settings button click to open settings
-    if (screen_ == Screen::Home && !searching_) {
+    if ((screen_ == Screen::Home && !searching_) ||
+        (screen_ == Screen::Details && !achievementsOpen_ && !gameSettingsOpen_)) {
         constexpr int kAvatarRight = kW - 120;
         Rect settingsBtn{kAvatarRight + (120 - 52) / 2, 46, 52, 52};
         if ((x >= settingsBtn.x - 12 && x <= settingsBtn.x + settingsBtn.w + 12 && y >= settingsBtn.y - 12 && y <= settingsBtn.y + settingsBtn.h + 12) ||
             (x >= kAvatarRight - 70 && x <= kW && y >= 30 && y <= 120)) {
+            settingsReturnScreen_ = screen_;
+            settingsBackdropReady_ = false;
+            settingsQrExpanded_ = false;
             screen_ = Screen::Settings;
             settingsRow_ = 0;
             settingsFromError_ = false;
@@ -660,7 +654,9 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
                 return ev;
             }
             resetSettingsHoldStart_ = 0;
-            screen_ = settingsFromError_ ? Screen::Error : Screen::Home;
+            screen_ = settingsReturnScreen_;
+            settingsBackdropReady_ = false;
+            settingsFrostedBackdrop_.px.clear();
             dirty_ = true;
             ev.action = settings_.loginCountry != settingsCountry_ ? Action::LoginCountry : Action::SettingsChanged;
             ev.settings = settings_;
@@ -824,48 +820,53 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
     }
 
     if (screen_ == Screen::Home && !searching_) {
-        if (tab_ == Tab::GamePass && y >= 140 && y < kH - 80) {
-            constexpr int kGridW = kLibraryCols * kCardPitch - kCardGap;
-            const int gridLeft = (kW - kGridW) / 2;
-            int afterGridOffset = 0;
-            for (size_t r = 0; r < rows_.size(); ++r) {
-                float rel = static_cast<float>(r) - rowY_.value;
-                int rowBaseY = kRowTop + static_cast<int>(std::lround(rel * kRowPitch)) + afterGridOffset;
-                const GameRow& row = rows_[r];
-                if (row.isGrid) {
-                    int offset = static_cast<int>(std::lround(rowScroll_[r].value));
-                    int cardY = rowBaseY - offset + 48;
-                    for (size_t i = 0; i < row.tiles.size(); ++i) {
-                        int c_col = static_cast<int>(i) % kLibraryCols;
-                        int c_row = static_cast<int>(i) / kLibraryCols;
-                        int cy = cardY + c_row * kGridPitchY;
-                        int cx = gridLeft + c_col * kCardPitch;
-                        if (x >= cx && x < cx + kCard && y >= cy && y < cy + kCard) {
-                            focusRow_ = static_cast<int>(r);
-                            focusCol_[r] = static_cast<int>(i);
-                            openDetails(row.tiles[i]);
-                            return ev;
-                        }
+        if (tab_ == Tab::GamePass) {
+            if (const GameTile* tile = focusedTile()) {
+                if (horizon::contains(horizon::kPlayButton, x, y)) {
+                    if (isEffectivePlayableLocked(*tile)) {
+                        ev.action = Action::Play;
+                        ev.game = *tile;
+                    } else {
+                        openDetails(*tile);
                     }
-                    int gridHeight = 48 + ((static_cast<int>(row.tiles.size()) + kLibraryCols - 1) / kLibraryCols) * kGridPitchY;
-                    afterGridOffset += gridHeight - offset - kRowPitch;
-                } else {
-                    int cardY = rowBaseY + 48;
-                    int scroll = static_cast<int>(std::lround(rowScroll_[r].value));
-                    int firstCol = std::max(0, scroll / kCardPitch - 1);
-                    for (size_t col = static_cast<size_t>(firstCol); col < row.tiles.size(); ++col) {
-                        int cx = kMargin + static_cast<int>(col) * kCardPitch - scroll;
-                        if (cx > kW) break;
-                        if (x >= cx && x < cx + kCard && y >= cardY && y < cardY + kCard) {
-                            focusRow_ = static_cast<int>(r);
-                            focusCol_[r] = static_cast<int>(col);
-                            openDetails(row.tiles[col]);
-                            return ev;
-                        }
-                    }
+                    return ev;
+                }
+                if (horizon::contains(horizon::kDetailsButton, x, y)) {
+                    openDetails(*tile);
+                    return ev;
                 }
             }
-        } else if (tab_ == Tab::Library) {
+            if (!rows_.empty()) {
+                const int rowIndex = std::clamp(focusRow_, 0, int(rows_.size()) - 1);
+                const auto& tiles = rows_[size_t(rowIndex)].tiles;
+                const int count = int(tiles.size());
+                const int selected = count ? std::clamp(focusCol_[size_t(rowIndex)],
+                                                       0, count - 1) : 0;
+                const auto order = horizon::drawOrder(selected, count,
+                                                         nimboxSlide_.value / 1000.0f);
+                for (auto it = order.rbegin(); it != order.rend(); ++it) {
+                    const int offset = *it;
+                    const int index = horizon::indexForOffset(selected, count, offset);
+                    if (index < 0 || !horizon::contains(horizon::tileRect(
+                            float(offset) + nimboxSlide_.value / 1000.0f), x, y))
+                        continue;
+                    if (offset == 0) {
+                        openDetails(tiles[size_t(index)]);
+                    } else {
+                        focusCol_[size_t(rowIndex)] = index;
+                        horizonBoundary_.reset();
+                        nimboxSlide_.value = nimboxReducedMotion_ ? 0.0f :
+                                             float(offset) * 1000.0f;
+                        nimboxSlide_.target = 0.0f;
+                        retarget();
+                        dirty_ = true;
+                    }
+                    return ev;
+                }
+            }
+            return ev; // Never tap a hidden classic control.
+        }
+        if (tab_ == Tab::Library) {
             if (y >= 150 && y < kH - 80) {
                 constexpr int kGridW = kLibraryCols * kCardPitch - kCardGap;
                 const int left = (kW - kGridW) / 2;
@@ -948,7 +949,7 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
             return r.w > 0 && r.h > 0 && x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h;
         };
         if (!effectivePlayable && isF2P && !g->playable) {
-            Rect claim = claimRect_.w > 0 ? claimRect_ : Rect{kMargin, 620, 380, 68};
+            const Rect claim = claimRect_;
             if (inRect(claim)) {
                 detailButtonFocus_ = 0;
                 ev.action = Action::ClaimFreeGame;
@@ -957,14 +958,15 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
                 return ev;
             }
         } else if (effectivePlayable) {
-            Rect play = playRect_.w > 0 ? playRect_ : Rect{kMargin, 620, 300, 76};
+            const Rect play = playRect_;
             if (inRect(play)) {
                 detailButtonFocus_ = 0;
                 ev.action = Action::Play;
                 ev.game = detail_;
                 return ev;
             }
-            if (inRect(achRect_) && !detail_.xboxTitleId.empty()) {
+            if (!detail_.xboxTitleId.empty() &&
+                (inRect(achRect_) || showcase::contains(showcase::kAchievementsPanel, x, y))) {
                 detailButtonFocus_ = 1;
                 openAchievements();
                 return ev;
@@ -1016,6 +1018,45 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
         if (tester_ != Tester::None || pickerOpen_) {
             return ev;
         }
+        // The QR has its own large, opaque view for small portable screens.
+        if (!dropdownOpen_ && x >= 1320 && x <= 1535 &&
+            y >= 702 && y <= 903) {
+            settingsQrExpanded_ = true;
+            dirty_ = true;
+            return ev;
+        }
+        // Appearance tiles belong exclusively to Settings. Clicking them
+        // persists a VISUAL preference; stream/login/controller values never
+        // change. The regular settings rows remain accessible by controller.
+        if (!dropdownOpen_) {
+            for (int i = 0; i < nimbox_theme::kThemeCount; ++i) {
+                if (!nimbox_theme::contains(nimbox_theme::kThemeCards[i], x, y)) continue;
+                settings_.nimboxTheme = i;
+                dirty_ = true;
+                ev.action = Action::SettingsChanged;
+                ev.settings = settings_;
+                return ev;
+            }
+            const Rect reflectZone{nimbox_theme::kReflectionTrack.x,
+                                   nimbox_theme::kReflectionTrack.y - 18,
+                                   nimbox_theme::kReflectionTrack.w, 48};
+            if (nimbox_theme::contains(reflectZone, x, y)) {
+                settings_.nimboxReflection = nimbox_theme::reflectionFromX(x);
+                dirty_ = true;
+                ev.action = Action::SettingsChanged;
+                ev.settings = settings_;
+                return ev;
+            }
+            if (nimbox_theme::contains(nimbox_theme::kReducedMotionButton, x, y)) {
+                nimboxReducedMotion_ = !nimboxReducedMotion_;
+                settings_.nimboxReducedMotion = nimboxReducedMotion_;
+                if (nimboxReducedMotion_) nimboxSlide_.value = nimboxSlide_.target;
+                dirty_ = true;
+                ev.action = Action::SettingsChanged;
+                ev.settings = settings_;
+                return ev;
+            }
+        }
         if (dropdownOpen_) {
             auto options = settingOptions(settingsRow_);
             constexpr int kItemH = 62, kVisible = 8, kListW = 640;
@@ -1062,7 +1103,7 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
         for (const auto& [i, groupStart] : visibleSettingsRows(caps_)) {
             if (groupStart) curY += kSettingsGroupGap;
             if (x >= kMargin && x < kMargin + kSettingsRowW && y >= curY && y < curY + kSettingsRowH &&
-                y >= kSettingsClipTop && y < kH - 80) {
+                y >= kSettingsClipTop && y < kSettingsListBottom) {
                 settingsRow_ = i;
                 if (i == 14) {
                     openPadTester();
@@ -1168,43 +1209,15 @@ UiEvent AppUi::onMouseWheel(float dx, float dy) {
             gridScroll_.target = std::clamp(gridScroll_.target - dy * 140.0f, 0.0f, maxScroll);
             animating_ = true;
             dirty_ = true;
-        } else if (tab_ == Tab::GamePass) {
-            if (!rows_.empty()) {
-                const GameRow& curRow = rows_[static_cast<size_t>(focusRow_)];
-                if (curRow.isGrid) {
-                    int totalRows = (static_cast<int>(curRow.tiles.size()) + kLibraryCols - 1) / kLibraryCols;
-                    float maxScroll = std::max(0.0f, static_cast<float>(totalRows * kGridPitchY - (kH - kRowTop - 48)));
-                    if (dy > 0 && rowScroll_[static_cast<size_t>(focusRow_)].target <= 0.0f) {
-                        if (focusRow_ > 0) {
-                            --focusRow_;
-                            retarget();
-                            animating_ = true;
-                            dirty_ = true;
-                        }
-                    } else {
-                        rowScroll_[static_cast<size_t>(focusRow_)].target =
-                            std::clamp(rowScroll_[static_cast<size_t>(focusRow_)].target - dy * 140.0f, 0.0f, maxScroll);
-                        animating_ = true;
-                        dirty_ = true;
-                    }
-                } else {
-                    if (std::abs(dy) > std::abs(dx)) {
-                        int nextRow = std::clamp(static_cast<int>(rowY_.target - dy), 0, static_cast<int>(rows_.size()) - 1);
-                        if (nextRow != focusRow_) {
-                            focusRow_ = nextRow;
-                            retarget();
-                            animating_ = true;
-                            dirty_ = true;
-                        }
-                    } else if (dx != 0.0f) {
-                        float maxScroll = std::max(0.0f, static_cast<float>(static_cast<int>(curRow.tiles.size()) * kCardPitch - (kW - kMargin)));
-                        rowScroll_[static_cast<size_t>(focusRow_)].target =
-                            std::clamp(rowScroll_[static_cast<size_t>(focusRow_)].target - dx * 160.0f, 0.0f, maxScroll);
-                        animating_ = true;
-                        dirty_ = true;
-                    }
-                }
-            }
+        } else if (tab_ == Tab::GamePass && !rows_.empty()) {
+            // Mouse wheel uses the very same selection model as the D-pad.
+            NavInput nav;
+            nav.nowMs = platform::nowMs();
+            if (std::fabs(dx) > std::fabs(dy) && std::fabs(dx) > 0.01f)
+                (dx > 0.0f ? nav.left : nav.right) = true;
+            else if (std::fabs(dy) > 0.01f)
+                (dy > 0.0f ? nav.up : nav.down) = true;
+            if (nav.left || nav.right || nav.up || nav.down) handleHome(nav, ev);
         }
     } else if (screen_ == Screen::Details && achievementsOpen_) {
         achScroll_ = std::max(0, achScroll_ - static_cast<int>(dy * 3));
@@ -1271,54 +1284,8 @@ UiEvent AppUi::onTouch(const app::shell::TouchEvent& ev) {
                     animating_ = true;
                     dirty_ = true;
                 } else if (tab_ == Tab::GamePass && !rows_.empty()) {
-                    const GameRow& curRow = rows_[static_cast<size_t>(focusRow_)];
-                    if (curRow.isGrid) {
-                        int totalRows = (static_cast<int>(curRow.tiles.size()) + kLibraryCols - 1) / kLibraryCols;
-                        float maxScroll = std::max(0.0f, static_cast<float>(totalRows * kGridPitchY - (kH - kRowTop - 48)));
-                        if (dy > 0 && rowScroll_[static_cast<size_t>(focusRow_)].target <= 0.0f) {
-                            // User is at top of grid and dragging down -> scroll back out to shelf above!
-                            if (focusRow_ > 0) {
-                                --focusRow_;
-                                rowY_.target = std::clamp(static_cast<float>(focusRow_) - dy / static_cast<float>(kRowPitch),
-                                                          0.0f, static_cast<float>(rows_.size() - 1));
-                                rowY_.value = rowY_.target;
-                                animating_ = true;
-                                dirty_ = true;
-                            }
-                        } else {
-                            float prevTarget = rowScroll_[static_cast<size_t>(focusRow_)].target;
-                            float nextTarget = std::clamp(prevTarget - dy, 0.0f, maxScroll);
-                            rowScroll_[static_cast<size_t>(focusRow_)].target = nextTarget;
-                            rowScroll_[static_cast<size_t>(focusRow_)].value = nextTarget;
-                            animating_ = true;
-                            dirty_ = true;
-                            if (dy > 0 && prevTarget > 0.0f && nextTarget == 0.0f && focusRow_ > 0) {
-                                float overshoot = dy - prevTarget;
-                                if (overshoot > 4.0f) {
-                                    --focusRow_;
-                                    rowY_.target = std::clamp(static_cast<float>(focusRow_) - overshoot / static_cast<float>(kRowPitch),
-                                                              0.0f, static_cast<float>(rows_.size() - 1));
-                                    rowY_.value = rowY_.target;
-                                }
-                            }
-                        }
-                    } else {
-                        // Ribbon shelf: vertical drags move shelves, horizontal drags scroll cards
-                        if (std::abs(dy) > std::abs(dx)) {
-                            rowY_.target = std::clamp(rowY_.target - dy / static_cast<float>(kRowPitch),
-                                                      0.0f, static_cast<float>(rows_.size() - 1));
-                            rowY_.value = rowY_.target;
-                            animating_ = true;
-                            dirty_ = true;
-                        } else {
-                            float maxScroll = static_cast<float>(std::max(0, static_cast<int>(curRow.tiles.size()) * kCardPitch - kW));
-                            rowScroll_[static_cast<size_t>(focusRow_)].target =
-                                std::clamp(rowScroll_[static_cast<size_t>(focusRow_)].target - dx, 0.0f, maxScroll);
-                            rowScroll_[static_cast<size_t>(focusRow_)].value = rowScroll_[static_cast<size_t>(focusRow_)].target;
-                            animating_ = true;
-                            dirty_ = true;
-                        }
-                    }
+                    // Wait until finger release: no unrelated legacy rowScroll_
+                    // updates and no dozens of games skipped during one drag.
                 }
             } else if (screen_ == Screen::Home && updatePrompt_ && showingUpdateNotes_) {
                 updateNotesScroll_ = std::clamp(updateNotesScroll_ - static_cast<int>(dy), 0, updateNotesMaxScroll_);
@@ -1327,9 +1294,18 @@ UiEvent AppUi::onTouch(const app::shell::TouchEvent& ev) {
                 achScroll_ = std::max(0, achScroll_ - static_cast<int>(dy));
                 dirty_ = true;
             } else if (screen_ == Screen::Settings && !dropdownOpen_ && tester_ == Tester::None && !pickerOpen_ && !trophyDisclaimerOpen_) {
-                float maxScroll = settingsMaxScroll(caps_);
-                settingsScrollY_ = std::clamp(settingsScrollY_ - dy, 0.0f, maxScroll);
-                dirty_ = true;
+                const Rect reflectZone{nimbox_theme::kReflectionTrack.x,
+                                       nimbox_theme::kReflectionTrack.y - 22,
+                                       nimbox_theme::kReflectionTrack.w, 55};
+                if (nimbox_theme::contains(reflectZone, ev.x, ev.y)) {
+                    settings_.nimboxReflection = nimbox_theme::reflectionFromX(ev.x);
+                    dirty_ = true;
+                    uiEv.action = Action::SettingsChanged;
+                    uiEv.settings = settings_;
+                } else if (ev.x < 1270) {
+                    float maxScroll = settingsMaxScroll(caps_);
+                    settingsScrollY_ = std::clamp(settingsScrollY_ - dy, 0.0f, maxScroll);
+                    dirty_ = true;
 
                 // Finger drag moves highlight cursor with the finger/scroll
                 int curY = kSettingsListTop - static_cast<int>(std::lround(settingsScrollY_));
@@ -1345,6 +1321,7 @@ UiEvent AppUi::onTouch(const app::shell::TouchEvent& ev) {
                     }
                     curY += kSettingsRowH + kSettingsGap;
                 }
+                }
             }
         }
         touchTracker_.lastX = ev.x;
@@ -1354,6 +1331,24 @@ UiEvent AppUi::onTouch(const app::shell::TouchEvent& ev) {
     }
 
     if (ev.kind == app::shell::TouchEvent::Kind::Up) {
+        if (touchTracker_.isDragging && screen_ == Screen::Home &&
+            tab_ == Tab::GamePass && !searching_ && !updatePrompt_ &&
+            !quitPrompt_ && !reportOpen_ && touchTracker_.startY >= 360.0f &&
+            touchTracker_.startY < 955.0f) {
+            const float totalX = ev.x - touchTracker_.startX;
+            const float totalY = ev.y - touchTracker_.startY;
+            NavInput nav;
+            nav.nowMs = now;
+            if (std::fabs(totalX) >= 58.0f && std::fabs(totalX) > 1.18f * std::fabs(totalY))
+                (totalX > 0.0f ? nav.left : nav.right) = true;
+            else if (std::fabs(totalY) >= 80.0f &&
+                     std::fabs(totalY) > 1.18f * std::fabs(totalX))
+                (totalY > 0.0f ? nav.up : nav.down) = true;
+            touchTracker_.active = false;
+            if (nav.left || nav.right || nav.up || nav.down)
+                handleHome(nav, uiEv); // mutex already held
+            return uiEv;
+        }
         if (touchTracker_.isDragging) {
             // Apply inertial deceleration if released with velocity
             if (std::abs(touchTracker_.velocityY) > 0.3f) {
@@ -1419,7 +1414,7 @@ UiEvent AppUi::onTouch(const app::shell::TouchEvent& ev) {
                 for (const auto& [i, groupStart] : rows) {
                     if (groupStart) curY += kSettingsGroupGap;
                     if (i == settingsRow_) focusedY = curY;
-                    if (curY >= kSettingsClipTop && curY + kSettingsRowH <= kH - 80) {
+                    if (curY >= kSettingsClipTop && curY + kSettingsRowH <= kSettingsListBottom) {
                         if (firstVisibleRow < 0) firstVisibleRow = i;
                         lastVisibleRow = i;
                     }
@@ -1428,7 +1423,7 @@ UiEvent AppUi::onTouch(const app::shell::TouchEvent& ev) {
                 if (focusedY < kSettingsClipTop && firstVisibleRow >= 0) {
                     settingsRow_ = firstVisibleRow;
                     dirty_ = true;
-                } else if (focusedY + kSettingsRowH > kH - 80 && lastVisibleRow >= 0) {
+                } else if (focusedY + kSettingsRowH > kSettingsListBottom && lastVisibleRow >= 0) {
                     settingsRow_ = lastVisibleRow;
                     dirty_ = true;
                 }
@@ -1589,6 +1584,19 @@ UiEvent AppUi::handleLocked(const NavInput& in) {
             }
             break;
         case Screen::Settings:
+            if (settingsQrExpanded_) {
+                if (in.back || in.accept || in.options || in.r3) {
+                    settingsQrExpanded_ = false;
+                    dirty_ = true;
+                }
+                break;
+            }
+            if (in.r3 && tester_ == Tester::None && !dropdownOpen_ &&
+                !pickerOpen_ && !trophyDisclaimerOpen_ && !removeTrophiesConfirmOpen_) {
+                settingsQrExpanded_ = true;
+                dirty_ = true;
+                break;
+            }
             if (trophyDisclaimerOpen_) {
                 if (in.left || in.right) {
                     trophyDisclaimerFocus_ ^= 1;
@@ -1675,7 +1683,10 @@ UiEvent AppUi::handleLocked(const NavInput& in) {
                 break;
             }
             if (tester_ == Tester::Donation) {
-                if (in.back || in.accept) {
+                if (in.accept && caps_.openUrl) {
+                    ev.action = Action::OpenUrl;
+                    ev.url = kNimboxSupportPage;
+                } else if (in.back || in.accept) {
                     tester_ = Tester::None;
                     dirty_ = true;
                 }
@@ -1734,8 +1745,8 @@ UiEvent AppUi::handleLocked(const NavInput& in) {
                     if (rowScreenY < static_cast<float>(kSettingsClipTop + 10)) {
                         settingsScrollY_ = std::clamp(static_cast<float>(focusedY - (kSettingsClipTop + 10)), 0.0f, maxScroll);
                         dirty_ = true;
-                    } else if (rowScreenY + kSettingsRowH > static_cast<float>(kH - 80 - 10)) {
-                        settingsScrollY_ = std::clamp(static_cast<float>(focusedY + kSettingsRowH - (kH - 80 - 10)), 0.0f, maxScroll);
+                    } else if (rowScreenY + kSettingsRowH > static_cast<float>(kSettingsListBottom - 10)) {
+                        settingsScrollY_ = std::clamp(static_cast<float>(focusedY + kSettingsRowH - (kSettingsListBottom - 10)), 0.0f, maxScroll);
                         dirty_ = true;
                     }
                 }
@@ -1849,7 +1860,9 @@ UiEvent AppUi::handleLocked(const NavInput& in) {
                 resetSettingsHoldStart_ = 0;
                 // Back where Settings was opened. A new sign-in country
                 // takes a new sign-in.
-                screen_ = settingsFromError_ ? Screen::Error : Screen::Home;
+                screen_ = settingsReturnScreen_;
+            settingsBackdropReady_ = false;
+            settingsFrostedBackdrop_.px.clear();
                 dirty_ = true;
                 ev.action = settings_.loginCountry != settingsCountry_ ? Action::LoginCountry : Action::SettingsChanged;
                 ev.settings = settings_;
@@ -1879,6 +1892,20 @@ UiEvent AppUi::handleLocked(const NavInput& in) {
             }
             if (gameSettingsOpen_) {
                 handleGameSettings(in, ev);
+                break;
+            }
+            if (in.l2) {
+                settingsReturnScreen_ = Screen::Details;
+                settingsBackdropReady_ = false;
+                settingsQrExpanded_ = false;
+                screen_ = Screen::Settings;
+                settingsRow_ = 0;
+                settingsFromError_ = false;
+                settingsCountry_ = settings_.loginCountry;
+                dropdownOpen_ = false;
+                filterList_ = -1;
+                settingsScrollY_ = 0.0f;
+                dirty_ = true;
                 break;
             }
             if (in.options) {
@@ -1918,7 +1945,8 @@ UiEvent AppUi::handleLocked(const NavInput& in) {
             if (in.r3 && !isAcquired(detail_)) toggleWishlist(detail_, ev);
             if (in.l3 && !detail_.xboxTitleId.empty()) openAchievements();
             if (in.back) {
-                syncHeroToRowsLocked(detail_.productId, detail_.titleId, detail_.heroUrl, detail_.description, detail_.publisher, detail_.categories);
+                syncHeroToRowsLocked(detail_.productId, detail_.titleId, detail_.heroUrl,
+                                     detail_.description, detail_.publisher, detail_.categories);
                 screen_ = Screen::Home;
                 dirty_ = true;
             }
@@ -1958,6 +1986,9 @@ UiEvent AppUi::handleLocked(const NavInput& in) {
                 countryIndex_ = settingSelected(8);
                 dirty_ = true;
             } else if (regionRefused_ && in.options) {  // Settings, on the sign-in country
+                settingsReturnScreen_ = Screen::Error;
+                settingsBackdropReady_ = false;
+                settingsQrExpanded_ = false;
                 screen_ = Screen::Settings;
                 settingsRow_ = 8;
                 settingsFromError_ = true;

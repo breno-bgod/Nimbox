@@ -16,7 +16,7 @@
 # app's Linux AppImage (tools/desktop/package-appimage.sh in
 # build-linux-release, SDL3 from CMAKE_PREFIX_PATH or the system, bundled;
 # Linux always ships as an AppImage, never a tarball):
-# PSBox-vX.Y.Z-linux-x86_64.AppImage + .sha256 + .sig, signed the same way,
+# NimboPlay-vX.Y.Z-linux-x86_64.AppImage + .sha256 + .sig, signed the same way,
 # psbox checked for tokens and the version, its symbols in
 # symbols/vX.Y.Z/psbox.debug. Its glibc baseline is this machine's: the one
 # attached to a release is built by .github/workflows/release-linux.yml on
@@ -114,7 +114,7 @@ sign "$out/PPSA99810.zip"
 ok "signed: $out/PPSA99810.zip.sig"
 
 # Standard named package for PlayStation 5
-ps5_named="PSBoxCloudGaming[PS5]-$tag.zip"
+ps5_named="NimboPlay[PS5]-$tag.zip"
 cp -f "$out/PPSA99810.zip" "$out/$ps5_named"
 cp -f "$out/PPSA99810.zip.sig" "$out/$ps5_named.sig"
 (cd "$out" && sha256sum "$ps5_named" > "$ps5_named.sha256")
@@ -150,8 +150,8 @@ ps4_ver=$(printf '%02d.%02d' "$major" "$((minor * 10 + patch))")
 ps4_out="$out/ps4_pkg"
 XC_PS4_VERSION="$ps4_ver" tools/ps4/package.sh build-ps4 "$ps4_out" >/dev/null
 
-ps4_pkg_name="PSBoxCloudGaming[PS4]-$tag.pkg"
-mv -f "$ps4_out/PSBox Cloud Gaming - PS4.pkg" "$out/$ps4_pkg_name"
+ps4_pkg_name="NimboPlay[PS4]-$tag.pkg"
+mv -f "$ps4_out/NimboPlay Cloud Gaming - PS4.pkg" "$out/$ps4_pkg_name"
 rm -rf "$ps4_out"
 (cd "$out" && sha256sum "$ps4_pkg_name" > "$ps4_pkg_name.sha256")
 ok "$out/$ps4_pkg_name ($(du -h "$out/$ps4_pkg_name" | cut -f1)), sha256 $(cut -d' ' -f1 "$out/$ps4_pkg_name.sha256")"
@@ -167,7 +167,7 @@ ok "PS4 param.sfo: version $ps4_ver confirmed"
 linux_assets=""
 if [[ $linux == 1 ]]; then
     echo "== Linux package"
-    name=PSBox-$tag-linux-x86_64.AppImage
+    name=NimboPlay-$tag-linux-x86_64.AppImage
     appimage=$out/$name
     buildlog=$(mktemp)
     XC_VERSION="$tag" tools/desktop/package-appimage.sh "$root/build-linux-release" "$out" >"$buildlog" 2>&1 ||
@@ -181,7 +181,7 @@ if [[ $linux == 1 ]]; then
     if (cd "$unpack/squashfs-root" && find . -type f) | grep -nE "$private|\.elf$|\.debug$"; then
         rm -rf "$unpack"; fail "a private or symbol file in the Linux package"
     fi
-    exe=$unpack/squashfs-root/PSBox/psbox
+    exe=$unpack/squashfs-root/NimboPlay/NimboPlay
     if grep -aqE "$tokens" "$exe"; then rm -rf "$unpack"; fail "psbox holds something like a token"; fi
     grep -aq "$version" "$exe" || { rm -rf "$unpack"; fail "psbox doesn't carry version $version (stale build?)"; }
     glibc=$(objdump -T "$exe" | grep -o 'GLIBC_[0-9.]*' | sort -uV | tail -1)
@@ -190,10 +190,10 @@ if [[ $linux == 1 ]]; then
     (cd "$out" && sha256sum "$name" > "$name.sha256")
     sign "$appimage"
     ok "signed: $appimage.sig"
-    named_linux="PSBoxCloudGaming[Linux]-$tag.AppImage"
+    named_linux="NimboPlay[Linux]-$tag.AppImage"
     cp -f "$appimage" "$out/$named_linux"
     (cd "$out" && sha256sum "$named_linux" > "$named_linux.sha256")
-    linux_assets=" \"$appimage\" \"$appimage.sha256\" \"$appimage.sig\" \"$out/PSBoxCloudGaming[[]Linux]-$tag.AppImage\" \"$out/PSBoxCloudGaming[[]Linux]-$tag.AppImage.sha256\""
+    linux_assets=" \"$appimage\" \"$appimage.sha256\" \"$appimage.sig\" \"$out/NimboPlay[[]Linux]-$tag.AppImage\" \"$out/NimboPlay[[]Linux]-$tag.AppImage.sha256\""
 fi
 
 if [[ $console == 1 ]]; then
@@ -211,12 +211,12 @@ fi
 echo "== all checks passed; to publish (with release notes in notes.md):"
 echo "  gh release create $tag \\"
 echo "    \"$zip\" \"$out/PPSA99810.zip.sha256\" \"$out/PPSA99810.zip.sig\" \\"
-echo "    \"$out/PSBoxCloudGaming[[]PS5]-$tag.zip#PSBoxCloudGaming[PS5]-$tag.zip\" \\"
-echo "    \"$out/PSBoxCloudGaming[[]PS5]-$tag.zip.sha256#PSBoxCloudGaming[PS5]-$tag.zip.sha256\" \\"
-echo "    \"$out/PSBoxCloudGaming[[]PS5]-$tag.zip.sig#PSBoxCloudGaming[PS5]-$tag.zip.sig\" \\"
-echo "    \"$out/PSBoxCloudGaming[[]PS4]-$tag.pkg#PSBoxCloudGaming[PS4]-$tag.pkg\" \\"
-echo "    \"$out/PSBoxCloudGaming[[]PS4]-$tag.pkg.sha256#PSBoxCloudGaming[PS4]-$tag.pkg.sha256\"$linux_assets \\"
-echo "    --target $(git rev-parse HEAD) --title \"PSBox Cloud Gaming $tag\" --notes-file notes.md"
+echo "    \"$out/NimboPlay[[]PS5]-$tag.zip#NimboPlay[PS5]-$tag.zip\" \\"
+echo "    \"$out/NimboPlay[[]PS5]-$tag.zip.sha256#NimboPlay[PS5]-$tag.zip.sha256\" \\"
+echo "    \"$out/NimboPlay[[]PS5]-$tag.zip.sig#NimboPlay[PS5]-$tag.zip.sig\" \\"
+echo "    \"$out/NimboPlay[[]PS4]-$tag.pkg#NimboPlay[PS4]-$tag.pkg\" \\"
+echo "    \"$out/NimboPlay[[]PS4]-$tag.pkg.sha256#NimboPlay[PS4]-$tag.pkg.sha256\"$linux_assets \\"
+echo "    --target $(git rev-parse HEAD) --title \"NimboPlay Cloud Gaming $tag\" --notes-file notes.md"
 echo
 echo "== post-release steps (Mandatory Tri-Platform Standard):"
 echo "  1. GitHub Actions will build Linux AppImage via .github/workflows/release-linux.yml."
@@ -227,6 +227,6 @@ echo "     tools/release-verify.sh $tag --verify-sigs"
 echo
 echo "== catalog record (apps/PPSA99810.json):"
 echo "  \"version\": \"$version\","
-echo "  \"artifact_url\": \"https://github.com/RafaelNGP/psbox-cloud-gaming/releases/download/$tag/PPSA99810.zip\","
+echo "  \"artifact_url\": \"https://github.com/breno-bgod/Nimbox/releases/download/$tag/PPSA99810.zip\","
 echo "  \"sha256\": \"$sha\","
-echo "  \"icon_url\": \"https://raw.githubusercontent.com/RafaelNGP/psbox-cloud-gaming/$tag/ps5/sce_sys/icon0.png\""
+echo "  \"icon_url\": \"https://raw.githubusercontent.com/breno-bgod/Nimbox/$tag/assets/branding/nimboplay_launcher_256.png\""

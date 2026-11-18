@@ -26,3 +26,15 @@ if(XC_TARGET_PS4)
 endif()
 
 add_subdirectory(deps/libdatachannel ${CMAKE_BINARY_DIR}/libdatachannel EXCLUDE_FROM_ALL)
+
+# The pinned libdatachannel configuration.cpp uses std::transform but does
+# not include <algorithm>. LLVM/MinGW's standard headers do not transitively
+# expose it, so fix that header inclusion for this third-party target alone.
+# Do not modify the git submodule or apply a project-wide compiler workaround.
+if(CMAKE_SYSTEM_NAME STREQUAL "Windows" AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    target_compile_options(datachannel-static PRIVATE
+        "$<$<COMPILE_LANGUAGE:CXX>:-include>"
+        "$<$<COMPILE_LANGUAGE:CXX>:algorithm>"
+    )
+endif()
+

@@ -18,6 +18,7 @@
 #include "media/audio_out.h"
 #include "platform/platform.h"
 #include "ui/app_ui.h"
+#include "ui/nimbox_detail_showcase.h"
 #include "ui/canvas.h"
 #include "ui/font.h"
 #include "ui/image_cache.h"
@@ -211,6 +212,38 @@ int desktopSelftest(const std::string& dir) {
     ui.render(canvas, platform::nowMs());
     drawCanvas(canvas);
     check(screenshot(dir, "2-settings.png", shot) && varied(shot), "Settings screen (2-settings.png)");
+    ui::NavInput zoomQr;
+    zoomQr.r3 = true;
+    ui.handle(zoomQr);
+    ui.render(canvas, platform::nowMs());
+    drawCanvas(canvas);
+    check(screenshot(dir, "2g-settings-qr-expanded.png", shot) && varied(shot),
+          "NimboPlay enlarged Web Control QR is scannable (2g-settings-qr-expanded.png)");
+    ui::NavInput exitZoom;
+    exitZoom.back = true;
+    ui.handle(exitZoom);
+    check(ui.screen() == ui::Screen::Settings, "Closing the QR stays inside Settings");
+
+    // Appearance controls are real: clicking a swatch persists a visual theme
+    // without changing stream bitrate, region, controller or Play.
+    {
+        auto before = ui.settings();
+        const auto original = shot.rgb;
+        ui.onMouseDown(1682.0f, 385.0f, 1); // Emerald, row 2 / col 2
+        auto next = ui.settings();
+        check(next.nimboxTheme == 3 && next.region == before.region &&
+              next.maxBitrateMbps == before.maxBitrateMbps &&
+              next.padMap == before.padMap, "Emerald theme changes appearance only");
+        ui.onMouseDown(1690.0f, 550.0f, 1); // floor reflection
+        check(ui.settings().nimboxReflection > 50, "Reflection slider responds to touch");
+        ui.onMouseDown(1660.0f, 604.0f, 1); // reduced motion
+        check(ui.settings().nimboxReducedMotion, "Reduced motion toggle responds to touch");
+        ui.render(canvas, platform::nowMs());
+        drawCanvas(canvas);
+        check(screenshot(dir, "2f-settings-emerald.png", shot) && varied(shot) &&
+              shot.rgb != original, "Settings environment swatches change native pixels");
+        ui.setSettings(before);
+    }
     // The PS5's Settings, every row shown (the console's own capabilities).
     ui.setCaps(ui::UiCaps{});
     ui.render(canvas, platform::nowMs());
@@ -336,6 +369,106 @@ int desktopSelftest(const std::string& dir) {
         back.nowMs = platform::nowMs();
         ui.handle(back);
         ui.handle(back);
+    }
+
+    // Horizon is the only Game Pass collection. Exercise its native
+    // screenshot, palette, pointer targets and Details without any account.
+    {
+        ui.setMembership(true);  // synthetic Game Pass member for offline CTA checks
+        ui::GameRow showcase;
+        showcase.title = "Colecao de teste";
+        const char* names[] = {"Aurora Nexus", "Ember Realms", "Polaris Siege",
+                               "Lumen Falls", "Void Drifter", "Deep Orbit",
+                               "Neon Tides", "Crystal Trail", "Iron Valley"};
+        for (int i = 0; i < 9; ++i) {
+            ui::GameTile tile;
+            tile.productId = "cv-test-" + std::to_string(i);
+            tile.titleId = "cv-title-" + std::to_string(i);
+            tile.name = names[i];
+            tile.publisher = "NimboPlay Horizon selftest";
+            tile.description = "Explore um universo cinematografico com novos mundos, personagens e desafios. Uma apresentacao de teste para validar a leitura e os espacos do NimboPlay Showcase.";
+            tile.categories = {"Aventura", "Acao"};
+            tile.ratingAge = "16+";
+            tile.ratingSystem = "ClassInd";
+            tile.mouseKeyboard = true;
+            tile.xboxTitleId = "showcase-test-" + std::to_string(i);
+            tile.playable = true;
+            showcase.tiles.push_back(std::move(tile));
+        }
+        const ui::SettingsChoice savedSettings = ui.settings();
+        ui::SettingsChoice selectedSettings = savedSettings;
+        for (int i = 0; i < 5; ++i)
+            selectedSettings.titlePlaytime["cv-test-" + std::to_string(i)] = 1800u + 600u * i;
+        ui.setSettings(selectedSettings);
+        ui.setRows({showcase});
+        ui.showHome();
+        ui.render(canvas, platform::nowMs());
+        drawCanvas(canvas);
+        check(ui.screen() == ui::Screen::Home &&
+                  screenshot(dir, "6-nimbox-horizon-home.png", shot) && varied(shot),
+              "Horizon is the only Game Pass home (6-nimbox-horizon-home.png)");
+
+        const auto originalPalette = shot.rgb;
+        ui::SettingsChoice cinemaSettings = selectedSettings;
+        cinemaSettings.nimboxTheme = 4;
+        cinemaSettings.nimboxReflection = 0;
+        ui.setSettings(cinemaSettings);
+        ui.render(canvas, platform::nowMs());
+        drawCanvas(canvas);
+        check(screenshot(dir, "6c-horizon-cinema-home.png", shot) && varied(shot) &&
+                  shot.rgb != originalPalette,
+              "Cinema Dark changes Horizon background");
+        ui.setSettings(selectedSettings);
+
+        ui::NavInput oldModeShortcut;
+        oldModeShortcut.r3 = true;
+        ui.handle(oldModeShortcut);
+        ui.render(canvas, platform::nowMs());
+        check(ui.screen() == ui::Screen::Home,
+              "R3 does not restore Colecao Viva or classic collection");
+
+        ui.onMouseDown(960.0f, 918.0f, 1);
+        check(ui.screen() == ui::Screen::Home,
+              "Horizon blank region has no invisible Details target");
+
+        ui.onMouseDown(960.0f, 731.0f, 1);
+        check(ui.screen() == ui::Screen::Details,
+              "Horizon centre cover opens actual game details");
+        ui.render(canvas, platform::nowMs());
+        drawCanvas(canvas);
+        check(ui.screen() == ui::Screen::Details &&
+                  screenshot(dir, "6b-horizon-details.png", shot) && varied(shot),
+              "PS5 Showcase game details (6b-horizon-details.png)");
+        ui::NavInput globalSettings;
+        globalSettings.l2 = true;
+        ui.handle(globalSettings);
+        ui.render(canvas, platform::nowMs());
+        drawCanvas(canvas);
+        check(ui.screen() == ui::Screen::Settings &&
+                  screenshot(dir, "6e-settings-from-game-details.png", shot) && varied(shot),
+              "Frosted Settings shows game detail context");
+        ui::NavInput returnToDetails;
+        returnToDetails.back = true;
+        ui.handle(returnToDetails);
+        check(ui.screen() == ui::Screen::Details, "Settings returns to the selected game detail");
+        {
+            const auto play = ui.onMouseDown(ui::showcase::kPlayButton.x + 34.0f,
+                                             ui::showcase::kPlayButton.y + 25.0f, 1);
+            check(play.action == ui::Action::Play,
+                  "PS5 Showcase native Play hit target dispatches Action::Play");
+            ui::NavInput focusAwards;
+            focusAwards.right = true;
+            ui.handle(focusAwards);
+            ui.render(canvas, platform::nowMs());
+            drawCanvas(canvas);
+            check(screenshot(dir, "6d-ps5-showcase-awards-focused.png", shot) && varied(shot),
+                  "PS5 Showcase controller focus on Achievements");
+        }
+
+        ui.setRows({});
+        ui.setSettings(savedSettings);
+        ui.setMembership(false);
+        ui.showHome();
     }
 
     // A video frame through the mailbox, then under the game menu.

@@ -194,7 +194,7 @@ private:
 // What main() kept on its stack when it ran the loop itself: made by
 // coreStartup(), carried from one pass to the next.
 struct Core {
-    bool quitAsked_ = false;  // desktop: "Close PSBox?" confirmed on the home screen
+    bool quitAsked_ = false;  // desktop: close confirmation on the home screen
     explicit Core(bool withDisplay) : haveDisplay(withDisplay) {}
     bool frame();
     void dispatchUiAction(const ui::UiEvent& ev);
@@ -295,8 +295,8 @@ bool coreStartup() {
         XC_LOGI("data folder %s: %s", dataDir.c_str(), platform::dataDirNote().c_str());
     if (!logOk)
         XC_LOGW("could not open xcloud.log in %s: log kept in memory", dataDir.c_str());
-    XC_LOGI("=== PSBox Cloud Gaming starting ===");
-    XC_LOGI("firmware %s, PSBox %s (build %s, %s)", platform::firmwareVersion().c_str(), XC_APP_VERSION, XC_BUILD_ID,
+    XC_LOGI("=== Nimbox starting ===");
+    XC_LOGI("firmware %s, Nimbox %s (build %s, %s)", platform::firmwareVersion().c_str(), XC_APP_VERSION, XC_BUILD_ID,
             platform::platformName().c_str());
     if (std::string res = platform::diagnostics(); !res.empty()) XC_LOGI("resources at start: %s", res.c_str());
     // Did the last session go down? (A crash leaves a marker; being closed
@@ -540,7 +540,7 @@ bool coreStartup() {
                 }
                 if (root.has("resolution") && root["resolution"].isString()) {
                     const std::string res = root["resolution"].str();
-                    const bool known = res == "best" || res == "1080p" || res == "720p" || (res == "1440p" && allow1440Locked());
+                    const bool known = res == "best" || res == "1080p" || res == "720p" || res == "1440p";
                     if (known && res != g_settings.resolution) {
                         g_settings.resolution = res;
                         changed = true;
@@ -1676,8 +1676,10 @@ bool Core::frame() {
     ui::NavInput nav;
     nav.up = up.update(pad.dpadUp || pad.leftStickY < -0.6f, now);
     nav.down = down.update(pad.dpadDown || pad.leftStickY > 0.6f, now);
-    nav.left = left.update(pad.dpadLeft || pad.leftStickX < -0.6f, now);
-    nav.right = right.update(pad.dpadRight || pad.leftStickX > 0.6f, now);
+    nav.carouselHeldLeft = pad.dpadLeft || pad.leftStickX < -0.6f || pad.rightStickX < -0.15f;
+    nav.carouselHeldRight = pad.dpadRight || pad.leftStickX > 0.6f || pad.rightStickX > 0.15f;
+    nav.left = left.update(nav.carouselHeldLeft, now);
+    nav.right = right.update(nav.carouselHeldRight, now);
     nav.accept = pad.btnA && !prev.btnA;
     nav.acceptHeld = pad.btnA;
     nav.back = (pad.btnB && !prev.btnB) || (!inGame && backPressed);
@@ -1734,6 +1736,13 @@ bool Core::frame() {
         if (touch && !scroll.touching) scroll.vRows = scroll.vCards = 0;  // a new touch stops a glide
         scroll.touching = touch;
         scroll.x = pad.touchX, scroll.y = pad.touchY;
+        // The right stick and touchpad emit accelerated scroll pulses with
+        // idle frames between them. They are one continuous gesture until
+        // released and inertial motion settles, not two presses at the edge.
+        if (pad.touching || std::fabs(scroll.vCards) >= 0.8f) {
+            nav.carouselHeldLeft = true;
+            nav.carouselHeldRight = true;
+        }
         if (g_ui->screen() != ui::Screen::Home) scroll.rows = scroll.cards = scroll.vRows = scroll.vCards = 0;
         nav.scrollRows = static_cast<int>(scroll.rows);
         nav.scrollCards = static_cast<int>(scroll.cards);
@@ -1872,7 +1881,7 @@ void coreShutdown() {
     // bounded (a request may hang on the network); the caller leaves with
     // _exit() afterwards, so no static destructor races a thread still
     // running.
-    XC_LOGI("=== PSBox Cloud Gaming closing ===");
+    XC_LOGI("=== Nimbox closing ===");
     stopWebServer();
     const uint64_t start = platform::nowMs();
     requestQuit();

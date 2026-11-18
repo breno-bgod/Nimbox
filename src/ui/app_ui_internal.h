@@ -16,6 +16,8 @@
 #include "platform/platform.h"
 #include "platform/toasts.h"
 #include "ui/brand.h"
+#include "ui/preview_visual_layout.h"
+#include "ui/nimbox_visual_theme.h"
 #include "ui/strings.h"
 #include "ui/toast_view.h"
 #include "app/update_check.h"
@@ -48,29 +50,47 @@ constexpr int kCardPitch = kCard + kCardGap;
 constexpr int kRowPitch = 340;
 constexpr int kRowTop = 470;  // y of the focused row's title
 constexpr uint64_t kHeroFadeMs = 300;
+// Legacy CTA hit box remains empty; touching the projected cover opens
+// Details via the existing input path (no control logic changes).
 
-constexpr Color kBg = rgba(14, 14, 14);
+constexpr Color kBg = rgba(8, 17, 31);
 constexpr Color kWhite = rgba(255, 255, 255);
 constexpr Color kGray = rgba(190, 190, 190);
 constexpr Color kDim = rgba(140, 140, 140);
 constexpr Color kGreen = rgba(16, 124, 16);
-constexpr Color kPanel = rgba(36, 36, 36);
-constexpr Color kPlaceholder = rgba(44, 44, 44);
+constexpr Color kPanel = rgba(17, 36, 53);
+constexpr Color kPlaceholder = rgba(26, 45, 63);
 
 enum Icon { kIconCross, kIconCircle, kIconOptions, kIconTriangle, kIconTouchpad, kIconSquare, kIconR3, kIconL3, kIconL2R2, kIconDpadLR, kIconL1R1 };
 
 // The resolution list, lowest first: SettingsChoice::resolution value per
-// position (0 = 1080p, 1 = 720p, 2 = 1440p, as saved).
-constexpr int kResolutionOrder[3] = {1, 0, 2};
+// position (0 = 1080p, 1 = 720p, 2 = Best Auto, 3 = 1440p QHD).
+// Preserve the existing persisted values: only append the explicit QHD tier.
+constexpr int kResolutionOrder[4] = {1, 0, 3, 2};
 // Settings' rows on screen, alike ones together (the row ids stay what
 // settingsRow_ and the helpers use): language, sign-in country, and sign-in check; the
 // stream (resolution, a desktop's display mode, 120 Hz, bitrate, region, network test);
 // the controller, keyboard and queue-ready alert; support and updates last. A group starts at each
 // kSettingsGroupStart.
-constexpr int kSettingsCount = 27;
-constexpr int kSettingsOrder[kSettingsCount] = {0, 2, 8, 27, 17, 18, 24, 25, 1, 20, 13, 9, 26, 10, 14, 12, 3, 15, 4, 21, 5, 6, 16, 22, 19, 7, 23};
-constexpr bool kSettingsGroupStart[kSettingsCount] = {false, false, false, false, false, false, false, false, true, false, false, false, false, false,
-                                                      true, false, false, false, false, false, false, false, false, false, true, false, true};
+// All native Settings expose the same shared quality controls as Web Control.
+// Row IDs 0..30 are stable; 31..34 add globally persisted visual/audio options.
+// IDs and row ordering are intentionally separate so existing gameplay/profile
+// mappings and network settings are not changed.
+constexpr int kSettingsCount = 35;
+constexpr int kSettingsOrder[kSettingsCount] = {
+    0, 2, 8, 27, 17, 18, 24, 25,
+    1, 20, 31, 32, 33, 13, 9, 26, 10, 11, 34,
+    14, 12, 3, 15, 4, 21, 5, 6, 16, 22,
+    19, 7, 23,
+    nimbox_theme::kAppearanceFirst, nimbox_theme::kAppearanceReflection, nimbox_theme::kAppearanceMotion
+};
+constexpr bool kSettingsGroupStart[kSettingsCount] = {
+    false, false, false, false, false, false, false, false,
+    true, false, false, false, false, false, false, false, false, false, false,
+    true, false, false, false, false, false, false, false, false, false,
+    true, false, true,
+    true, false, false
+};
 // The game settings' rows on screen (ids: 0 profile, 1 upscaler, 2
 // sharpness, 3 block smoothing, 4 resolution, 5 dead zone, 6 triggers, 7
 // confirm, 8 120 Hz, 9 keyboard keys, 10 back to the default, 11 controller
@@ -82,15 +102,20 @@ constexpr bool kGameGroupStart[kGameRowCount] = {false, true, false, false, fals
 // The keyboard keys' screen: two columns of inputs, then "Reset to default".
 constexpr int kKeysPerColumn = input::kKeyActions / 2;
 // Updates on a desktop: the newest release's page (the app doesn't install it there).
-constexpr const char* kReleasesPage = "https://github.com/RafaelNGP/psbox-cloud-gaming/releases/latest";
+constexpr const char* kReleasesPage = "https://github.com/breno-bgod/Nimbox/releases";
+constexpr const char* kNimboxSupportPage = "https://github.com/breno-bgod/Nimbox";
 
 #if defined(__ANDROID__)
-constexpr int kSettingsRowW = 1140, kSettingsRowH = 46, kSettingsGap = 4, kSettingsGroupGap = 12, kSettingsRowPx = 25;
-constexpr int kSettingsListTop = 210, kSettingsClipTop = 196;
+constexpr int kSettingsRowW = 1140, kSettingsRowH = 46, kSettingsGap = 4, kSettingsGroupGap = 42, kSettingsRowPx = 24;
+constexpr int kSettingsListTop = 258, kSettingsClipTop = 250;
 #else
-constexpr int kSettingsRowW = 1140, kSettingsRowH = 30, kSettingsGap = 1, kSettingsGroupGap = 4, kSettingsRowPx = 22;
-constexpr int kSettingsListTop = 188, kSettingsClipTop = 180;
+constexpr int kSettingsRowW = 1140, kSettingsRowH = 35, kSettingsGap = 3, kSettingsGroupGap = 38, kSettingsRowPx = 21;
+constexpr int kSettingsListTop = 258, kSettingsClipTop = 250;
 #endif
+
+// The Settings list must end INSIDE its left glass panel. The remaining
+// space is reserved for the focused option's explanatory text.
+constexpr int kSettingsListBottom = 852;
 
 inline int settingsTotalHeight(const UiCaps& caps) {
     int totalH = 0;
@@ -102,7 +127,7 @@ inline int settingsTotalHeight(const UiCaps& caps) {
 }
 
 inline float settingsMaxScroll(const UiCaps& caps) {
-    const float viewportH = static_cast<float>(kH - kSettingsListTop - 80);
+    const float viewportH = static_cast<float>(kSettingsListBottom - kSettingsListTop);
     return std::max(0.0f, static_cast<float>(settingsTotalHeight(caps)) - viewportH);
 }
 
@@ -135,7 +160,7 @@ constexpr int kResultCols = 4;
 // Keeps the focused grid row on screen: scrolls once it passes the second row.
 inline float gridTarget(int focus, int cols) { return static_cast<float>(std::max(0, focus / cols - 1) * kGridPitchY); }
 constexpr int kGridTop = 236;       // y of the first card row (search results)
-constexpr int kLibraryTop = 160;    // y where "Your games" starts (its first heading)
+constexpr int kLibraryTop = 236;    // below Preview 3.x library title; shared by draw + existing hit tests
 constexpr int kResultsX = 760;
 constexpr int kSectionHeaderH = 96;  // "Available to buy" heading in the grid
 constexpr size_t kMaxResults = 60;

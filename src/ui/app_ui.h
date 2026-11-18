@@ -13,7 +13,9 @@
 #include "ui/canvas.h"
 #include "ui/font.h"
 #include "ui/image_cache.h"
+#include "ui/nimbox_horizon_layout.h"
 #include "ui/pad_icons.h"
+#include "ui/strings.h"
 #include "xcloud/achievements.h"
 
 #include <cstdint>
@@ -97,6 +99,9 @@ enum class Tab { GamePass, Library, Consoles };
 
 struct NavInput {
     bool up = false, down = false, left = false, right = false;
+    // Raw horizontal hold, before repeat generation; prevents accidental
+    // edge wraps while the same physical stick/D-pad remains held.
+    bool carouselHeldLeft = false, carouselHeldRight = false;
     bool accept = false, acceptHeld = false, back = false, options = false;
     bool l1 = false, r1 = false, square = false, triangle = false, r3 = false, l3 = false;
     bool l2 = false, r2 = false;  // pressed (triggers past halfway)
@@ -119,9 +124,12 @@ struct NavInput {
 
 // What the Settings screen edits.
 struct SettingsChoice {
-    int language = 0;      // ui::Language
-    int resolution = 0;    // 0 = 1080p, 1 = 720p, 2 = 1440p (experimental)
+    int language = static_cast<int>(Language::PortugueseBR); // ui::Language
+    int resolution = 0;    // 0 = 1080p, 1 = 720p, 2 = Best Auto, 3 = explicit 1440p QHD
     std::string region;    // gssv region name; empty = automatic
+    int nimboxTheme = 0;          // visual-only studio theme
+    int nimboxReflection = 44;    // local virtual floor reflection (0..100)
+    bool nimboxReducedMotion = false; // visual animation preference
     std::string storeCountry;  // store offers; empty = the cloud session’s market
     std::string loginCountry;  // "Sign in as another country" (kLoginCountries); empty = off
     int deadzone[2] = {15, 15};  // left, right stick: percent of the travel, 0..kMaxDeadzone
@@ -211,7 +219,7 @@ std::vector<SettingsRowPos> visibleGameSettingsRows(const UiCaps& caps, bool cus
 
 // The largest stick dead zone Settings offers, in percent of the travel.
 constexpr int kMaxDeadzone = 30;
-constexpr int kSettingRows = 28;  // language, resolution, region, dead zone, triggers, confirm, light bar, updates,
+constexpr int kSettingRows = 35;  // 0..27 legacy settings, 28..30 appearance, 31..34 shared video/audio quality  // language, resolution, region, dead zone, triggers, confirm, light bar, updates,
                                   // sign-in country, 120 Hz output, bitrate cap, game volume, keyboard keys,
                                   // display mode (a desktop's window), controller buttons, gyro aiming, queue chime,
                                   // check sign-in, network test, support project, video decoder, audio-to-haptics,
@@ -548,7 +556,7 @@ private:
     void drawBackground(Canvas& c);
     // The game's backdrop; false (and nothing drawn) until its image is
     // there: never another game's art in the meantime.
-    bool drawHero(Canvas& c, uint64_t nowMs, const std::string& url, bool details);
+    bool drawHero(Canvas& c, uint64_t nowMs, const std::string& url, bool details, bool fullScreen = false);
     void drawTopBar(Canvas& c);
     void drawLogo(Canvas& c, float cx, float cy, float r);
     void drawGamerscoreBadge(Canvas& c, float cx, float cy, float r);
@@ -561,6 +569,8 @@ private:
     void drawSplash(Canvas& c, uint64_t nowMs);
     void drawSignIn(Canvas& c, uint64_t nowMs);
     void drawHome(Canvas& c, uint64_t nowMs);
+    void drawNimboxHorizon(Canvas& c, uint64_t nowMs);
+    void drawSettingsQrOverlay(Canvas& c);
     void drawTabs(Canvas& c);
     void drawConsoles(Canvas& c, uint64_t nowMs);
     void drawLibrary(Canvas& c, uint64_t nowMs);
@@ -687,6 +697,10 @@ private:
     std::vector<int> focusCol_;
     std::vector<Anim> rowScroll_;
     Anim rowY_;
+    // Horizon-only Game Pass carousel, with reduced-motion accessibility.
+    Anim nimboxSlide_;
+    horizon::BoundaryGate horizonBoundary_{};
+    bool nimboxReducedMotion_ = false;
     Tab tab_ = Tab::GamePass;
     std::vector<ConsoleTile> consoles_;
     bool allow1440_ = false;
@@ -820,6 +834,10 @@ private:
     float wheelValue_ = -1;
     int settingsRow_ = 0;
     float settingsScrollY_ = 0.0f;
+    Screen settingsReturnScreen_ = Screen::Home;
+    Image settingsFrostedBackdrop_{};
+    bool settingsBackdropReady_ = false;
+    bool settingsQrExpanded_ = false;
     bool dropdownOpen_ = false;  // the list of the focused settings row
     int dropdownIndex_ = 0, dropdownTop_ = 0;
     uint64_t signOutHoldStart_ = 0;  // TOUCHPAD hold in progress

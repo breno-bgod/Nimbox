@@ -11,8 +11,11 @@ namespace xc::ui {
 SettingsChoice choiceFromSettings(const app::Settings& s) {
     SettingsChoice c;
     c.language = static_cast<int>(languageFromCode(s.language));
-    c.resolution = s.resolution == "720p" ? 1 : (s.resolution == "1440p" || s.resolution == "best") ? 2 : 0;
+    c.resolution = s.resolution == "720p" ? 1 : s.resolution == "1440p" ? 3 : s.resolution == "best" ? 2 : 0;
     c.region = s.region;
+    c.nimboxTheme = std::clamp(s.nimboxTheme, 0, 4);
+    c.nimboxReflection = std::clamp(s.nimboxReflection, 0, 100);
+    c.nimboxReducedMotion = s.nimboxReducedMotion;
     c.loginCountry = s.loginCountry;
     c.storeCountry = s.storeCountry;
     c.deadzone[0] = std::clamp(s.deadzoneLeft, 0, kMaxDeadzone);
@@ -56,8 +59,11 @@ SettingsChoice choiceFromSettings(const app::Settings& s) {
 
 void applyChoice(const SettingsChoice& c, app::Settings& s) {
     s.language = languageCode(static_cast<Language>(c.language));
-    s.resolution = c.resolution == 1 ? "720p" : c.resolution == 2 ? "best" : "1080p";
+    s.resolution = c.resolution == 1 ? "720p" : c.resolution == 3 ? "1440p" : c.resolution == 2 ? "best" : "1080p";
     s.region = c.region;
+    s.nimboxTheme = std::clamp(c.nimboxTheme, 0, 4);
+    s.nimboxReflection = std::clamp(c.nimboxReflection, 0, 100);
+    s.nimboxReducedMotion = c.nimboxReducedMotion;
     s.loginCountry = c.loginCountry;
     s.storeCountry = c.storeCountry;
     s.deadzoneLeft = c.deadzone[0];

@@ -418,7 +418,7 @@ WebServer::HttpResponse WebServer::handleRequest(const std::string& method, cons
             if (s_hooks.getSettings) {
                 s_hooks.getSettings(root);
             } else {
-                root.set("language", "en");
+                root.set("language", "pt-BR");
                 root.set("resolution", "1080p");
                 root.set("padMap", input::padMapJson(input::defaultPadMap()));
                 root.set("keyMap", keyMapToJson(input::defaultKeyMap()));
@@ -467,7 +467,7 @@ WebServer::HttpResponse WebServer::handleRequest(const std::string& method, cons
 
             report::Info info;
             info.title = "Relatório via WebUI";
-            info.what = "Enviado através do painel WebUI do PSBox";
+            info.what = "Enviado através do painel WebUI do NimboPlay";
             info.release = XC_APP_VERSION;
             info.firmware = platform::firmwareVersion();
             info.platform = platform::platformName();
@@ -507,7 +507,7 @@ WebServer::HttpResponse WebServer::handleRequest(const std::string& method, cons
     if (method == "POST") {
         if (path == "/api/report-issue") {
             std::string title = "Relatório via WebUI";
-            std::string what = "Enviado através do painel WebUI do PSBox";
+            std::string what = "Enviado através do painel WebUI do NimboPlay";
             auto j = json::parse(body);
             if (j && j->isObject()) {
                 if ((*j).has("title") && (*j)["title"].isString() && !(*j)["title"].asString().empty()) {

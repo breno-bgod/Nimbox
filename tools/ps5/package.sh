@@ -21,7 +21,11 @@ mkdir -p "$app/sce_sys" "$app/sce_module" "$app/assets"
 
 cp "$build/eboot.bin" "$app/eboot.bin"
 cp "$param" "$app/sce_sys/param.json"
-cp "$root/ps5/sce_sys/icon0.png" "$app/sce_sys/icon0.png"
+# Always generate the 512px RGBA icon from the approved external art.
+# Do not accidentally ship the old PSBox icon0.png checked into the tree.
+python3 "$root/tools/branding/make_launcher_assets.py" \
+    --source "$root/assets/branding/nimboplay_launcher_256.png" \
+    --ps5 "$app/sce_sys/icon0.png"
 # Home-screen backgrounds and audio (tools/ps5/home-art.sh, snd0.at9).
 for f in pic0.dds pic1.dds snd0.at9; do
     [[ -f "$root/ps5/sce_sys/$f" ]] && cp "$root/ps5/sce_sys/$f" "$app/sce_sys/$f"

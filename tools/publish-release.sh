@@ -8,7 +8,7 @@
 #   1. Runs tools/release.sh to build PS5 and PS4 packages, perform security/hygiene checks.
 #   2. Verifies notes.md is bilingual and up to date.
 #   3. Tags the commit and pushes to origin.
-#   4. Creates GitHub release with PS5 (PPSA99810.zip*) and PS4 (PSBoxCloudGaming[PS4]-vX.Y.Z.pkg*).
+#   4. Creates GitHub release with PS5 (PPSA99810.zip*) and PS4 (NimboPlay[PS4]-vX.Y.Z.pkg*).
 #   5. Monitors GitHub Actions until the Linux AppImage is built on Ubuntu 22.04 and attached.
 #   6. Automatically signs the Linux AppImage using tools/desktop/sign-linux-release.sh.
 #   7. Executes tools/release-verify.sh --verify-sigs to enforce 100% compliance.
@@ -46,7 +46,7 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 echo -e "${BOLD}${BLUE}======================================================${NC}"
-echo -e "${BOLD}${BLUE}  PSBox Cloud Gaming: Tri-Platform Release Publisher  ${NC}"
+echo -e "${BOLD}${BLUE}  NimboPlay Cloud Gaming: Tri-Platform Release Publisher  ${NC}"
 echo -e "${BOLD}${BLUE}  Target: $tag (PS5 + PS4 + Linux AppImage)            ${NC}"
 echo -e "${BOLD}${BLUE}======================================================${NC}"
 
@@ -69,7 +69,7 @@ fi
 [[ -s "$out/PPSA99810.zip" ]] || { echo -e "${RED}error: $out/PPSA99810.zip missing${NC}" >&2; exit 1; }
 [[ -s "$out/PPSA99810.zip.sha256" ]] || { echo -e "${RED}error: $out/PPSA99810.zip.sha256 missing${NC}" >&2; exit 1; }
 [[ -s "$out/PPSA99810.zip.sig" ]] || { echo -e "${RED}error: $out/PPSA99810.zip.sig missing${NC}" >&2; exit 1; }
-ps4_pkg="$out/PSBoxCloudGaming[PS4]-$tag.pkg"
+ps4_pkg="$out/NimboPlay[PS4]-$tag.pkg"
 [[ -s "$ps4_pkg" ]] || { echo -e "${RED}error: $ps4_pkg missing${NC}" >&2; exit 1; }
 [[ -s "$ps4_pkg.sha256" ]] || { echo -e "${RED}error: $ps4_pkg.sha256 missing${NC}" >&2; exit 1; }
 
@@ -92,7 +92,7 @@ echo -e "${BOLD}Phase 2: Tagging and pushing $tag...${NC}"
 if git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
     echo "Note: tag $tag already exists locally."
 else
-    git tag -a "$tag" -m "PSBox Cloud Gaming $tag"
+    git tag -a "$tag" -m "NimboPlay Cloud Gaming $tag"
 fi
 git push origin "$tag"
 
@@ -104,17 +104,17 @@ initial_assets=(
     "$out/PPSA99810.zip"
     "$out/PPSA99810.zip.sha256"
     "$out/PPSA99810.zip.sig"
-    "$out/PSBoxCloudGaming[PS5]-$tag.zip#PSBoxCloudGaming[PS5]-$tag.zip"
-    "$out/PSBoxCloudGaming[PS5]-$tag.zip.sha256#PSBoxCloudGaming[PS5]-$tag.zip.sha256"
-    "$out/PSBoxCloudGaming[PS5]-$tag.zip.sig#PSBoxCloudGaming[PS5]-$tag.zip.sig"
-    "$out/PSBoxCloudGaming[PS4]-$tag.pkg#PSBoxCloudGaming[PS4]-$tag.pkg"
-    "$out/PSBoxCloudGaming[PS4]-$tag.pkg.sha256#PSBoxCloudGaming[PS4]-$tag.pkg.sha256"
+    "$out/NimboPlay[PS5]-$tag.zip#NimboPlay[PS5]-$tag.zip"
+    "$out/NimboPlay[PS5]-$tag.zip.sha256#NimboPlay[PS5]-$tag.zip.sha256"
+    "$out/NimboPlay[PS5]-$tag.zip.sig#NimboPlay[PS5]-$tag.zip.sig"
+    "$out/NimboPlay[PS4]-$tag.pkg#NimboPlay[PS4]-$tag.pkg"
+    "$out/NimboPlay[PS4]-$tag.pkg.sha256#NimboPlay[PS4]-$tag.pkg.sha256"
 )
 
 gh release create "$tag" \
     "${initial_assets[@]}" \
     --target "$(git rev-parse HEAD)" \
-    --title "PSBox Cloud Gaming $tag" \
+    --title "NimboPlay Cloud Gaming $tag" \
     --notes-file "$root/notes.md" 2>/dev/null || {
     echo "Release $tag might already exist; updating assets..."
     gh release upload "$tag" "${initial_assets[@]}" --clobber
@@ -124,8 +124,8 @@ gh release create "$tag" \
 # Phase 4: Wait for Linux AppImage from GitHub Actions
 echo
 echo -e "${BOLD}Phase 4: Waiting for Linux AppImage build (CI: .github/workflows/release-linux.yml)...${NC}"
-linux_name="PSBox-$tag-linux-x86_64.AppImage"
-named_linux="PSBoxCloudGaming[Linux]-$tag.AppImage"
+linux_name="NimboPlay-$tag-linux-x86_64.AppImage"
+named_linux="NimboPlay[Linux]-$tag.AppImage"
 timeout_secs=900 # 15 minutes max
 elapsed=0
 interval=15
@@ -157,15 +157,15 @@ echo
 echo -e "${BOLD}Phase 5: Signing Linux AppImage with local release key and setting label...${NC}"
 tools/desktop/sign-linux-release.sh "$tag"
 
-# Download the signed Linux AppImage and upload as PSBoxCloudGaming[Linux]-$tag.AppImage with label
+# Download the signed Linux AppImage and upload as NimboPlay[Linux]-$tag.AppImage with label
 work_linux=$(mktemp -d)
 gh release download "$tag" -p "$linux_name" -D "$work_linux" >/dev/null 2>&1
 if [[ -s "$work_linux/$linux_name" ]]; then
     cp -f "$work_linux/$linux_name" "$work_linux/$named_linux"
     (cd "$work_linux" && sha256sum "$named_linux" > "$named_linux.sha256")
     gh release upload "$tag" \
-        "$work_linux/$named_linux#PSBoxCloudGaming[Linux]-$tag.AppImage" \
-        "$work_linux/$named_linux.sha256#PSBoxCloudGaming[Linux]-$tag.AppImage.sha256" \
+        "$work_linux/$named_linux#NimboPlay[Linux]-$tag.AppImage" \
+        "$work_linux/$named_linux.sha256#NimboPlay[Linux]-$tag.AppImage.sha256" \
         --clobber
     
     # Remove the intermediate un-named CI assets so Linux is not duplicated

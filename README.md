@@ -1,16 +1,17 @@
 <p align="center">
-  <img src="ps5/sce_sys/icon0.png" alt="PSBox Cloud Gaming" width="160">
+  <img src="assets/branding/nimboplay_launcher_256.png" alt="NimboPlay Cloud Gaming" width="160">
 </p>
 
-<h1 align="center">PSBox Cloud Gaming</h1>
+<h1 align="center">NimboPlay</h1>
+<p align="center"><strong>Versão oficial do código: 1.7.7</strong></p>
 <p align="center"><em>Xbox Cloud Gaming, running natively on PlayStation 5, PlayStation 4, and Linux.</em></p>
 
 <p align="center">
-  <a href="https://github.com/RafaelNGP/psbox-cloud-gaming/releases/latest"><img alt="release" src="https://img.shields.io/github/v/release/RafaelNGP/psbox-cloud-gaming?color=brightgreen"></a>
-  <a href="#installation"><img alt="platforms: PS5, PS4, Linux" src="https://img.shields.io/badge/platforms-PS5%20%7C%20PS4%20%7C%20Linux-003791"></a>
+  <a href="https://github.com/breno-bgod/Nimbox/releases/latest"><img alt="release" src="https://img.shields.io/github/v/release/breno-bgod/Nimbox?color=brightgreen"></a>
+  <a href="#installation"><img alt="platforms: PS5, PS4, Android, Windows, Linux" src="https://img.shields.io/badge/platforms-PS5%20%7C%20PS4%20%7C%20Linux-003791"></a>
   <img alt="stream: 1080p60" src="https://img.shields.io/badge/stream-1080p60%20H.264-5c2d91">
   <a href="LICENSE"><img alt="license: GPL-3.0" src="https://img.shields.io/badge/license-GPL--3.0-blue"></a>
-  <a href="https://github.com/RafaelNGP/psbox-cloud-gaming/issues/new?template=bug_report.yml"><img alt="issues: report a problem" src="https://img.shields.io/badge/issues-report%20a%20problem-ff0000"></a>
+  <a href="https://github.com/breno-bgod/Nimbox/issues/new"><img alt="issues: report a problem" src="https://img.shields.io/badge/issues-report%20a%20problem-ff0000"></a>
 </p>
 
 A native Xbox Cloud Gaming client running natively across **PlayStation 5**,
@@ -49,10 +50,10 @@ Install it in one of three ways:
 - **Prospero Store:** <https://prosperostore.net/app/PPSA99810/>
 - **By hand:**
   1. Download `PPSA99810.zip` from the
-     [latest release](https://github.com/RafaelNGP/psbox-cloud-gaming/releases/latest).
+     [latest release](https://github.com/breno-bgod/Nimbox/releases/latest).
   2. Extract it and copy the `PPSA99810` folder, as a whole, to
      `/data/homebrew/` on the PS5 (for example over FTP).
-  3. Wait for the loader to add the **PSBox Cloud Gaming** icon to the Home
+  3. Wait for the loader to add the **NimboPlay** icon to the Home
      screen.
 
 Then launch the app and sign in: open <https://www.microsoft.com/link> on your
@@ -62,7 +63,7 @@ phone or computer (or scan the QR code) and enter the code shown on the TV.
 Updates). Only a package signed with the project's key is accepted, and your
 sign-in is kept. By hand: close the app and copy the new folder over the old one.
 
-**Your data** (sign-in, settings, caches, log) lives in `/data/psbox`, outside
+**Your data** (sign-in, settings, caches, log) currently lives in the legacy `/data/psbox` path, outside
 the app's folder, so updating or reinstalling keeps it. The sign-in is
 `/data/psbox/account.json`: never share that file. To remove everything, delete
 `/data/psbox` too. Controls and troubleshooting are in the `README.txt` inside
@@ -73,7 +74,7 @@ the app's folder.
 Needs a PS4 with GoldHEN.
 
 1. Download the PS4 `.pkg` from the
-   [latest release](https://github.com/RafaelNGP/psbox-cloud-gaming/releases/latest).
+   [latest release](https://github.com/breno-bgod/Nimbox/releases/latest).
 2. Copy it to the root of a USB drive formatted as exFAT or FAT32, and plug the
    drive into the PS4.
 3. Install it from *Settings > GoldHEN > Package Installer*.
@@ -83,7 +84,7 @@ The PS4 build does not update itself yet: install the newer `.pkg` the same way.
 ### Linux and Steam Deck
 
 Download the `.AppImage` from the
-[latest release](https://github.com/RafaelNGP/psbox-cloud-gaming/releases/latest),
+[latest release](https://github.com/breno-bgod/Nimbox/releases/latest),
 make it executable (`chmod +x`) and run it. It works in the Steam Deck's Desktop
 and Game modes. Your data lives in `~/.local/share/psbox`. It does not update
 itself: Settings > Updates opens the release page.
@@ -93,8 +94,8 @@ itself: Settings > Updates opens the release page.
 Clone with the submodules (Mbed TLS, libdatachannel, FFmpeg):
 
 ```bash
-git clone --recursive https://github.com/RafaelNGP/psbox-cloud-gaming.git
-cd psbox-cloud-gaming
+git clone --recursive https://github.com/breno-bgod/Nimbox.git
+cd Nimbox
 ```
 
 You need CMake 3.20+, Ninja, Clang/LLVM, Python 3 and curl. NASM and FFmpeg are
@@ -152,6 +153,11 @@ project as distributed must be too. All other components are compatible
 (Mbed TLS, libdatachannel, FFmpeg under the LGPL, stb, qrcodegen, the Inter
 font, Mozilla's CA bundle); `THIRD_PARTY_NOTICES.md` lists each one with its
 version and license.
+
+NimboPlay is an independent fork based on the original GPL-licensed PSBox Cloud
+Gaming project by RafaelNGP. Original authorship and license notices are retained;
+see `LICENSE` and `THIRD_PARTY_NOTICES.md`. The GitHub repository still uses the
+technical path `breno-bgod/Nimbox`; this does not affect the public brand.
 
 This is an unofficial project, not affiliated with, endorsed or sponsored by
 Microsoft or Sony. Xbox, Xbox Cloud Gaming and Game Pass are trademarks of the

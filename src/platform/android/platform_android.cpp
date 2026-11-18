@@ -73,7 +73,7 @@ bool init() {
     }
     makeDirs(g_dataDir);
 #if defined(__ANDROID__)
-    __android_log_print(ANDROID_LOG_INFO, "PSBox", "platform_android init: dataDir=%s", g_dataDir.c_str());
+    __android_log_print(ANDROID_LOG_INFO, "Nimbox", "platform_android init: dataDir=%s", g_dataDir.c_str());
 #endif
     return true;
 }
@@ -157,7 +157,7 @@ void notify(const std::string& text) { notify(text, text); }
 
 void notify(const std::string& text, const std::string& forLog) {
 #if defined(__ANDROID__)
-    __android_log_print(ANDROID_LOG_INFO, "PSBox", "%s", text.c_str());
+    __android_log_print(ANDROID_LOG_INFO, "Nimbox", "%s", text.c_str());
 #else
     std::printf("[Android Notify] %s (%s)\n", text.c_str(), forLog.c_str());
 #endif

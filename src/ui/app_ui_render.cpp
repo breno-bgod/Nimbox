@@ -4,6 +4,8 @@
 #include <cstdint>
 #include "ui/app_ui_internal.h"
 #include "ui/cloud_time.h"
+#include "ui/nimbox_horizon_layout.h"
+#include "ui/nimbox_detail_showcase.h"
 
 #include <algorithm>
 
@@ -35,10 +37,17 @@ void AppUi::drawCentered(Canvas& c, const Font& f, const std::string& text, int 
 }
 
 void AppUi::drawBackground(Canvas& c) {
-    c.gradientV({0, 0, kW, kH}, rgba(24, 28, 24), kBg);
+    // Horizon: the same midnight-blue base in every native menu.
+    c.gradientV({0, 0, kW, kH}, rgba(15, 43, 65), kBg);
+    c.gradientH({0, 0, kW, 520}, rgba(26, 74, 98, 38), rgba(5, 21, 40, 0));
 }
 
-void AppUi::drawLogo(Canvas& c, float cx, float cy, float r) { drawBrandMark(c, cx, cy, r); }
+void AppUi::drawLogo(Canvas& c, float cx, float cy, float r) {
+    const int h = std::max(1, static_cast<int>(r * 2.0f));
+    const int w = std::max(1, static_cast<int>(r * 3.7f));
+    drawInternalBrand(c, static_cast<int>(cx - w * 0.5f),
+                      static_cast<int>(cy - h * 0.5f), w, h);
+}
 
 void AppUi::drawGamerscoreBadge(Canvas& c, float cx, float cy, float r) {
     // A filled disc with a "G" cut out of it, drawn from shapes (a letter of
@@ -95,7 +104,7 @@ void AppUi::drawCloudTime(Canvas& c, int x, int y) {
 #else
     constexpr int kBrandPx = 22;
 #endif
-    const int w = std::max(fonts_.semibold.measure(tr(Str::CloudGaming), kBrandPx), end - x);
+    const int w = std::max(fonts_.semibold.measure("NIMBOPLAY", kBrandPx), end - x);
     const Rect bar{x, y + kLineH + 2, w, kBarH};
     c.fillRect(bar, rgba(255, 255, 255, 36), 2);
     const double f = std::clamp(static_cast<double>(playtimeRemaining_) / static_cast<double>(playtimeMax_), 0.0, 1.0);
@@ -103,10 +112,14 @@ void AppUi::drawCloudTime(Canvas& c, int x, int y) {
 }
 
 void AppUi::drawTopBar(Canvas& c) {
+    // A frosted, dark header preserves the original touch and controller
+    // targets while making all native screens visually consistent.
+    c.fillRect({0, 0, kW, 122}, rgba(6, 16, 29, 228));
+    c.gradientV({0, 122, kW, 28}, rgba(6, 16, 29, 110), rgba(6, 16, 29, 0));
+    c.line(50.0f, 121.0f, static_cast<float>(kW - 50), 121.0f, 1.0f,
+           rgba(84, 199, 224, 85));
     const bool hasCloudTime = playtimeUnlimited_ || playtimeRemaining_ >= 0;
 #if defined(__ANDROID__)
-    constexpr int kLogoR = 30;
-    constexpr int kBrandPx = 30;
     constexpr int kAvatar = 64;
     constexpr int kGamertagPx = 30;
     constexpr int kSubPlanPx = 16;
@@ -116,8 +129,6 @@ void AppUi::drawTopBar(Canvas& c) {
     constexpr float kBadgeR = 11.5f;
     constexpr int kBadgeMargin = 16;
 #else
-    constexpr int kLogoR = 22;
-    constexpr int kBrandPx = 22;
     constexpr int kAvatar = 52;
     constexpr int kGamertagPx = 22;
     constexpr int kSubPlanPx = 11;
@@ -128,15 +139,10 @@ void AppUi::drawTopBar(Canvas& c) {
     constexpr int kBadgeMargin = 13;
 #endif
 
-    drawLogo(c, kMargin + kLogoR, 72, kLogoR);
-
-    int brandX = kMargin + kLogoR * 2 + 20;
-    if (hasCloudTime) {
-        fonts_.semibold.draw(c, tr(Str::CloudGaming), brandX, 42, kBrandPx, kWhite);
-        drawCloudTime(c, brandX, 72);
-    } else {
-        fonts_.semibold.draw(c, tr(Str::CloudGaming), brandX, 58, kBrandPx, kWhite);
-    }
+    // NimboPlay's complete transparent wordmark is the primary header brand.
+    // No extra text beside it: the lettering is already included in the image.
+    drawInternalBrand(c, 91, 20, 184, 100);
+    if (hasCloudTime) drawCloudTime(c, 292, 59);
 
     // Avatar and centered Settings touch button
     constexpr int kAvatarRight = kW - 120;
@@ -333,7 +339,7 @@ void AppUi::drawToast(Canvas& c, uint64_t nowMs) {
     animating_ = true;
 }
 
-bool AppUi::drawHero(Canvas& c, uint64_t nowMs, const std::string& url, bool details) {
+bool AppUi::drawHero(Canvas& c, uint64_t nowMs, const std::string& url, bool details, bool fullScreen) {
     if (url != heroUrl_) {
         // The previous art may only cross-fade into a new one that is already
         // there; it is never kept up while the new one downloads.
@@ -357,13 +363,19 @@ bool AppUi::drawHero(Canvas& c, uint64_t nowMs, const std::string& url, bool det
     } else {
         prevHeroUrl_.clear();  // nothing on screen to fade from any more
     }
-    // Darken towards the left (text) and the bottom (rows).
-    c.gradientH({0, 0, details ? 1400 : 1200, kH}, rgba(0, 0, 0, details ? 240 : 225), rgba(0, 0, 0, 0));
-    if (details) {
-        c.gradientV({0, 640, kW, 440}, withAlpha(kBg, 0), withAlpha(kBg, 230));
+    // The Horizon stage keeps art visible through all 1080 lines. Gradients
+    // protect readability but never paint a hard band across the wallpaper.
+    if (fullScreen) {
+        c.gradientH({0, 0, 1300, kH}, rgba(2, 11, 23, 192), rgba(2, 11, 23, 0));
+        c.gradientV({0, 610, kW, 470}, rgba(4, 13, 24, 0), rgba(4, 13, 24, 118));
     } else {
-        c.gradientV({0, 360, kW, 420}, withAlpha(kBg, 0), kBg);
-        c.fillRect({0, 780, kW, kH - 780}, kBg);
+        c.gradientH({0, 0, details ? 1400 : 1200, kH}, rgba(0, 0, 0, details ? 240 : 225), rgba(0, 0, 0, 0));
+        if (details) {
+            c.gradientV({0, 640, kW, 440}, withAlpha(kBg, 0), withAlpha(kBg, 230));
+        } else {
+            c.gradientV({0, 360, kW, 420}, withAlpha(kBg, 0), kBg);
+            c.fillRect({0, 780, kW, kH - 780}, kBg);
+        }
     }
     c.gradientV({0, 0, kW, 160}, rgba(0, 0, 0, 150), rgba(0, 0, 0, 0));
     return current != nullptr;
@@ -371,17 +383,22 @@ bool AppUi::drawHero(Canvas& c, uint64_t nowMs, const std::string& url, bool det
 
 void AppUi::drawSplash(Canvas& c, uint64_t nowMs) {
     drawBackground(c);
-    drawLogo(c, kW / 2.0f, 400, 64);
-    drawCentered(c, fonts_.bold, tr(Str::AppName), 500, 52, kWhite);
+    drawInternalBrand(c, kW / 2 - 235, 283, 470, 255);
     drawCentered(c, fonts_.regular, status_, 590, 28, kGray);
     drawSpinner(c, kW / 2.0f, 720, 26, nowMs);
 }
 
 void AppUi::drawSignIn(Canvas& c, uint64_t nowMs) {
     drawBackground(c);
+    c.gradientH({0, 80, kW, 920}, rgba(8, 27, 42, 115), rgba(13, 71, 85, 105));
+    preview31::glassPanel(c, {139, 110, 890, 850}, 22);
+    preview31::glassPanel(c, {1160, 190, 660, 690}, 22);
+    c.gradientV({1160, 190, 660, 690}, rgba(19, 76, 91, 34),
+                rgba(5, 21, 38, 24));
     const int left = 180;
-    drawLogo(c, left + 26, 160, 26);
-    fonts_.semibold.draw(c, tr(Str::AppName), left + 70, 144, 30, kWhite);
+    drawInternalBrand(c, left - 12, 113, 208, 113);
+    fonts_.semibold.draw(c, "ACESSO", left, 232, 19,
+                         preview31::kAccent);
     fonts_.bold.draw(c, tr(Str::SignInTitle), left, 260, 72, kWhite);
     fonts_.regular.draw(c, tr(Str::SignInStep1), left, 400, 32, kGray);
     std::string shortUrl = codeUrl_;
@@ -421,8 +438,8 @@ void AppUi::drawSignIn(Canvas& c, uint64_t nowMs) {
 #if defined(__ANDROID__)
     // Harmonized Xbox-styled primary action button for mobile browser sign-in
     Rect btnBox{1180, 480, 560, 124};
-    c.fillRect(btnBox, kGreen, 24);
-    c.strokeRect(btnBox, rgba(30, 215, 96, 140), 2, 24);
+    c.fillRect(btnBox, rgba(27, 126, 141), 24);
+    c.strokeRect(btnBox, rgba(128, 228, 238, 185), 2, 24);
 
     const char* btnTxt = tr(Str::SignInOpenBrowser);
     int bw = fonts_.bold.measure(btnTxt, 28);
@@ -491,8 +508,16 @@ void AppUi::drawTabs(Canvas& c) {
     for (int i = 0; i < 3; ++i) {
         bool on = static_cast<int>(tab_) == i;
         Rect r{x, kY, widths[i], kH};
-        if (on) c.fillRect(r, kWhite, kH / 2);
-        fonts_.semibold.draw(c, labels[i], x + kPad, fonts_.semibold.centeredY(kY, kH, kPx), kPx, on ? kBg : kGray);
+        if (on) {
+            // The native tab remains the SAME target as before; only its
+            // appearance follows Preview 3.0's bright active navigation pill.
+            c.fillRect({r.x - 5, r.y - 5, r.w + 10, r.h + 10},
+                       rgba(82, 197, 222, 28), kH / 2);
+            c.fillRect(r, rgba(237, 250, 254), kH / 2);
+            c.strokeRect(r, rgba(194, 240, 246), 2, kH / 2);
+        }
+        fonts_.semibold.draw(c, labels[i], x + kPad, fonts_.semibold.centeredY(kY, kH, kPx),
+                             kPx, on ? rgba(12, 49, 66) : kGray);
         x += widths[i] + kGap;
     }
     shoulder(g_keyboardHints ? "E" : buttonName(g_glyphStyle, PadButton::R1), x - kGap + 40);
@@ -668,7 +693,13 @@ void AppUi::drawCard(Canvas& c, const GameTile& t, int x, int y, bool focused, b
             }
         }
     }
-    if (focused) c.strokeRect({x - 7, y - 7, kCard + 14, kCard + 14}, kWhite, 4, 16);
+    if (focused) {
+        // A legible focus marker on gamepad, mouse and touch.
+        c.strokeRect({x - 8, y - 8, kCard + 16, kCard + 16},
+                     rgba(29, 176, 212, 95), 8, 17);
+        c.strokeRect({x - 6, y - 6, kCard + 12, kCard + 12},
+                     rgba(121, 230, 246), 3, 16);
+    }
 }
 
 void AppUi::drawGrid(Canvas& c, const std::vector<GameTile>& tiles, int x0, int y0, int cols, float scroll, int focus,
@@ -737,9 +768,17 @@ void AppUi::drawLibrary(Canvas& c, uint64_t nowMs) {
     }
     c.clearClip();
     c.fillRect({0, 0, kW, clipTop}, kBg);
+    c.gradientH({0, 122, kW, clipTop - 122}, rgba(23, 68, 91), rgba(5, 19, 34));
     c.gradientV({0, clipTop, kW, 12}, kBg, withAlpha(kBg, 0));
     drawTopBar(c);
     drawTabs(c);
+    // Preview 3.x library hierarchy. Keep the existing owned/purchasable/
+    // hidden sections, sort selector, hitboxes and catalog data.
+    fonts_.semibold.draw(c, "BIBLIOTECA", kMargin, 141, 18,
+                         preview31::kAccent);
+    fonts_.bold.draw(c, "Seus jogos", kMargin, 171, 38, preview31::kText);
+    fonts_.regular.draw(c, "Colecao, organizacao e jogos disponiveis",
+                        kMargin, 216, 18, preview31::kMuted);
     if (owned_.empty() && purchasable_.empty() && hiddenTiles_.empty()) {
         if (!ownedKnown_) {
             drawSpinner(c, kW / 2.0f, 470, 26, nowMs);
@@ -1002,191 +1041,129 @@ void AppUi::drawConsoles(Canvas& c, uint64_t nowMs) {
     drawToast(c, nowMs);
 }
 
-void AppUi::drawHome(Canvas& c, uint64_t nowMs) {
-    if (searching_) return drawSearch(c, nowMs);
-    if (tab_ == Tab::Library) return drawLibrary(c, nowMs);
-    if (tab_ == Tab::Consoles) return drawConsoles(c, nowMs);
+// Nimbox Horizon — console-first view. Reuses the existing catalog and image cache.
+void AppUi::drawNimboxHorizon(Canvas& c, uint64_t nowMs) {
+    const auto& env = nimbox_theme::palette(settings_.nimboxTheme);
+    const Color deep = rgba(7, 17, 29);
+    const Color soft = rgba(205, 229, 236);
+    c.clear(deep);
     const GameTile* focus = focusedTile();
-    c.clear(kBg);
-    std::string hero;
-    if (focus) {
-        hero = focus->heroUrl;
-        bool hadFocusHero = !hero.empty();
-        if (hero.empty() && !focus->productId.empty()) {
-            auto it = detailInfo_.find(focus->productId);
-            if (it != detailInfo_.end() && !it->second.heroUrl.empty()) {
-                hero = it->second.heroUrl;
-            }
-        }
-        if (hero.empty()) {
-            auto matchHero = [&](const GameTile& t) -> bool {
-                if (t.heroUrl.empty()) return false;
-                if (!focus->productId.empty() && !t.productId.empty()) {
-                    return t.productId == focus->productId;
-                }
-                if (!focus->productId.empty() && t.productId == focus->productId) return true;
-                if (!focus->titleId.empty() && t.titleId == focus->titleId) return true;
-                if (!focus->xboxTitleId.empty() && t.xboxTitleId == focus->xboxTitleId) return true;
-                return false;
-            };
-            const GameTile* matched = nullptr;
-            for (const auto& r : rows_) {
-                for (const auto& t : r.tiles) {
-                    if (matchHero(t)) { matched = &t; break; }
-                }
-                if (matched) break;
-            }
-            if (!matched) {
-                for (const auto& r : allRows_) {
-                    for (const auto& t : r.tiles) {
-                        if (matchHero(t)) { matched = &t; break; }
-                    }
-                    if (matched) break;
-                }
-            }
-            if (!matched) {
-                for (const auto* list : {&gamePassPool_, &libraryPool_, &allOwned_, &allPurchasable_}) {
-                    for (const auto& t : *list) {
-                        if (matchHero(t)) { matched = &t; break; }
-                    }
-                    if (matched) break;
-                }
-            }
-            if (matched) {
-                hero = matched->heroUrl;
-                syncHeroToRowsLocked(matched->productId, matched->titleId, matched->heroUrl,
-                                     matched->description, matched->publisher, matched->categories);
-                hadFocusHero = true;
-            }
-        }
-        if (!hadFocusHero && !hero.empty()) {
-            syncHeroToRowsLocked(focus->productId, focus->titleId, hero);
+    std::string hero = focus ? focus->heroUrl : std::string();
+    if (hero.empty() && focus && !focus->productId.empty()) {
+        auto it = detailInfo_.find(focus->productId);
+        if (it != detailInfo_.end()) hero = it->second.heroUrl;
+    }
+    const bool wideArt = !hero.empty() && drawHero(c, nowMs, hero, true, true);
+    if (!wideArt) {
+        c.gradientV({0, 122, kW, 830}, env.sky, deep);
+        if (focus && !focus->tileUrl.empty()) {
+            if (auto pic = images_.get(focus->tileUrl, 480, 480))
+                c.drawImage(*pic, 1332, 175, 84, 20);
         }
     }
-    drawHero(c, nowMs, hero, false);
-
-    if (rows_.empty()) {
-        drawCentered(c, fonts_.semibold, tr(Str::NoGames), 500, 32, kGray);
-        drawHints(c, {{kIconOptions, tr(Str::Settings)}, {kIconTouchpad, tr(Str::HoldSignOut)}});
-        c.fillRect({0, 0, kW, 140}, kBg);
-        c.gradientV({0, 140, kW, 16}, kBg, withAlpha(kBg, 0));
-        drawTopBar(c);
-        drawTabs(c);
-        {
-            constexpr int kGridW = kLibraryCols * kCardPitch - kCardGap;
-            const int left = (kW - kGridW) / 2;
-            drawLoadingBar(c, left, 112, 420, nowMs);
-        }
-        return;
-    }
-
-    if (focus) {
-        float heroAlpha = 1.0f;
-        for (size_t r = 0; r < rows_.size(); ++r) {
-            if (rows_[r].isGrid) {
-                float dist = static_cast<float>(r) - rowY_.value;
-                if (dist < 1.0f) heroAlpha = std::clamp(dist, 0.0f, 1.0f);
-                break;
-            }
-        }
-        if (heroAlpha > 0.05f) {
-            Color titleColor = withAlpha(kWhite, static_cast<int>(255 * heroAlpha));
-            Color grayColor = withAlpha(kGray, static_cast<int>(255 * heroAlpha));
-            auto title = fonts_.bold.wrap(focus->name, 60, 1100, 1);
-            if (!title.empty()) fonts_.bold.draw(c, title[0], kMargin, 190, 60, titleColor);
-            std::string meta = focus->publisher;
-            for (size_t i = 0; i < focus->categories.size() && i < 2; ++i)
-                meta += (meta.empty() ? "" : "  \xE2\x80\xA2  ") + focus->categories[i];
-            fonts_.regular.draw(c, meta, kMargin, 272, 24, grayColor);
-            auto desc = fonts_.regular.wrap(focus->description, 22, 860, 2);
-            for (size_t i = 0; i < desc.size(); ++i)
-                fonts_.regular.draw(c, desc[i], kMargin, 318 + static_cast<int>(i) * 32, 22, grayColor);
-        }
-    }
-
-    constexpr int kGridW = kLibraryCols * kCardPitch - kCardGap;
-    const int gridLeft = (kW - kGridW) / 2;
-    int afterGridOffset = 0;
-    constexpr int clipTop = 140;
-    c.setClip({0, clipTop, kW, kH - 220});
-
-    for (size_t r = 0; r < rows_.size(); ++r) {
-        float rel = static_cast<float>(r) - rowY_.value;
-        int y = kRowTop + static_cast<int>(std::lround(rel * kRowPitch)) + afterGridOffset;
-        const GameRow& row = rows_[r];
-
-        if (row.isGrid) {
-            int offset = static_cast<int>(std::lround(rowScroll_[r].value));
-            int hy = y - offset;
-            int cardY = hy + 48;
-
-            if (hy > 80 && hy < kH) {
-                fonts_.bold.draw(c, row.title, gridLeft, hy + 8, 34, kWhite);
-                int w = fonts_.bold.measure(row.title, 34);
-                fonts_.semibold.draw(c, gamesCount(row.tiles.size()), gridLeft + w + 20, hy + 20, 22, kDim);
-            }
-
-            int firstGridRow = std::max(0, (clipTop - cardY - kCard - 40) / kGridPitchY);
-            size_t startIdx = static_cast<size_t>(firstGridRow) * static_cast<size_t>(kLibraryCols);
-            for (size_t i = startIdx; i < row.tiles.size(); ++i) {
-                int c_col = static_cast<int>(i) % kLibraryCols;
-                int c_row = static_cast<int>(i) / kLibraryCols;
-                int cy = cardY + c_row * kGridPitchY;
-                if (cy + kCard + 40 < clipTop) continue;
-                if (cy > kH) break;
-                int cx = gridLeft + c_col * kCardPitch;
-                bool focused = static_cast<int>(r) == focusRow_ && static_cast<int>(i) == focusCol_[r];
-                drawCard(c, row.tiles[i], cx, cy, focused, row.gamePassBadges);
-                if (hidden_.count(row.tiles[i].productId)) c.fillRect({cx, cy, kCard, kCard}, rgba(0, 0, 0, 120), 10);
-                auto name = fonts_.semibold.wrap(row.tiles[i].name, 20, kCard, 1);
-                if (!name.empty()) fonts_.semibold.draw(c, name[0], cx, cy + kCard + 12, 20, focused ? kWhite : kGray);
-            }
-
-            int gridHeight = 48 + ((static_cast<int>(row.tiles.size()) + kLibraryCols - 1) / kLibraryCols) * kGridPitchY;
-            afterGridOffset += gridHeight - offset - kRowPitch;
-        } else {
-            if (rel < -0.7f && afterGridOffset == 0) continue;
-            if (y > kH && afterGridOffset == 0) break;
-            fonts_.semibold.draw(c, row.title, kMargin, y, 30, kWhite);
-            int cardY = y + 48;
-            int scroll = static_cast<int>(std::lround(rowScroll_[r].value));
-            int firstCol = std::max(0, scroll / kCardPitch - 1);
-            for (size_t col = static_cast<size_t>(firstCol); col < row.tiles.size(); ++col) {
-                int x = kMargin + static_cast<int>(col) * kCardPitch - scroll;
-                if (x > kW) break;
-                if (x + kCard < 0) continue;
-                bool focused = static_cast<int>(r) == focusRow_ && static_cast<int>(col) == focusCol_[r];
-                drawCard(c, row.tiles[col], x, cardY, focused, row.gamePassBadges);
-                if (hidden_.count(row.tiles[col].productId)) c.fillRect({x, cardY, kCard, kCard}, rgba(0, 0, 0, 120), 10);
-            }
-        }
-    }
-
-    c.clearClip();
-    c.fillRect({0, 0, kW, clipTop}, kBg);
-    c.gradientV({0, clipTop, kW, 16}, kBg, withAlpha(kBg, 0));
-
+    // Software-friendly fades rather than expensive blur or a new GPU pipeline.
+    c.gradientH({0, 124, 1130, kH - 124}, rgba(6, 16, 30, 176), rgba(6, 16, 30, 0));
+    c.gradientV({0, 475, kW, kH - 475}, rgba(8, 20, 34, 8), rgba(7, 17, 29, 135));
     drawTopBar(c);
     drawTabs(c);
-    {
-        constexpr int kGridW = kLibraryCols * kCardPitch - kCardGap;
-        const int left = (kW - kGridW) / 2;
-        drawLoadingBar(c, left, 112, 420, nowMs);
+    fonts_.semibold.draw(c, tr(Str::HorizonExplore), 104, 179, 19, env.accent);
+    if (!focus || rows_.empty()) {
+        fonts_.semibold.draw(c, tr(Str::NoGames), 104, 354, 36, kWhite);
+        drawHints(c, {{kIconOptions, tr(Str::Settings)}, {kIconTouchpad, tr(Str::HoldSignOut)}});
+        drawPads(c);
+        drawToast(c, nowMs);
+        return;
     }
-
-    // Fade the rows out under the button hints.
-    c.gradientV({0, kH - 190, kW, 110}, withAlpha(kBg, 0), withAlpha(kBg, 245));
-    c.fillRect({0, kH - 80, kW, 80}, withAlpha(kBg, 245));
-    drawHints(c, {{kIconCross, tr(Str::Select)},
-                  {kIconSquare, tr(focus && hidden_.count(focus->productId) ? Str::Unhide : Str::Hide)},
-                  {kIconTriangle, tr(Str::TabSearch)},
-                  {kIconL3, tr(Str::RefreshLibrary)},
-                  {kIconOptions, tr(Str::Settings)},
-                  {kIconTouchpad, tr(Str::HoldSignOut)}});
+    const int rowIndex = std::clamp(focusRow_, 0, int(rows_.size()) - 1);
+    const GameRow& row = rows_[size_t(rowIndex)];
+    const int count = int(row.tiles.size());
+    if (count <= 0) {
+        drawHints(c, {{kIconOptions, tr(Str::Settings)}, {kIconTouchpad, tr(Str::HoldSignOut)}});
+        drawPads(c);
+        drawToast(c, nowMs);
+        return;
+    }
+    const int selected = std::clamp(focusCol_[size_t(rowIndex)], 0, count - 1);
+    // The collection is part of navigation, not a tiny caption over the shelf.
+    const std::string collection = row.title.empty() ? "GAME PASS" : row.title;
+    fonts_.semibold.draw(c, fonts_.semibold.fit(collection, 38, 1290),
+                         104, 221, 38, kWhite);
+    const std::string collectionPos = trf(Str::HorizonCollectionPosition,
+        std::to_string(rowIndex + 1), std::to_string(rows_.size()));
+    fonts_.regular.draw(c, collectionPos,
+                        1814 - fonts_.regular.measure(collectionPos, 20),
+                        226, 20, soft);
+    fonts_.bold.draw(c, fonts_.bold.fit(focus->name, 57, 1070), 104, 326, 57, kWhite);
+    std::string meta = focus->publisher;
+    if (!focus->categories.empty()) {
+        if (!meta.empty()) meta += "  -  ";
+        meta += focus->categories.front();
+    }
+    if (!meta.empty())
+        fonts_.regular.draw(c, fonts_.regular.fit(meta, 22, 920), 108, 391, 22, soft);
+    const bool canPlay = isEffectivePlayableLocked(*focus);
+    const Color white = rgba(236, 249, 251);
+    c.fillRect(horizon::kPlayButton, white, 16);
+    fonts_.semibold.draw(c, canPlay ? "R2  JOGAR" : "VER JOGO",
+                         horizon::kPlayButton.x + 23, horizon::kPlayButton.y + 18,
+                         26, rgba(12, 38, 49));
+    c.fillRect(horizon::kDetailsButton, rgba(12, 28, 43, 170), 16);
+    c.strokeRect(horizon::kDetailsButton, rgba(189, 230, 237, 127), 1, 16);
+    fonts_.semibold.draw(c, "DETALHES", horizon::kDetailsButton.x + 37,
+                         horizon::kDetailsButton.y + 18, 26, white);
+    if (horizonBoundary_.direction && nowMs >= horizonBoundary_.startedMs &&
+        nowMs - horizonBoundary_.startedMs <= 1600) {
+        fonts_.semibold.draw(c, fonts_.semibold.fit(
+            tr(horizonBoundary_.direction > 0 ? Str::HorizonEndHint : Str::HorizonStartHint),
+            20, 1190), 104, 583, 20, env.accent);
+        animating_ = true; // redraw once to clear the hint when it expires
+    }
+    const auto order = horizon::drawOrder(selected, count, nimboxSlide_.value / 1000.0f);
+    for (int offset : order) {
+        const int index = horizon::indexForOffset(selected, count, offset);
+        if (index < 0) continue;
+        const GameTile& tile = row.tiles[size_t(index)];
+        const Rect card = horizon::tileRect(float(offset) + nimboxSlide_.value / 1000.0f);
+        const bool center = offset == 0;
+        c.fillRect({card.x-4, card.y+10, card.w+8, card.h+3},
+                   rgba(0, 0, 0, center ? 120 : 65), 14);
+        c.fillRect(card, rgba(25, 51, 63), 14);
+        if (!tile.tileUrl.empty()) {
+            if (auto art = images_.get(tile.tileUrl, card.w, card.h))
+                c.drawImage(*art, card.x, card.y, center ? 255 : 214, 14);
+        }
+        if (center)
+            c.strokeRect({card.x-4, card.y-4, card.w+8, card.h+8},
+                         rgba(226, 248, 251), 3, 18);
+        else
+            c.fillRect(card, rgba(5, 16, 26, 30), 14);
+    }
+    const std::string position = trf(Str::HorizonGamePosition,
+        std::to_string(selected+1), std::to_string(count));
+    fonts_.regular.draw(c, position, (kW - fonts_.regular.measure(position, 20)) / 2,
+                        897, 20, rgba(196, 222, 231));
+    fonts_.regular.draw(c, tr(Str::HorizonHorizontalHint), 104, 943, 19, soft);
+    const char* directions = tr(Str::HorizonVerticalHint);
+    fonts_.regular.draw(c, directions, 1816 - fonts_.regular.measure(directions, 19),
+                        943, 19, soft);
+    // Soft footer with the live wallpaper visible behind it.
+    c.gradientV({0, kH - 145, kW, 145}, rgba(3, 10, 19, 0), rgba(3, 10, 19, 184));
+    drawHints(c, {{kIconCross, "Detalhes"}, {kIconTriangle, tr(Str::TabSearch)},
+                  {kIconOptions, tr(Str::Settings)}, {kIconTouchpad, tr(Str::HoldSignOut)}});
     drawPads(c);
     drawToast(c, nowMs);
 }
 
+void AppUi::drawHome(Canvas& c, uint64_t nowMs) {
+    if (searching_) return drawSearch(c, nowMs);
+    if (tab_ == Tab::Library) return drawLibrary(c, nowMs);
+    if (tab_ == Tab::Consoles) return drawConsoles(c, nowMs);
+    drawNimboxHorizon(c, nowMs);
+}
+
+// Nimbox Showcase: an editorial, console-first detail page. The game image
+// occupies the stage; focusable actions use the same native controller/touch
+// events as before. No extra service or HTML view is involved.
 void AppUi::drawDetails(Canvas& c, uint64_t nowMs) {
     const GameTile* g = &detail_;
     playRect_ = {};
@@ -1194,287 +1171,254 @@ void AppUi::drawDetails(Canvas& c, uint64_t nowMs) {
     claimRect_ = {};
     c.clear(kBg);
     if (g->productId.empty() && g->titleId.empty()) return;
-    // Without its hero art (games to buy, search results, or not downloaded
-    // yet): the cover on the right, never another game's backdrop.
-    constexpr int kCover = 420;
-    const Rect cover{kW - kMargin - kCover, 170, kCover, kCover};
-    if (!drawHero(c, nowMs, g->heroUrl, true)) {
-        // No hero art (yet): the cover, until the art arrives and fades in.
-        drawBackground(c);
-        if (g->playable || !g->purchasable || isFreeGame(*g)) {  // paid games show their QR code there instead
-            if (auto img = images_.get(g->tileUrl, kCover, kCover)) c.drawImage(*img, cover.x, cover.y, 255, 16);
-            else c.fillRect(cover, kPlaceholder, 16);
-        }
-    }
-    drawTopBar(c);
-    int y = 260;
-    for (const auto& line : fonts_.bold.wrap(g->name, 68, 960, 2)) {
-        fonts_.bold.draw(c, line, kMargin, y, 68, kWhite);
-        y += 82;
-    }
-    y += 6;
+
+    const bool isF2P = isFreeGame(*g);
+    const bool effectivePlayable = isEffectivePlayableLocked(*g);
+    const bool needsPurchase = !effectivePlayable && !g->playable && (isF2P || g->purchasable);
     const char* planName = planDisplayName(g->plan);
+
+    if (!drawHero(c, nowMs, g->heroUrl, true)) {
+        drawBackground(c);
+        // Never reuse the previous game's hero when this one has no art.
+        if (auto cover = images_.get(g->tileUrl, 900, 900))
+            c.drawImage(*cover, 900, 70, 160, 18);
+    }
+
+    // A quiet editorial stage, not a large opaque "app card". The artwork
+    // remains visible between the text and the narrow information rail.
+    c.gradientH({0, 160, 1130, 750}, rgba(4, 13, 24, 174), rgba(4, 13, 24, 0));
+    c.gradientH({1320, 162, 600, 762}, rgba(3, 11, 20, 0), rgba(3, 11, 20, 190));
+    c.gradientV({0, 745, kW, 210}, rgba(5, 13, 23, 0), rgba(5, 13, 23, 205));
+    c.fillRect(showcase::kFrame, rgba(8, 20, 35, 28), 20);
+    c.strokeRect(showcase::kFrame, rgba(216, 232, 247, 76), 1, 20);
+    // Fine section markers and a PlayStation-style cool-white focused state.
+    c.fillRect({showcase::kTextX, 233, 48, 3}, rgba(219, 241, 249), 2);
+    fonts_.semibold.draw(c, tr(Str::DetailsShowcase), showcase::kTextX, 248, 19,
+                         rgba(190, 219, 230));
+
+    drawTopBar(c);
+    // The gear is also a touch target; L2 opens these system settings from a
+    // game detail without replacing the existing Options/game profile menu.
+    fonts_.regular.draw(c, tr(Str::SettingsDetailsShortcut), 1584, 141, 18,
+                        rgba(197, 220, 235));
+
+    // Main editorial column.
+    int titleY = 288;
+    const auto titleLines = fonts_.bold.wrap(g->name, 63, showcase::kTextW, 2);
+    for (const auto& line : titleLines) {
+        fonts_.bold.draw(c, line, showcase::kTextX, titleY, 63, kWhite);
+        titleY += 78;
+    }
+    int byY = titleY + 13;
     std::string byLine;
     if (!g->publisher.empty()) byLine = trf(Str::PublisherBy, g->publisher);
-    if (planName && g->playable)
-        byLine += (byLine.empty() ? "" : "  \xE2\x80\xA2  ") + trf(Str::IncludedWithPlan, planName);
+    if (planName && g->playable) {
+        if (!byLine.empty()) byLine += "   \xE2\x80\xA2   ";
+        byLine += trf(Str::IncludedWithPlan, planName);
+    }
     if (!byLine.empty()) {
-        fonts_.semibold.draw(c, byLine, kMargin, y, 26, kGray);
-        y += 40;
+        fonts_.semibold.draw(c, fonts_.semibold.fit(byLine, 23, showcase::kTextW),
+                             showcase::kTextX, byY, 23, rgba(210, 224, 232));
     }
 
-    // Age rating & content descriptors (ClassInd, ESRB, PEGI)
-    if (!g->ratingAge.empty()) {
-        Color badgeBg = rgba(100, 100, 100);
-        Color badgeFg = kWhite;
-        if (g->ratingAge == "Livre" || g->ratingAge == "E" || g->ratingAge == "3+" || g->ratingAge == "0") {
-            badgeBg = rgba(0, 160, 60);
-        } else if (g->ratingAge == "10+" || g->ratingAge == "E10+" || g->ratingAge == "7+") {
-            badgeBg = rgba(0, 120, 220);
-        } else if (g->ratingAge == "12+") {
-            badgeBg = rgba(230, 180, 0);
-            badgeFg = rgba(20, 20, 20);
-        } else if (g->ratingAge == "14+" || g->ratingAge == "T") {
-            badgeBg = rgba(235, 100, 0);
-        } else if (g->ratingAge == "16+" || g->ratingAge == "M") {
-            badgeBg = rgba(210, 30, 30);
-        } else if (g->ratingAge == "18+" || g->ratingAge == "AO") {
-            badgeBg = rgba(30, 30, 30);
-        }
+    // A single calm metadata row rather than unstructured text over the image.
+    std::string metadata;
+    if (!g->ratingAge.empty()) metadata = g->ratingAge;
+    if (const char* platform = platformLabel(g->platform)) {
+        if (!metadata.empty()) metadata += "   \xE2\x80\xA2   ";
+        metadata += platform;
+    }
+    for (size_t i = 0; i < g->categories.size() && i < 3; ++i) {
+        if (!metadata.empty()) metadata += "   \xE2\x80\xA2   ";
+        metadata += g->categories[i];
+    }
+    if (g->mouseKeyboard) {
+        if (!metadata.empty()) metadata += "   \xE2\x80\xA2   ";
+        metadata += tr(Str::MouseKeyboardSupport);
+    }
+    if (!metadata.empty()) {
+        fonts_.regular.draw(c, fonts_.regular.fit(metadata, 21, showcase::kTextW),
+                            showcase::kTextX, byY + 42, 21, rgba(191, 213, 222));
+    }
 
-        int textW = fonts_.bold.measure(g->ratingAge, 20);
-        int badgeW = std::max(38, textW + 16);
-        int badgeH = 28;
-        Rect badge{kMargin, y + 2, badgeW, badgeH};
-        c.fillRect(badge, badgeBg, 6);
-        if (badgeBg == rgba(30, 30, 30)) {
-            c.strokeRect(badge, rgba(255, 255, 255, 160), 1, 6);
-        }
-        fonts_.bold.draw(c, g->ratingAge, badge.x + (badge.w - textW) / 2, fonts_.bold.centeredY(badge.y, badge.h, 20), 20, badgeFg);
+    // About the game. Keep full descriptions in the model, trim ONLY the
+    // presentation to leave the action row fixed for all title lengths.
+    c.line(showcase::kTextX, 559, showcase::kTextX + 625, 559, 1,
+           rgba(208, 232, 239, 90));
+    fonts_.semibold.draw(c, tr(Str::DetailsAbout), showcase::kTextX, 580, 24, kWhite);
+    int descY = 622;
+    for (const auto& line : fonts_.regular.wrap(g->description, 23, 905, needsPurchase ? 2 : 4)) {
+        fonts_.regular.draw(c, line, showcase::kTextX, descY, 23,
+                            rgba(207, 222, 231));
+        descY += 34;
+    }
 
-        std::string descLine;
-        if (!g->ratingSystem.empty()) descLine = g->ratingSystem;
-        for (const auto& d : g->ratingDescriptors) {
-            std::string next = (descLine.empty() ? "" : "  \xE2\x80\xA2  ") + d;
-            if (fonts_.semibold.measure(descLine + next, 22) > 750) {
-                descLine += " ...";
-                break;
+    // Right-hand rail: real Xbox data, with no invented trailers or awards.
+    auto panel = [&](Rect bounds) {
+        c.fillRect(bounds, rgba(5, 15, 27, 181), 16);
+        c.strokeRect(bounds, rgba(209, 231, 241, 72), 1, 16);
+    };
+    panel(showcase::kAchievementsPanel);
+    const int rx = showcase::kRailX + 25;
+    fonts_.semibold.draw(c, tr(Str::Achievements), rx, 281, 23, kWhite);
+    int unlocked = 0, total = 0, score = 0, possibleScore = 0;
+    if (auto it = achievements_.find(g->xboxTitleId); it != achievements_.end()) {
+        unlocked = it->second.unlockedCount;
+        total = it->second.totalCount;
+        score = it->second.unlockedGamerscore;
+        possibleScore = it->second.totalGamerscore;
+    }
+    if (!g->xboxTitleId.empty()) {
+        std::string progress = total > 0 ? std::to_string(unlocked) + " / " + std::to_string(total) : "--";
+        fonts_.bold.draw(c, progress, rx, 319, 36, kWhite);
+        std::string gs = total > 0 ? std::to_string(score) + " / " + std::to_string(possibleScore) + " G" : "";
+        fonts_.regular.draw(c, gs, rx + 185, 331, 20, kGray);
+        c.fillRect({rx, 392, 354, 8}, rgba(210, 227, 237, 43), 4);
+        if (total > 0) {
+            int progressW = static_cast<int>(354.0 * std::clamp(unlocked, 0, total) / total);
+            if (progressW > 0)
+                c.fillRect({rx, 392, progressW, 8}, rgba(226, 248, 255), 4);
+        }
+    } else {
+        fonts_.regular.draw(c, tr(Str::NoAchievements), rx, 334, 22, kGray);
+    }
+
+    uint64_t playedSeconds = 0;
+    if (!g->productId.empty()) {
+        if (auto it = settings_.titlePlaytime.find(g->productId); it != settings_.titlePlaytime.end())
+            playedSeconds = it->second;
+    }
+    if (!playedSeconds && !g->titleId.empty()) {
+        if (auto it = settings_.titlePlaytime.find(g->titleId); it != settings_.titlePlaytime.end())
+            playedSeconds = it->second;
+    }
+
+    panel(showcase::kSessionPanel);
+    fonts_.semibold.draw(c, tr(Str::DetailsSession), rx, 489, 22, kWhite);
+    int lineY = 527;
+    if (queueTitle_ == g->titleId && queueSeconds_ >= 0) {
+        const std::string queue = queueSeconds_ < 60
+            ? trf(Str::QueueSeconds, std::to_string(queueSeconds_))
+            : trf(Str::QueueMinutes, std::to_string((queueSeconds_ + 59) / 60));
+        fonts_.regular.draw(c, fonts_.regular.fit(queue, 21, 353), rx, lineY, 21, kGray);
+        lineY += 35;
+    }
+    if (playedSeconds > 0) {
+        const std::string played = trf(Str::PlaytimePlayed, formatPlaytime(playedSeconds));
+        fonts_.regular.draw(c, fonts_.regular.fit(played, 21, 353), rx, lineY, 21, kGray);
+        lineY += 35;
+    }
+    if (lineY == 527 && planName)
+        fonts_.regular.draw(c, planName, rx, lineY, 21, kGray);
+    if (lineY == 527 && !planName && !g->publisher.empty())
+        fonts_.regular.draw(c, fonts_.regular.fit(g->publisher, 21, 353), rx, lineY, 21, kGray);
+
+    panel(showcase::kArtworkPanel);
+    if (!needsPurchase || isF2P) {
+    const Rect artwork{showcase::kRailX + 24, 659, 174, 194};
+    c.fillRect(artwork, rgba(31, 52, 65), 12);
+    if (auto image = images_.get(g->tileUrl, artwork.w, artwork.h))
+        c.drawImage(*image, artwork.x, artwork.y, 255, 12);
+    int mediaX = artwork.x + artwork.w + 20;
+    fonts_.semibold.draw(c, tr(Str::DetailsArtwork), mediaX, 678, 21, kWhite);
+    if (planName && g->playable) {
+        fonts_.regular.draw(c, fonts_.regular.fit(planName, 18, 171),
+                            mediaX, 715, 18, kGray);
+    }
+    if (!g->ratingSystem.empty())
+        fonts_.regular.draw(c, fonts_.regular.fit(g->ratingSystem, 18, 170),
+                            mediaX, 751, 18, kGray);
+    if (g->mouseKeyboard)
+        fonts_.regular.draw(c, fonts_.regular.fit(tr(Str::MouseKeyboardSupport), 18, 170),
+                            mediaX, 790, 18, kGray);
+
+    }
+
+    // Premium action states retain the exact account entitlement logic and
+    // event mapping already implemented by the Nimbox controller handler.
+    if (needsPurchase) {
+        if (isF2P) {
+            fonts_.semibold.draw(c, tr(Str::FreeToPlay), showcase::kTextX, 718, 22, kWhite);
+            const auto hint = fonts_.regular.wrap(tr(Str::FreeAcquireHint), 20, 880, 2);
+            int hy = 753;
+            for (const auto& line : hint) {
+                fonts_.regular.draw(c, line, showcase::kTextX, hy, 20, kGray);
+                hy += 27;
             }
-            descLine += next;
-        }
-        if (!descLine.empty()) {
-            fonts_.semibold.draw(c, descLine, badge.x + badge.w + 14, fonts_.semibold.centeredY(badge.y, badge.h, 22), 22, kDim);
-        }
-        y += 38;
-    }
-    std::string cats;
-    if (const char* p = platformLabel(g->platform)) cats = p;
-    for (const auto& cat : g->categories) cats += (cats.empty() ? "" : "  \xE2\x80\xA2  ") + cat;
-    if (g->mouseKeyboard) cats += std::string(cats.empty() ? "" : "  \xE2\x80\xA2  ") + tr(Str::MouseKeyboardSupport);
-    if (!cats.empty()) {
-        fonts_.regular.draw(c, cats, kMargin, y, 24, kDim);
-        y += 44;
-    }
-    y += 10;
-    bool isFreePlayer = isFreeAccountLocked();
-    bool isF2P = isFreeGame(*g);
-    bool effectivePlayable = isEffectivePlayableLocked(*g);
-    // Shorter for a free or purchasable game, whose page also has the hint and Play/price below.
-    int descLines = !effectivePlayable && !g->playable && (isF2P || g->purchasable) ? 4 : 6;
-    for (const auto& line : fonts_.regular.wrap(g->description, 24, 880, descLines)) {
-        fonts_.regular.draw(c, line, kMargin, y, 24, kGray);
-        y += 34;
-    }
-    if (!effectivePlayable && !g->playable && (isF2P || g->purchasable)) {
-        // Free to play: "Get Free" button to claim license directly; Paid: price & store QR.
-        int ty = y + 30;
-        auto price = prices_.find(g->productId);
-        bool free = isFreeGame(*g);
-        if (free) {
-            // Free to play: "Get Free" button to claim license directly.
-            fonts_.bold.draw(c, tr(Str::Free), kMargin, ty, 52, kWhite);
-            ty += 84;
-            fonts_.semibold.draw(c, tr(Str::FreeToPlay), kMargin, ty, 28, kWhite);
-            ty += 48;
-            for (const auto& line : fonts_.regular.wrap(tr(Str::FreeAcquireHint), 24, 820, 3)) {
-                fonts_.regular.draw(c, line, kMargin, ty, 24, kGray);
-                ty += 34;
-            }
+            claimRect_ = showcase::kClaimButton;
+            c.fillRect(claimRect_, rgba(235, 245, 252), 26);
+            if (detailButtonFocus_ == 0)
+                c.strokeRect({claimRect_.x - 6, claimRect_.y - 6,
+                              claimRect_.w + 12, claimRect_.h + 12}, kWhite, 3, 30);
             const char* label = tr(Str::ClaimFree);
-            int tw = fonts_.semibold.measure(label, 30);
-            int btnW = std::max(320, tw + 64);
-            Rect claimBtn{kMargin, ty + 30, btnW, 76};
-            claimRect_ = claimBtn;
-            if (detailButtonFocus_ == 0) {
-                c.strokeRect({claimBtn.x - 7, claimBtn.y - 7, claimBtn.w + 14, claimBtn.h + 14}, kWhite, 4, 45);
-            }
-            c.fillRect(claimBtn, kGreen, 38);
-            fonts_.semibold.draw(c, label, claimBtn.x + (claimBtn.w - tw) / 2, claimBtn.y + 22, 30, kWhite);
-        } else if (price != prices_.end()) {
-            // The price, and the regular one crossed out while on sale.
-            int px = kMargin;
-            fonts_.bold.draw(c, price->second.now, px, ty, 52, kWhite);
-            px += fonts_.bold.measure(price->second.now, 52) + 24;
-            if (!price->second.was.empty()) {
-                int w = fonts_.semibold.measure(price->second.was, 30);
-                fonts_.semibold.draw(c, price->second.was, px, ty + 14, 30, kDim);
-                c.line(static_cast<float>(px), static_cast<float>(ty + 32), static_cast<float>(px + w),
-                       static_cast<float>(ty + 32), 2, kDim);
-            }
-            ty += 84;
-        }
-        if (!free) {
-            drawBag(c, kMargin + 12, ty + 16, kGreen);
-            fonts_.semibold.draw(c, tr(Str::BuyToPlay), kMargin + 36, ty, 28, kWhite);
-            ty += 48;
-            for (const auto& line : fonts_.regular.wrap(tr(Str::BuyHint), 24, 820, 3)) {
-                fonts_.regular.draw(c, line, kMargin, ty, 24, kGray);
-                ty += 34;
-            }
+            fonts_.semibold.draw(c, label,
+                                 claimRect_.x + (claimRect_.w - fonts_.semibold.measure(label, 28)) / 2,
+                                 claimRect_.y + 23, 28, rgba(13, 30, 46));
+        } else {
+            if (auto it = prices_.find(g->productId); it != prices_.end())
+                fonts_.bold.draw(c, it->second.now, showcase::kTextX, 759, 34, kWhite);
+            const char* label = tr(Str::BuyToPlay);
+            fonts_.semibold.draw(c, label, showcase::kTextX, 832, 25, kWhite);
             std::string storeLocale;
             if (settings_.storeCountry == "br") storeLocale = "pt-BR/";
             else if (settings_.storeCountry == "jp") storeLocale = "ja-JP/";
             else if (settings_.storeCountry == "kr") storeLocale = "ko-KR/";
             else if (settings_.storeCountry == "pl") storeLocale = "pl-PL/";
             else if (settings_.storeCountry == "us") storeLocale = "en-US/";
-            Rect box = drawQr(c, "https://www.xbox.com/" + storeLocale + "games/store/p/" + g->productId,
-                              kW - kMargin, 190, 440);
-            if (box.w > 0) {
+            Rect qr = drawQr(c, "https://www.xbox.com/" + storeLocale + "games/store/p/" + g->productId,
+                             showcase::kRailX + showcase::kRailW - 25, 644, 185);
+            if (qr.w > 0) {
                 const char* scan = tr(Str::ScanToBuy);
-                int w = fonts_.semibold.measure(scan, 26);
-                fonts_.semibold.draw(c, scan, box.x + (box.w - w) / 2, box.y + box.h + 22, 26, kWhite);
+                fonts_.regular.draw(c, fonts_.regular.fit(scan, 16, 205), qr.x, qr.y + qr.h + 10, 16, kWhite);
             }
         }
-        std::vector<Hint> hints;
-        if (free) hints.push_back({kIconCross, tr(Str::ClaimFree)});
-        hints.push_back({kIconOptions, tr(Str::GameSettings)});
-        hints.push_back({kIconTriangle, tr(favorites_.count(g->productId) ? Str::RemoveFavorite : Str::AddFavorite)});
-        hints.push_back({kIconSquare, tr(hidden_.count(g->productId) ? Str::Unhide : Str::Hide)});
-        if (!isAcquired(*g)) hints.push_back({kIconR3, tr(wishlist_.count(g->productId) ? Str::RemoveWishlist : Str::AddWishlist)});
-        if (!g->xboxTitleId.empty()) hints.push_back({kIconL3, tr(Str::Achievements)});
-        hints.push_back({kIconCircle, tr(Str::Back)});
-        drawHints(c, hints);
-        drawToast(c, nowMs);
-        return;
-    }
-    if (!effectivePlayable) {
-        // Bought separately or outside the subscription: no Play button.
-        std::string msg = (isFreePlayer && !isF2P) ? tr(Str::GamePassRequired) : (planName ? trf(Str::IncludedWithPlan, planName) : std::string(tr(Str::NotPlayable)));
-        int w = std::max(560, fonts_.semibold.measure(msg, 28) + 124);
-        Rect note{kMargin, std::max(y + 48, 620), w, 76};
-        c.fillRect(note, rgba(255, 255, 255, 40), 38);
-        drawLock(c, note.x + 52, note.y + note.h / 2);
-        fonts_.semibold.draw(c, msg, note.x + 90, note.y + 22, 28, kGray);
-
-        int nextBadgeX = note.x + note.w + 24;
-        uint64_t playedSeconds = 0;
-        if (!g->productId.empty()) {
-            auto it = settings_.titlePlaytime.find(g->productId);
-            if (it != settings_.titlePlaytime.end()) playedSeconds = it->second;
-        }
-        if (!playedSeconds && !g->titleId.empty()) {
-            auto it = settings_.titlePlaytime.find(g->titleId);
-            if (it != settings_.titlePlaytime.end()) playedSeconds = it->second;
-        }
-        if (playedSeconds > 0) {
-            std::string playedText = trf(Str::PlaytimePlayed, formatPlaytime(playedSeconds));
-            int pw = fonts_.semibold.measure(playedText, 24);
-            Rect pill{nextBadgeX, note.y + 14, pw + 44, 48};
-            c.fillRect(pill, rgba(0, 0, 0, 150), 24);
-            fonts_.semibold.draw(c, playedText, pill.x + 22, pill.y + 12, 24, kWhite);
-        }
-
-        std::vector<Hint> hints = {
-            {kIconOptions, tr(Str::GameSettings)},
-            {kIconTriangle, tr(favorites_.count(g->productId) ? Str::RemoveFavorite : Str::AddFavorite)},
-            {kIconSquare, tr(hidden_.count(g->productId) ? Str::Unhide : Str::Hide)}
-        };
-        if (!isAcquired(*g)) hints.push_back({kIconR3, tr(wishlist_.count(g->productId) ? Str::RemoveWishlist : Str::AddWishlist)});
-        if (!g->xboxTitleId.empty()) hints.push_back({kIconL3, tr(Str::Achievements)});
-        hints.push_back({kIconCircle, tr(Str::Back)});
-        drawHints(c, hints);
-        drawToast(c, nowMs);
-        return;
-    }
-    bool hasAchievements = !g->xboxTitleId.empty();
-    bool playFocused = (detailButtonFocus_ == 0);
-    bool achFocused = (detailButtonFocus_ == 1 && hasAchievements);
-
-    // Play button
-    Rect play{kMargin, std::max(y + 48, 620), 300, 76};
-    playRect_ = play;
-    if (playFocused) {
-        c.strokeRect({play.x - 7, play.y - 7, play.w + 14, play.h + 14}, kWhite, 4, 45);
-        c.fillRect(play, kGreen, 38);
+    } else if (!effectivePlayable) {
+        Rect note = showcase::kLockedNotice;
+        c.fillRect(note, rgba(8, 22, 36, 215), 26);
+        c.strokeRect(note, rgba(228, 239, 245, 110), 1, 26);
+        drawLock(c, note.x + 39, note.y + 41);
+        const std::string status = isFreeAccountLocked() && !isF2P ? tr(Str::GamePassRequired)
+            : planName ? trf(Str::IncludedWithPlan, planName) : std::string(tr(Str::NotPlayable));
+        fonts_.semibold.draw(c, fonts_.semibold.fit(status, 24, note.w - 110),
+                             note.x + 76, note.y + 25, 24, kWhite);
     } else {
-        c.fillRect(play, rgba(16, 124, 65, 140), 38);
-    }
-    float tx = play.x + 70, ty = play.y + play.h / 2.0f;
-    c.line(tx - 8, ty - 13, tx - 8, ty + 13, 4, kWhite);
-    c.line(tx - 8, ty - 13, tx + 13, ty, 4, kWhite);
-    c.line(tx - 8, ty + 13, tx + 13, ty, 4, kWhite);
-    fonts_.semibold.draw(c, tr(Str::Play), play.x + 108, play.y + 20, 32, kWhite);
+        playRect_ = showcase::kPlayButton;
+        const bool playFocused = detailButtonFocus_ == 0;
+        c.fillRect(playRect_, playFocused ? rgba(243, 247, 253) : rgba(232, 244, 251, 185), 26);
+        if (playFocused)
+            c.strokeRect({playRect_.x - 6, playRect_.y - 6,
+                          playRect_.w + 12, playRect_.h + 12}, kWhite, 3, 30);
+        const Color ink = rgba(11, 30, 48);
+        c.line(playRect_.x + 42, playRect_.y + 27, playRect_.x + 42, playRect_.y + 53, 3, ink);
+        c.line(playRect_.x + 42, playRect_.y + 27, playRect_.x + 65, playRect_.y + 40, 3, ink);
+        c.line(playRect_.x + 42, playRect_.y + 53, playRect_.x + 65, playRect_.y + 40, 3, ink);
+        fonts_.semibold.draw(c, tr(Str::Play), playRect_.x + 93, playRect_.y + 23, 31, ink);
 
-    int nextBadgeX = play.x + play.w + 24;
-
-    // Achievements button beside Play
-    if (hasAchievements) {
-        std::string achText = tr(Str::Achievements);
-        auto it = achievements_.find(g->xboxTitleId);
-        if (it != achievements_.end() && it->second.totalCount > 0) {
-            const auto& ach = it->second;
-            achText = std::to_string(ach.unlockedCount) + "/" + std::to_string(ach.totalCount) +
-                      " (" + std::to_string(ach.unlockedGamerscore) + "/" + std::to_string(ach.totalGamerscore) + " G)";
+        if (!g->xboxTitleId.empty()) {
+            achRect_ = showcase::kAchievementsButton;
+            const bool focused = detailButtonFocus_ == 1;
+            c.fillRect(achRect_, focused ? rgba(243, 247, 253) : rgba(12, 27, 43, 210), 26);
+            c.strokeRect(achRect_, rgba(213, 233, 243, 130), focused ? 3 : 1, 26);
+            if (focused)
+                c.strokeRect({achRect_.x - 6, achRect_.y - 6,
+                              achRect_.w + 12, achRect_.h + 12}, kWhite, 3, 30);
+            drawGamerscoreBadge(c, static_cast<float>(achRect_.x + 44),
+                                static_cast<float>(achRect_.y + 39), 13);
+            fonts_.semibold.draw(c, fonts_.semibold.fit(tr(Str::Achievements), 24, achRect_.w - 90),
+                                 achRect_.x + 74, achRect_.y + 27, 24,
+                                 focused ? ink : kWhite);
         }
-        int textW = fonts_.semibold.measure(achText, 26);
-        int achW = std::max(240, textW + 80);
-        Rect achBtn{nextBadgeX, play.y, achW, 76};
-        achRect_ = achBtn;
-        if (achFocused) {
-            c.strokeRect({achBtn.x - 7, achBtn.y - 7, achBtn.w + 14, achBtn.h + 14}, kWhite, 4, 45);
-            c.fillRect(achBtn, kGreen, 38);
-        } else {
-            c.fillRect(achBtn, rgba(255, 255, 255, 30), 38);
-        }
-        drawGamerscoreBadge(c, static_cast<float>(achBtn.x + 36), static_cast<float>(achBtn.y + 38), 13.0f);
-        fonts_.semibold.draw(c, achText, achBtn.x + 60, achBtn.y + 22, 26, kWhite);
-        nextBadgeX += achBtn.w + 24;
     }
 
-    // The service's estimate of the wait to start it, beside Play.
-    if (queueTitle_ == g->titleId && queueSeconds_ >= 0) {
-        std::string wait = queueSeconds_ < 60 ? trf(Str::QueueSeconds, std::to_string(queueSeconds_))
-                                              : trf(Str::QueueMinutes, std::to_string((queueSeconds_ + 59) / 60));
-        int w = fonts_.regular.measure(wait, 26);
-        Rect pill{nextBadgeX, play.y + 14, w + 44, 48};
-        c.fillRect(pill, rgba(0, 0, 0, 150), 24);  // readable over any hero art
-        fonts_.regular.draw(c, wait, pill.x + 22, pill.y + 10, 26, kWhite);
-        nextBadgeX += pill.w + 16;
-    }
-    uint64_t playedSeconds = 0;
-    if (!g->productId.empty()) {
-        auto it = settings_.titlePlaytime.find(g->productId);
-        if (it != settings_.titlePlaytime.end()) playedSeconds = it->second;
-    }
-    if (!playedSeconds && !g->titleId.empty()) {
-        auto it = settings_.titlePlaytime.find(g->titleId);
-        if (it != settings_.titlePlaytime.end()) playedSeconds = it->second;
-    }
-    if (playedSeconds > 0) {
-        std::string playedText = trf(Str::PlaytimePlayed, formatPlaytime(playedSeconds));
-        int w = fonts_.semibold.measure(playedText, 24);
-        Rect pill{nextBadgeX, play.y + 14, w + 44, 48};
-        c.fillRect(pill, rgba(0, 0, 0, 150), 24);
-        fonts_.semibold.draw(c, playedText, pill.x + 22, pill.y + 12, 24, kWhite);
-        nextBadgeX += pill.w + 16;
-    }
-    std::vector<Hint> hints = {
-        {kIconCross, tr(achFocused ? Str::Achievements : Str::Play)},
-        {kIconOptions, tr(Str::GameSettings)},
-        {kIconTriangle, tr(favorites_.count(g->productId) ? Str::RemoveFavorite : Str::AddFavorite)},
-        {kIconSquare, tr(hidden_.count(g->productId) ? Str::Unhide : Str::Hide)}
-    };
+    preview31::footerBackdrop(c);
+    std::vector<Hint> hints;
+    if (claimRect_.w > 0) hints.push_back({kIconCross, tr(Str::ClaimFree)});
+    else if (playRect_.w > 0) hints.push_back({kIconCross, tr(detailButtonFocus_ == 1 && achRect_.w > 0 ? Str::Achievements : Str::Play)});
+    hints.push_back({kIconOptions, tr(Str::GameSettings)});
+    hints.push_back({kIconTriangle, tr(favorites_.count(g->productId) ? Str::RemoveFavorite : Str::AddFavorite)});
+    hints.push_back({kIconSquare, tr(hidden_.count(g->productId) ? Str::Unhide : Str::Hide)});
     if (!isAcquired(*g)) hints.push_back({kIconR3, tr(wishlist_.count(g->productId) ? Str::RemoveWishlist : Str::AddWishlist)});
+    if (!g->xboxTitleId.empty() && achRect_.w == 0) hints.push_back({kIconL3, tr(Str::Achievements)});
     hints.push_back({kIconCircle, tr(Str::Back)});
     drawHints(c, hints);
     drawToast(c, nowMs);
@@ -1934,6 +1878,20 @@ void AppUi::render(Canvas& c, uint64_t nowMs) {
     for (auto& a : rowScroll_) animating_ |= a.step(dt);
     animating_ |= gridScroll_.step(dt);
     animating_ |= resultScroll_.step(dt);
+    // Horizon's cover navigation uses a framerate-independent ease-out.
+    // Reduced-motion preference eliminates the transition.
+    if (nimboxReducedMotion_) {
+        nimboxSlide_.value = nimboxSlide_.target;
+    } else {
+        const float remaining = nimboxSlide_.target - nimboxSlide_.value;
+        if (std::fabs(remaining) < 0.5f) {
+            nimboxSlide_.value = nimboxSlide_.target;
+        } else {
+            const float blend = 1.0f - std::exp(-6.7f * dt);
+            nimboxSlide_.value += remaining * std::clamp(blend, 0.0f, 1.0f);
+            animating_ = true;
+        }
+    }
     dirty_ = false;
     switch (screen_) {
         case Screen::Splash: drawSplash(c, nowMs); break;
@@ -1946,7 +1904,33 @@ void AppUi::render(Canvas& c, uint64_t nowMs) {
             break;
         case Screen::Launching: drawLaunching(c, nowMs); break;
         case Screen::Error: drawError(c); break;
-        case Screen::Settings: drawSettings(c); break;
+        case Screen::Settings: {
+            // One-shot software frost: render the screen that opened Settings,
+            // downsample then enlarge it. No per-frame 1080p blur cost and no
+            // GPU/MediaCodec dependency on Android, desktop or PS5.
+            if (!settingsBackdropReady_) {
+                Canvas base(kW, kH, rgba(4, 12, 23));
+                if (settingsReturnScreen_ == Screen::Details)
+                    drawDetails(base, nowMs);
+                else if (settingsReturnScreen_ == Screen::Home)
+                    drawHome(base, nowMs);
+                else
+                    drawError(base);
+                Image capture;
+                capture.w = kW;
+                capture.h = kH;
+                capture.opaque = true;
+                capture.px.assign(base.data(), base.data() + static_cast<size_t>(kW) * kH);
+                const Image reduced = coverResize(capture, 320, 180);
+                settingsFrostedBackdrop_ = coverResize(reduced, kW, kH);
+                settingsBackdropReady_ = true;
+            }
+            if (settingsBackdropReady_) c.drawImage(settingsFrostedBackdrop_, 0, 0);
+            else drawBackground(c);
+            drawSettings(c);
+            if (settingsQrExpanded_) drawSettingsQrOverlay(c);
+            break;
+        }
         case Screen::Updating: drawUpdating(c, nowMs); break;
         case Screen::Streaming: break;
     }

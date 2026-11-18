@@ -24,7 +24,7 @@ constexpr Color kWarnColor = rgba(255, 176, 32);  // the connection warning
 constexpr int kBitrates[] = {-1, 0, 15, 20, 25, 30, 35, 40, 45, 50};
 constexpr int kBitratesCount = sizeof(kBitrates) / sizeof(kBitrates[0]);
 
-const char* resolutionName(int r) { return r == 1 ? "720p" : r == 2 ? tr(Str::ResBest) : "1080p"; }
+const char* resolutionName(int r) { return r == 1 ? "720p" : r == 3 ? "1440p (QHD)" : r == 2 ? tr(Str::ResBest) : "1080p"; }
 
 std::string fmt(const char* f, double v) {
     char b[32];
@@ -342,11 +342,30 @@ MenuAction StreamMenu::handle(const NavInput& navIn) {
 #if defined(__ANDROID__)
     if (in.up || in.down) {
         constexpr int n = static_cast<int>(std::size(kAndroidOrder));
+        constexpr int kVisibleRows = 10;
+        constexpr int kRowHeight = 50;
         int pos = 0;
         for (int k = 0; k < n; ++k)
             if (kAndroidOrder[k] == selected_) pos = k;
         do pos = (pos + (in.up ? n - 1 : 1)) % n; while (!itemShown(kAndroidOrder[pos]));
         selected_ = kAndroidOrder[pos];
+
+        // Scrolling must follow gamepad focus, not only touch swipes. With
+        // video/quality options enabled the Android menu is >10 rows tall.
+        int selectedVisible = 0, shown = 0;
+        for (int item : kAndroidOrder) {
+            if (!itemShown(item)) continue;
+            if (item == selected_) selectedVisible = shown;
+            ++shown;
+        }
+        const int maxStart = std::max(0, shown - kVisibleRows);
+        int start = std::clamp(
+            static_cast<int>(scrollPixelOffset_ / kRowHeight), 0, maxStart);
+        if (selectedVisible < start) start = selectedVisible;
+        if (selectedVisible >= start + kVisibleRows)
+            start = selectedVisible - kVisibleRows + 1;
+        scrollPixelOffset_ =
+            static_cast<float>(std::clamp(start, 0, maxStart) * kRowHeight);
         in.up = in.down = false;
     }
 #else
@@ -424,14 +443,18 @@ MenuAction StreamMenu::handle(const NavInput& navIn) {
     }
     if (selected_ == Resolution && (in.left || in.right)) {
         int pos = 0;
-        int n = 3;  // 720p, 1080p, Best (Auto)
+        int n = 4;  // 720p, 1080p, explicit 1440p, Best (Auto)
         for (int i = 0; i < n; ++i)
             if (kResolutionOrder[i] == resolution_) pos = i;
         pos = in.left ? (pos + n - 1) % n : (pos + 1) % n;
         resolution_ = kResolutionOrder[pos];
     }
     if (selected_ == VideoDecoderItem && (in.left || in.right || in.accept)) {
+        #if defined(__ANDROID__)
+        videoDecoder_ = (videoDecoder_ + 1) % 3;
+#else
         videoDecoder_ = (videoDecoder_ == 0) ? 1 : 0;
+#endif
         return MenuAction::VideoDecoder;
     }
     if (selected_ == FpsLimiterItem && (in.left || in.right)) {
@@ -682,7 +705,12 @@ const char* StreamMenu::itemDescription(int item) const {
         case Sharpness: return tr(Str::MenuDescSharpness);
         case Deband: return tr(Str::MenuDescDeband);
         case Resolution: return tr(Str::SettingDescResolution);
-        case VideoDecoderItem: return tr(Str::SettingDescVideoDecoder);
+        case VideoDecoderItem:
+#if defined(__ANDROID__)
+            return "H.264 AVC: GPU usa MediaCodec; CPU usa FFmpeg. Troca o motor ao vivo; pode haver breve pausa.";
+#else
+            return tr(Str::SettingDescVideoDecoder);
+#endif
         case FpsLimiterItem: return tr(Str::SettingDescFpsLimit);
         case BitrateLimiterItem: return tr(Str::SettingDescBitrateCap);
         case VrrItem: return tr(Str::SettingDescHighRefresh);
@@ -981,7 +1009,11 @@ Canvas StreamMenu::renderMenu(const StreamInfo& info) const {
                             : i == Profile             ? tr(Str::Profile)
                             : i == Stats               ? tr(Str::MenuStats)
                             : i == Resolution          ? tr(Str::MenuResolution)
+#if defined(__ANDROID__)
+                            : i == VideoDecoderItem    ? "Decodificador H.264"
+#else
                             : i == VideoDecoderItem    ? tr(Str::VideoDecoder)
+#endif
                             : i == FpsLimiterItem      ? tr(Str::FpsLimit)
                             : i == BitrateLimiterItem  ? tr(Str::BitrateCap)
                             : i == VrrItem             ? tr(Str::HighRefresh)
@@ -1034,7 +1066,11 @@ Canvas StreamMenu::renderMenu(const StreamInfo& info) const {
             if (sel) value = "< " + value + " >";
         }
         if (i == VideoDecoderItem) {
+#if defined(__ANDROID__)
+            value = videoDecoder_ == 2 ? "Surface Android" : (videoDecoder_ == 1 ? "CPU / FFmpeg" : "GPU / MediaCodec");
+#else
             value = (videoDecoder_ == 1) ? tr(Str::VideoDecoderSw) : tr(Str::VideoDecoderHw);
+#endif
             if (sel) value = "< " + value + " >";
         }
         if (i == FpsLimiterItem) {

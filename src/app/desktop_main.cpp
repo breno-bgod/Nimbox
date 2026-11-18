@@ -19,7 +19,7 @@ namespace {
 
 void usage(std::FILE* to) {
     std::fprintf(to,
-                 "usage: psbox [--data-dir <dir>] [--fullscreen | --windowed] [--selftest <dir>]\n"
+                 "usage: NimboPlay [--data-dir <dir>] [--fullscreen | --windowed] [--selftest <dir>]\n"
                  "  --data-dir <dir>   sign-in, settings and caches there (default $XCLOUD_DATA_DIR,\n"
                  "                     else $XDG_DATA_HOME/psbox)\n"
                  "  --fullscreen       start fullscreen this time (F11 or Alt+Enter switches)\n"
@@ -124,7 +124,7 @@ int main(int argc, char* argv[]) {
             usage(stdout);
             return 0;
         } else {
-            std::fprintf(stderr, "psbox: unknown argument '%s'\n", a);
+            std::fprintf(stderr, "NimboPlay: unknown argument '%s'\n", a);
             usage(stderr);
             return 2;
         }
