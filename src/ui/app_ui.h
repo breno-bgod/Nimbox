@@ -567,6 +567,7 @@ private:
     void drawSignIn(Canvas& c, uint64_t nowMs);
     void drawHome(Canvas& c, uint64_t nowMs);
     void drawNimboxHorizon(Canvas& c, uint64_t nowMs);
+    void drawSettingsQrOverlay(Canvas& c);
     void drawTabs(Canvas& c);
     void drawConsoles(Canvas& c, uint64_t nowMs);
     void drawLibrary(Canvas& c, uint64_t nowMs);
@@ -830,6 +831,10 @@ private:
     float wheelValue_ = -1;
     int settingsRow_ = 0;
     float settingsScrollY_ = 0.0f;
+    Screen settingsReturnScreen_ = Screen::Home;
+    Image settingsFrostedBackdrop_{};
+    bool settingsBackdropReady_ = false;
+    bool settingsQrExpanded_ = false;
     bool dropdownOpen_ = false;  // the list of the focused settings row
     int dropdownIndex_ = 0, dropdownTop_ = 0;
     uint64_t signOutHoldStart_ = 0;  // TOUCHPAD hold in progress
