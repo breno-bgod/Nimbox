@@ -14,6 +14,11 @@ on:
       - 'CMakeLists.txt'
       - '.github/workflows/android.yml'
 
+# Avoid redundant APK builds from intermediate commits while iterating on this PR.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 permissions:
   contents: read
 
@@ -30,6 +35,7 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '17'
+          cache: gradle
 
       - name: Install Android NDK 27.2.12479018
         run: |
