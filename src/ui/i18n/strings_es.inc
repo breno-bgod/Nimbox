@@ -593,4 +593,11 @@ constexpr Column kSpanish = {
     "SOBRE EL JUEGO",  // DetailsAbout
     "SESIÓN",  // DetailsSession
     "PORTADA DEL JUEGO",  // DetailsArtwork
+    "GAME PASS / EXPLORAR",  // HorizonExplore
+    "COLECCIÓN %s DE %s",  // HorizonCollectionPosition
+    "JUEGO %s DE %s",  // HorizonGamePosition
+    "FIN DE LA COLECCIÓN · AVANZA OTRA VEZ PARA REINICIAR",  // HorizonEndHint
+    "INICIO DE LA COLECCIÓN · RETROCEDE OTRA VEZ PARA IR AL FINAL",  // HorizonStartHint
+    "IZQUIERDA / DERECHA  -  JUEGOS",  // HorizonHorizontalHint
+    "ARRIBA / ABAJO  -  COLECCIONES",  // HorizonVerticalHint
 };

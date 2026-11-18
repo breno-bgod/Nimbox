@@ -104,28 +104,11 @@ size_t Library::syncDelta(xcloud::GssvClient& gssv, const Changed& changed, std:
         std::string e;
         if (xcloud::fetchList(spec.sigl, market_, language_, fs.list, e)) {
             fs.ok = true;
-            if (spec.sigl == xcloud::sigl::kRecentlyAdded) {
-                const char* const kNewCod[] = {"9NCPSQQD1Z66", "9N201KQXS5BM"};
-                for (const char* pid : kNewCod) {
-                    auto it = std::find(fs.list.productIds.begin(), fs.list.productIds.end(), pid);
-                    if (it != fs.list.productIds.end()) {
-                        fs.list.productIds.erase(it);
-                        size_t insertAt = std::min<size_t>(1, fs.list.productIds.size());
-                        fs.list.productIds.insert(fs.list.productIds.begin() + static_cast<long>(insertAt), pid);
-                    }
-                }
-            } else if (spec.sigl == xcloud::sigl::kMostPopular) {
+            // Preserve the provider's exact SIGL order, particularly for
+            // "Recently Added": title IDs are not release timestamps.
+            // Never manually promote titles ahead of the provider's first.
+            if (spec.sigl == xcloud::sigl::kMostPopular)
                 popular_ = fs.list.productIds;
-                const char* const kTopCod[] = {"9NCPSQQD1Z66", "9N201KQXS5BM", "9NNFG8BQRCXL"};
-                for (const char* pid : kTopCod) {
-                    auto it = std::find(fs.list.productIds.begin(), fs.list.productIds.end(), pid);
-                    if (it != fs.list.productIds.end()) {
-                        fs.list.productIds.erase(it);
-                        size_t insertAt = std::min<size_t>(2, fs.list.productIds.size());
-                        fs.list.productIds.insert(fs.list.productIds.begin() + static_cast<long>(insertAt), pid);
-                    }
-                }
-            }
             bool freeToPlay = spec.sigl == xcloud::sigl::kFreeToPlay;
             if (freeToPlay) {
                 freeInStore_.insert(fs.list.productIds.begin(), fs.list.productIds.end());
@@ -381,33 +364,10 @@ bool Library::load(xcloud::GssvClient& gssv, const std::string& language, const 
             lastErr = e;
             continue;
         }
-        if (spec.sigl == xcloud::sigl::kRecentlyAdded) {
-            const char* const kNewCod[] = {"9NCPSQQD1Z66", "9N201KQXS5BM"};
-            for (const char* pid : kNewCod) {
-                auto it = std::find(list.productIds.begin(), list.productIds.end(), pid);
-                if (it != list.productIds.end()) {
-                    list.productIds.erase(it);
-                    size_t insertAt = std::min<size_t>(1, list.productIds.size());
-                    list.productIds.insert(list.productIds.begin() + static_cast<long>(insertAt), pid);
-                }
-            }
-        }
-        // "Most popular on cloud" also lists games to buy first (Cuphead...):
-        // those go to "Your games" (in this order), not to the Game Pass tab.
-        if (spec.sigl == xcloud::sigl::kMostPopular) {
+        // The SIGL feed order is the only known catalog order.
+        // Do not claim chronology from local data or manually promote games.
+        if (spec.sigl == xcloud::sigl::kMostPopular)
             popular_ = list.productIds;
-            // Position key cloud titles (Modern Warfare 4, Call of Duty HQ, Warzone)
-            // within the visible most popular shelf if legitimately in the feed
-            const char* const kTopCod[] = {"9NCPSQQD1Z66", "9N201KQXS5BM", "9NNFG8BQRCXL"};
-            for (const char* pid : kTopCod) {
-                auto it = std::find(list.productIds.begin(), list.productIds.end(), pid);
-                if (it != list.productIds.end()) {
-                    list.productIds.erase(it);
-                    size_t insertAt = std::min<size_t>(2, list.productIds.size());
-                    list.productIds.insert(list.productIds.begin() + static_cast<long>(insertAt), pid);
-                }
-            }
-        }
         // Free-to-play: no Game Pass needed, so not filtered; each one the
         // account hasn't got yet shows as free to get (tile()).
         bool freeToPlay = spec.sigl == xcloud::sigl::kFreeToPlay;

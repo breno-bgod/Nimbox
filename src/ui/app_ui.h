@@ -13,6 +13,7 @@
 #include "ui/canvas.h"
 #include "ui/font.h"
 #include "ui/image_cache.h"
+#include "ui/nimbox_horizon_layout.h"
 #include "ui/pad_icons.h"
 #include "ui/strings.h"
 #include "xcloud/achievements.h"
@@ -98,6 +99,9 @@ enum class Tab { GamePass, Library, Consoles };
 
 struct NavInput {
     bool up = false, down = false, left = false, right = false;
+    // Raw horizontal hold, before repeat generation; prevents accidental
+    // edge wraps while the same physical stick/D-pad remains held.
+    bool carouselHeldLeft = false, carouselHeldRight = false;
     bool accept = false, acceptHeld = false, back = false, options = false;
     bool l1 = false, r1 = false, square = false, triangle = false, r3 = false, l3 = false;
     bool l2 = false, r2 = false;  // pressed (triggers past halfway)
@@ -552,7 +556,7 @@ private:
     void drawBackground(Canvas& c);
     // The game's backdrop; false (and nothing drawn) until its image is
     // there: never another game's art in the meantime.
-    bool drawHero(Canvas& c, uint64_t nowMs, const std::string& url, bool details);
+    bool drawHero(Canvas& c, uint64_t nowMs, const std::string& url, bool details, bool fullScreen = false);
     void drawTopBar(Canvas& c);
     void drawLogo(Canvas& c, float cx, float cy, float r);
     void drawGamerscoreBadge(Canvas& c, float cx, float cy, float r);
@@ -694,6 +698,7 @@ private:
     Anim rowY_;
     // Horizon-only Game Pass carousel, with reduced-motion accessibility.
     Anim nimboxSlide_;
+    horizon::BoundaryGate horizonBoundary_{};
     bool nimboxReducedMotion_ = false;
     Tab tab_ = Tab::GamePass;
     std::vector<ConsoleTile> consoles_;

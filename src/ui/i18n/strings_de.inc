@@ -593,4 +593,11 @@ constexpr Column kGerman = {
     "ÜBER DAS SPIEL",  // DetailsAbout
     "SITZUNG",  // DetailsSession
     "SPIELCOVER",  // DetailsArtwork
+    "GAME PASS / ENTDECKEN",  // HorizonExplore
+    "SAMMLUNG %s VON %s",  // HorizonCollectionPosition
+    "SPIEL %s VON %s",  // HorizonGamePosition
+    "ENDE DER SAMMLUNG · NOCHMALS WEITER FÜR NEUSTART",  // HorizonEndHint
+    "ANFANG DER SAMMLUNG · NOCHMALS ZURÜCK ZUM ENDE",  // HorizonStartHint
+    "LINKS / RECHTS  -  SPIELE",  // HorizonHorizontalHint
+    "HOCH / RUNTER  -  SAMMLUNGEN",  // HorizonVerticalHint
 };

@@ -602,6 +602,13 @@ enum class Str {
     DetailsAbout,
     DetailsSession,
     DetailsArtwork,
+    HorizonExplore,
+    HorizonCollectionPosition,
+    HorizonGamePosition,
+    HorizonEndHint,
+    HorizonStartHint,
+    HorizonHorizontalHint,
+    HorizonVerticalHint,
     Count
 };
 

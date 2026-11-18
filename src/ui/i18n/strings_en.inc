@@ -593,4 +593,11 @@ constexpr Column kEnglish = {
     "ABOUT THE GAME",  // DetailsAbout
     "SESSION",  // DetailsSession
     "COVER ART",  // DetailsArtwork
+    "GAME PASS / EXPLORE",  // HorizonExplore
+    "COLLECTION %s OF %s",  // HorizonCollectionPosition
+    "GAME %s OF %s",  // HorizonGamePosition
+    "END OF COLLECTION · MOVE RIGHT AGAIN TO RESTART",  // HorizonEndHint
+    "START OF COLLECTION · MOVE LEFT AGAIN TO GO TO THE END",  // HorizonStartHint
+    "LEFT / RIGHT  -  GAMES",  // HorizonHorizontalHint
+    "UP / DOWN  -  COLLECTIONS",  // HorizonVerticalHint
 };

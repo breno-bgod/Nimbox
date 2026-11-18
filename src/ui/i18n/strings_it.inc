@@ -593,4 +593,11 @@ constexpr Column kItalian = {
     "INFORMAZIONI SUL GIOCO",  // DetailsAbout
     "SESSIONE",  // DetailsSession
     "COPERTINA DEL GIOCO",  // DetailsArtwork
+    "GAME PASS / ESPLORA",  // HorizonExplore
+    "RACCOLTA %s DI %s",  // HorizonCollectionPosition
+    "GIOCO %s DI %s",  // HorizonGamePosition
+    "FINE DELLA RACCOLTA · AVANZA ANCORA PER RICOMINCIARE",  // HorizonEndHint
+    "INIZIO DELLA RACCOLTA · TORNA INDIETRO PER ANDARE ALLA FINE",  // HorizonStartHint
+    "SINISTRA / DESTRA  -  GIOCHI",  // HorizonHorizontalHint
+    "SU / GIÙ  -  RACCOLTE",  // HorizonVerticalHint
 };
