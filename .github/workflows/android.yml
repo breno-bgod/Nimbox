@@ -12,8 +12,11 @@ on:
       - feature/nimbox-horizon-native-v1
       - feature/nimbox-default-ptbr-v1
       - feature/nimbox-ps5-showcase-details-v1
+      - feature/nimble-play-internal-brand-v1
     paths:
       - 'android/**'
+      - 'assets/branding/**'
+      - 'tools/branding/**'
       - 'src/app/**'
       - 'src/media/**'
       - 'src/ui/**'
