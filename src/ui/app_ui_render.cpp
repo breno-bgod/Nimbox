@@ -4,8 +4,6 @@
 #include <cstdint>
 #include "ui/app_ui_internal.h"
 #include "ui/cloud_time.h"
-#include "ui/box_carousel.h"
-#include "ui/collection_case_finish.h"
 #include "ui/nimbox_horizon_layout.h"
 
 #include <algorithm>
@@ -22,12 +20,6 @@ bool AppUi::needsRedraw(uint64_t nowMs) const {
     std::lock_guard<std::mutex> lock(mutex_);
     if (screen_ == Screen::Streaming) return false;
     if (dirty_ || animating_) return true;
-    // A spinning disc exists only inside Details (24 fps cap for software
-    // Canvas). Home is a closed-case shelf with no continuous idle animation.
-    if (nimboxCarousel_ && !nimboxHorizon_ && tab_ == Tab::GamePass && !nimboxReducedMotion_ &&
-        screen_ == Screen::Details && !detail_.purchasable &&
-        !gameSettingsOpen_ && !achievementsOpen_ &&
-        nowMs - lastRender_ >= 42) return true;
     if (mouseCursorVisible_ && nowMs >= mouseCursorVisibleUntil_) return true;
     // A desktop's toast came or went (the PS5 sends system notifications).
     if (platform::toastsEnabled() && platform::toasts().version(nowMs) != toastsDrawn_) return true;
@@ -44,7 +36,7 @@ void AppUi::drawCentered(Canvas& c, const Font& f, const std::string& text, int 
 }
 
 void AppUi::drawBackground(Canvas& c) {
-    // Colecao Viva: the same midnight-blue base in every native menu.
+    // Horizon: the same midnight-blue base in every native menu.
     c.gradientV({0, 0, kW, kH}, rgba(15, 43, 65), kBg);
     c.gradientH({0, 0, kW, 520}, rgba(26, 74, 98, 38), rgba(5, 21, 40, 0));
 }
@@ -1050,314 +1042,6 @@ void AppUi::drawConsoles(Canvas& c, uint64_t nowMs) {
     drawToast(c, nowMs);
 }
 
-// Nimbox 3D Library — physical-media carousel (phase 1B).
-// This is an opt-in, software-rendered 2.5D presentation, with case faces
-// projected into trapezoids. No change to GameTile data or streaming actions.
-void AppUi::drawNimboxCarousel(Canvas& c, uint64_t nowMs) {
-    const Color deep = rgba(8, 17, 31);
-    const auto& environment = nimbox_theme::palette(settings_.nimboxTheme);
-    const Color aqua = environment.accent;
-    // Follow the selected game's dominant artwork colour, cached by title URL.
-    // Clamp luminance to keep the interface and headings readable.
-    Color topShade = rgba(66, 112, 136);
-    if (const GameTile* selectedArt = focusedTile(); selectedArt && !selectedArt->tileUrl.empty()) {
-        auto ac = accents_.find(selectedArt->tileUrl);
-        if (ac == accents_.end()) {
-            if (auto img = images_.get(selectedArt->tileUrl, kCard, kCard)) {
-                Color sample = rgba(32, 104, 119);
-                if (dominantColor(*img, sample)) ac = accents_.emplace(selectedArt->tileUrl, sample).first;
-            }
-        }
-        if (ac != accents_.end()) {
-            const Color rgb = ac->second;
-            topShade = rgba(static_cast<uint8_t>(58 + (rgb & 255u) / 5),
-                            static_cast<uint8_t>(81 + ((rgb >> 8) & 255u) / 6),
-                            static_cast<uint8_t>(100 + ((rgb >> 16) & 255u) / 7));
-        }
-    }
-    c.clear(deep);
-    // User-selected environment is the real backdrop behind the 3D cases.
-    // Five grounded palettes from the HTML preview. No separate images/files.
-    c.gradientV({0, 122, kW, preview31::kHeroShelfBoundary - 122},
-                environment.sky, environment.low);
-    c.gradientH({0, 122, kW, 650}, rgba(12, 32, 44, 76),
-                withAlpha(environment.horizon, 50));
-    // Keep receiving the game's actual hero art from the PSBox/xCloud data.
-    // The visual layer never invents a new title or modifies the session.
-    const GameTile* artworkTile = focusedTile();
-    std::string hero = artworkTile ? artworkTile->heroUrl : std::string();
-    if (hero.empty() && artworkTile && !artworkTile->productId.empty()) {
-        auto it = detailInfo_.find(artworkTile->productId);
-        if (it != detailInfo_.end()) hero = it->second.heroUrl;
-    }
-    if (!hero.empty()) drawHero(c, nowMs, hero, true);
-    // The Preview 3.0 hero is a luminous continuous studio above catalog rails.
-    // Real xCloud hero art remains visible underneath.
-    c.fillRect({0, 140, kW, preview31::kHeroShelfBoundary - 140}, rgba(3, 13, 27, 49));
-    // The catalogue art always wins; theme adds only a restrained tint.
-    c.gradientV({0, 135, kW, preview31::kHeroShelfBoundary - 135},
-                withAlpha(environment.horizon, 65), withAlpha(environment.low, 143));
-    c.gradientV({0, 135, kW, 360}, withAlpha(topShade, 48), rgba(8, 22, 35, 0));
-    c.gradientH({0, 140, 560, 660}, rgba(6, 21, 39, 173),
-                rgba(6, 21, 39, 0));
-    // Ambient floor is drawn beneath the physical closed-case collection.
-    c.gradientV({0, 645, kW, 224}, withAlpha(environment.mid, 72), deep);
-    c.line(220.0f, 715.0f, 1680.0f, 715.0f, 1.0f,
-           rgba(147, 214, 235, 29));
-    drawTopBar(c);
-    drawTabs(c);
-
-    if (rows_.empty()) {
-        drawCentered(c, fonts_.semibold, tr(Str::NoGames), 480, 34, kWhite);
-        drawHints(c, {{kIconR3, "Classic UI"}, {kIconOptions, tr(Str::Settings)}});
-        drawPads(c);
-        drawToast(c, nowMs);
-        return;
-    }
-    const int rowIdx = std::clamp(focusRow_, 0, static_cast<int>(rows_.size()) - 1);
-    const GameRow& row = rows_[static_cast<size_t>(rowIdx)];
-    const int count = static_cast<int>(row.tiles.size());
-    const int selected = count ? std::clamp(focusCol_[static_cast<size_t>(rowIdx)], 0, count - 1) : 0;
-
-    fonts_.semibold.draw(c, "NIMBOX  /  COLECAO VIVA", 106, 163, 21, aqua);
-    fonts_.bold.draw(c, "SUA COLECAO EM NUVEM", 106, 202, 29, kWhite);
-    const std::string rowLabel = fonts_.semibold.fit(row.title, 23, 580);
-    fonts_.regular.draw(c, rowLabel, 106, 249, 23,
-                        rgba(204, 225, 234));
-    // The row already represents a collection in the original catalog.
-    // Up/down changes it without rebuilding the catalog or losing favorites.
-    const std::string section = "COLECAO " + std::to_string(rowIdx + 1) +
-                                " / " + std::to_string(rows_.size()) + "  -  CIMA/BAIXO";
-    fonts_.regular.draw(c, section, 106, 287, 17,
-                        rgba(151, 187, 197));
-    c.fillRect({1422, 146, 402, 79}, rgba(7, 24, 32, 183), 12);
-    c.strokeRect({1422, 146, 402, 79}, rgba(160, 188, 196, 64), 1, 12);
-    fonts_.semibold.draw(c, nimboxReducedMotion_ ? "R2  MOVIMENTO REDUZIDO" :
-                         "R2  ANIMACOES SUAVES", 1447, 174, 20, rgba(202, 237, 239));
-    fonts_.regular.draw(c, "TOQUE PARA ALTERNAR", 1447, 200, 14, rgba(143, 190, 202));
-    c.fillRect(horizon::kModeSwitch, rgba(9, 33, 49, 204), 14);
-    c.strokeRect(horizon::kModeSwitch, rgba(160, 220, 230, 86), 1, 14);
-    fonts_.semibold.draw(c, "VER NIMBOX HORIZON", horizon::kModeSwitch.x + 20,
-                         horizon::kModeSwitch.y + 15, 20, rgba(229, 246, 250));
-
-    auto drawCase = [&](int offset) {
-        const int index = nimbox::indexForOffset(selected, count, offset);
-        if (index < 0) return;
-        const GameTile& tile = row.tiles[static_cast<size_t>(index)];
-        const nimbox::CaseGeometry g = nimbox::layoutAnimated(
-            static_cast<float>(offset) + nimboxSlide_.value / 1000.0f);
-        const int d = std::abs(offset);
-        const bool focused = offset == 0;
-        // Only soft contact shadows. The dark bars in the earlier prototype
-        // looked like dividers, unlike a continuous reflective collection floor.
-        const int shadowW = static_cast<int>(g.w + 8);
-        // Contact shadow follows the projected base rather than an arbitrary
-        // desktop-only trapezoid, while staying above the reflective floor.
-        const int shadowY = std::clamp(static_cast<int>(
-            std::max(g.front.bl.y, g.front.br.y) + 9.0f), 620, 732);
-        c.fillRect({static_cast<int>(g.x) - 2, shadowY, shadowW, focused ? 8 : 5},
-                   rgba(0, 0, 0, focused ? 60 : 32), 8);
-        // Keep the rigid projected 3D cuboid and camera from PR #10. Only
-        // its material layers change: matte/translucent Xbox-green plastic.
-        nimbox::finish::drawShell(c, g, focused);
-        const Quad art = nimbox::finish::imageSlot(g);
-        // The xCloud catalogue remains the exclusive source of cover art.
-        // No static LEGO Worlds image or bundled game-cover placeholder.
-        const int artSize = focused ? 512 : (d <= 2 ? 256 : 128);
-        auto coverImage = images_.get(tile.tileUrl, artSize, artSize);
-        if (coverImage) {
-            c.drawImageQuad(*coverImage, art,
-                            focused ? 255 : static_cast<uint8_t>(std::max(138, 246 - d * 17)));
-        } else {
-            c.fillQuad(art, rgba(26, 55, 43));
-        }
-        nimbox::finish::drawGlaze(c, g, focused);
-
-        // Official-style Xbox packaging banner, not the Nimbox app logo.
-        // When the platform generation is absent we say XBOX, never guess ONE.
-        if (d <= 1 && g.w >= 116.0f) {
-            const char* generation = tile.platform == "360" ? "XBOX 360" :
-                                     tile.platform == "ONE" ? "XBOX ONE" :
-                                     tile.platform == "XS" ? "XBOX SERIES" : "XBOX";
-            const int px = focused ? 23 : 15;
-            const float r = focused ? 15.0f : 9.0f;
-            const int labelW = fonts_.bold.measure(generation, px);
-            const float groupW = r * 2.0f + 9.0f + static_cast<float>(labelW);
-            const Point topMid = nimbox::between(g.front.tl, g.front.tr, 0.5f);
-            const Point botMid = nimbox::between(g.front.bl, g.front.br, 0.5f);
-            const Point bannerMid = nimbox::between(topMid, botMid, 0.075f);
-            const float cx = bannerMid.x - groupW * 0.5f + r;
-            const float cy = bannerMid.y;
-            nimbox::finish::drawXboxOrb(c, cx, cy, r);
-            fonts_.bold.draw(c, generation, static_cast<int>(cx + r + 9.0f),
-                             static_cast<int>(cy - px * 0.55f), px,
-                             nimbox::finish::kPrintWhite);
-        }
-
-        // Minimal printed title below the inset artwork; the rest of the
-        // front is occupied by the game's actual artwork, not fake retail art.
-        if (d <= 1 && g.w > 130.0f) {
-            const int px = focused ? 20 : 15;
-            const Point titleBase = nimbox::between(g.front.tl, g.front.bl, 0.910f);
-            const std::string name = fonts_.semibold.fit(tile.name, px,
-                                                          std::max(80, static_cast<int>(g.w) - 32));
-            fonts_.semibold.draw(c, name, static_cast<int>(titleBase.x + 15.0f),
-                                 static_cast<int>(titleBase.y - px * 0.57f), px,
-                                 nimbox::finish::kPrintWhite);
-        }
-
-        // White vertical title printing on the visible green spine.
-        // Derive its horizontal centre from the projected side face.
-        if (offset != 0 && d <= nimbox::kSideCases &&
-            std::fabs(nimboxSlide_.value) < 800.0f) {
-            const float sx = (g.spine.tl.x + g.spine.tr.x +
-                              g.spine.br.x + g.spine.bl.x) * 0.25f;
-            const float spineTop = std::min(g.spine.tl.y, g.spine.tr.y);
-            // A small printed Xbox orb also identifies the deep-profile cases.
-            nimbox::finish::drawXboxOrb(c, sx, spineTop + 19.0f, 7.0f);
-            int sy = static_cast<int>(spineTop + 42.0f);
-            const int bottomY = static_cast<int>(std::max(g.spine.bl.y, g.spine.br.y) - 22.0f);
-            for (const unsigned char ch : tile.name) {
-                if (sy + 15 > bottomY) break;
-                if (ch == ' ') { sy += 9; continue; }
-                if (ch < 33 || ch > 126) continue;
-                const std::string glyph(1, static_cast<char>(ch));
-                const int width = fonts_.semibold.measure(glyph, 12);
-                fonts_.semibold.draw(c, glyph, static_cast<int>(sx - width * 0.5f),
-                                     sy, 12, rgba(235, 255, 226));
-                sy += 15;
-            }
-        }
-        // Subtle inverted game-art reflection below the cases. Images are
-        // reused from cache; far cases are omitted to limit Android CPU cost.
-        if (d <= 3 && !tile.tileUrl.empty()) {
-            const int reflectH = focused ? 81 : (d == 1 ? 61 : 43);
-            const float floorY = 724.0f;
-            const Quad mirror{{g.front.bl.x, floorY + reflectH},
-                              {g.front.br.x, floorY + reflectH},
-                              {g.front.br.x, floorY},
-                              {g.front.bl.x, floorY}};
-            if (coverImage && settings_.nimboxReflection > 0) {
-                const int baseAlpha = focused ? 77 : (d == 1 ? 41 : 18);
-                const int alpha = std::clamp(baseAlpha *
-                    settings_.nimboxReflection / 44, 0, 184);
-                if (alpha > 0) c.drawImageQuad(*coverImage, mirror,
-                                              static_cast<uint8_t>(alpha));
-            }
-        }
-        // The further-away boxes are visibly dimmer; their artwork still
-        // belongs to the original catalog, with no made-up physical covers.
-        if (d > 1) c.fillQuad(g.front, rgba(6, 15, 24, static_cast<uint8_t>(std::min(110, d * 14))));
-        if (focused) {
-            const Color edge = rgba(184, 252, 156, 166);
-            c.line(g.front.tl.x, g.front.tl.y, g.front.tr.x, g.front.tr.y, 2.0f, edge);
-            c.line(g.front.tl.x, g.front.tl.y, g.front.bl.x, g.front.bl.y, 2.0f, edge);
-            c.line(g.front.tr.x, g.front.tr.y, g.front.br.x, g.front.br.y, 2.0f, edge);
-            if (!tile.playable) drawLock(c, static_cast<int>(g.x + g.w - 34), static_cast<int>(g.y + g.h * 0.23f));
-        }
-    };
-
-    // Render from furthest to nearest in the curved, overlapping shelf.
-    // The pointer handler uses the same order, reversed, for correct touch.
-    const auto order = nimbox::caseDrawOrder(selected, count,
-                                             nimboxSlide_.value / 1000.0f);
-    for (int offset : order) drawCase(offset);
-    // Home is the closed-case collection: NO optical disc here.
-    // The selected game's spinning disc only appears after opening Details.
-    // Studio fades into real catalog rails exactly like Preview 3.0/3.1.
-    c.gradientV({0, 738, kW, 130}, rgba(17, 39, 60, 0), rgba(17, 39, 60, 148));
-    preview31::shelfBackdrop(c);
-
-    // Native counterpart of #home-shelves in Premium Preview 3.0.
-    // Display-only rail sourced from current GameRows and saved playtime.
-    // Up/down already browses rows; no input system is changed here.
-    std::vector<const GameTile*> rail;
-    std::unordered_set<std::string> unique;
-    for (const GameRow& group : rows_) {
-        for (const GameTile& t : group.tiles) {
-            const auto product = settings_.titlePlaytime.find(t.productId);
-            const auto titleId = settings_.titlePlaytime.find(t.titleId);
-            const bool played = (product != settings_.titlePlaytime.end() &&
-                                 product->second > 0) ||
-                                (titleId != settings_.titlePlaytime.end() &&
-                                 titleId->second > 0);
-            if (!played || !t.playable) continue;
-            const std::string key = !t.productId.empty() ? t.productId : t.titleId;
-            if (key.empty() || !unique.insert(key).second) continue;
-            rail.push_back(&t);
-            if (rail.size() >= 6) break;
-        }
-        if (rail.size() >= 6) break;
-    }
-    const bool hasContinue = !rail.empty();
-    if (!hasContinue) {
-        for (const GameTile& t : row.tiles) {
-            if (rail.size() >= 6) break;
-            rail.push_back(&t);
-        }
-    }
-    const std::string railTitle = hasContinue ? "CONTINUE JOGANDO" :
-                                 (row.title.empty() ? "EXPLORE JOGOS" : row.title);
-    fonts_.bold.draw(c, fonts_.bold.fit(railTitle, 27, 900),
-                     preview31::kShelfLeft, preview31::kShelfHeaderY, 27,
-                     preview31::kText);
-    const char* shelfHint = "CIMA / BAIXO  -  COLECOES";
-    fonts_.regular.draw(c, shelfHint,
-                        1823 - fonts_.regular.measure(shelfHint, 17),
-                        preview31::kShelfHeaderY + 6, 17, preview31::kMuted);
-    c.setClip({0, preview31::kShelfTileY, kW,
-               preview31::kShelfBottom - preview31::kShelfTileY});
-    for (size_t i = 0; i < rail.size(); ++i) {
-        const GameTile& t = *rail[i];
-        const int x = preview31::kShelfLeft + static_cast<int>(i) *
-            (preview31::kShelfTileW + preview31::kShelfGap);
-        const Rect tile{x, preview31::kShelfTileY,
-                        preview31::kShelfTileW, preview31::kShelfTileH};
-        if (x + tile.w > kW - 65) break;
-        preview31::glassPanel(c, tile, 12);
-        if (!t.tileUrl.empty()) {
-            if (auto art = images_.get(t.tileUrl, tile.w, tile.h))
-                c.drawImage(*art, x, tile.y, 218, 12);
-        }
-        c.gradientV({x, tile.y + 42, tile.w, tile.h - 42},
-                    rgba(5, 23, 40, 0), rgba(4, 16, 29, 233));
-        c.strokeRect(tile, rgba(165, 217, 237, 83), 1, 12);
-        const std::string label = fonts_.semibold.fit(t.name, 17, tile.w - 22);
-        fonts_.semibold.draw(c, label, x + 11, tile.y + tile.h - 31,
-                             17, preview31::kText);
-    }
-    c.clearClip();
-
-    if (count) {
-        const GameTile& current = row.tiles[static_cast<size_t>(selected)];
-        // Current data, never a hardcoded game name, artwork, platform or rating.
-        const auto title = fonts_.bold.wrap(current.name, 42, 1120, 1);
-        if (!title.empty()) drawCentered(c, fonts_.bold, title.front(), preview31::kFocusNameY, 42, kWhite);
-        std::string meta = current.publisher;
-        if (!current.categories.empty()) {
-            if (!meta.empty()) meta += "  -  ";
-            meta += current.categories.front();
-        }
-        if (!meta.empty()) {
-            meta = fonts_.regular.fit(meta, 20, 1040);
-            drawCentered(c, fonts_.regular, meta, preview31::kFocusMetaY, 20, rgba(191, 216, 228));
-        }
-        // Selecting the centre physical case (touch or controller Select)
-        // opens the existing Details flow. No redundant CTA or fake button.
-        // Keep the position counter as quiet metadata below the game title.
-        const std::string position = std::to_string(selected + 1) + " / " +
-                                     std::to_string(count);
-        fonts_.regular.draw(c, position,
-                            (kW - fonts_.regular.measure(position, 17)) / 2,
-                            827, 17, rgba(173, 194, 200));
-    }
-    preview31::footerBackdrop(c);
-    drawHints(c, {{kIconCross, tr(Str::Select)}, {kIconR3, "Classic UI"},
-                  {kIconTriangle, tr(Str::TabSearch)}, {kIconOptions, tr(Str::Settings)}});
-    drawPads(c);
-    drawToast(c, nowMs);
-}
-
 // Nimbox Horizon — console-first view. Reuses the existing catalog and image cache.
 void AppUi::drawNimboxHorizon(Canvas& c, uint64_t nowMs) {
     const auto& env = nimbox_theme::palette(settings_.nimboxTheme);
@@ -1384,13 +1068,9 @@ void AppUi::drawNimboxHorizon(Canvas& c, uint64_t nowMs) {
     drawTopBar(c);
     drawTabs(c);
     fonts_.semibold.draw(c, "NIMBOX  /  HORIZON", 104, 197, 19, env.accent);
-    c.fillRect(horizon::kModeSwitch, rgba(9, 28, 43, 177), 14);
-    c.strokeRect(horizon::kModeSwitch, rgba(151, 209, 222, 88), 1, 14);
-    fonts_.semibold.draw(c, "VER COLECAO VIVA  3D", horizon::kModeSwitch.x + 18,
-                         horizon::kModeSwitch.y + 15, 19, rgba(224, 244, 247));
     if (!focus || rows_.empty()) {
         fonts_.semibold.draw(c, tr(Str::NoGames), 104, 354, 36, kWhite);
-        drawHints(c, {{kIconR3, "Colecao Viva"}, {kIconOptions, tr(Str::Settings)}});
+        drawHints(c, {{kIconOptions, tr(Str::Settings)}, {kIconTouchpad, tr(Str::HoldSignOut)}});
         drawPads(c);
         drawToast(c, nowMs);
         return;
@@ -1399,7 +1079,7 @@ void AppUi::drawNimboxHorizon(Canvas& c, uint64_t nowMs) {
     const GameRow& row = rows_[size_t(rowIndex)];
     const int count = int(row.tiles.size());
     if (count <= 0) {
-        drawHints(c, {{kIconR3, "Colecao Viva"}, {kIconOptions, tr(Str::Settings)}});
+        drawHints(c, {{kIconOptions, tr(Str::Settings)}, {kIconTouchpad, tr(Str::HoldSignOut)}});
         drawPads(c);
         drawToast(c, nowMs);
         return;
@@ -1430,9 +1110,9 @@ void AppUi::drawNimboxHorizon(Canvas& c, uint64_t nowMs) {
                                 std::to_string(rows_.size());
     fonts_.regular.draw(c, section, 1814 - fonts_.regular.measure(section, 19),
                         586, 19, soft);
-    const auto order = nimbox::caseDrawOrder(selected, count, nimboxSlide_.value / 1000.0f);
+    const auto order = horizon::drawOrder(selected, count, nimboxSlide_.value / 1000.0f);
     for (int offset : order) {
-        const int index = nimbox::indexForOffset(selected, count, offset);
+        const int index = horizon::indexForOffset(selected, count, offset);
         if (index < 0) continue;
         const GameTile& tile = row.tiles[size_t(index)];
         const Rect card = horizon::tileRect(float(offset) + nimboxSlide_.value / 1000.0f);
@@ -1458,8 +1138,8 @@ void AppUi::drawNimboxHorizon(Canvas& c, uint64_t nowMs) {
     fonts_.regular.draw(c, directions, 1816 - fonts_.regular.measure(directions, 19),
                         943, 19, soft);
     preview31::footerBackdrop(c);
-    drawHints(c, {{kIconCross, "Detalhes"}, {kIconR3, "Colecao Viva"},
-                  {kIconTriangle, tr(Str::TabSearch)}, {kIconOptions, tr(Str::Settings)}});
+    drawHints(c, {{kIconCross, "Detalhes"}, {kIconTriangle, tr(Str::TabSearch)},
+                  {kIconOptions, tr(Str::Settings)}, {kIconTouchpad, tr(Str::HoldSignOut)}});
     drawPads(c);
     drawToast(c, nowMs);
 }
@@ -1468,224 +1148,10 @@ void AppUi::drawHome(Canvas& c, uint64_t nowMs) {
     if (searching_) return drawSearch(c, nowMs);
     if (tab_ == Tab::Library) return drawLibrary(c, nowMs);
     if (tab_ == Tab::Consoles) return drawConsoles(c, nowMs);
-    if (nimboxCarousel_ && nimboxHorizon_) return drawNimboxHorizon(c, nowMs);
-    if (nimboxCarousel_) return drawNimboxCarousel(c, nowMs);
-    const GameTile* focus = focusedTile();
-    c.clear(kBg);
-    std::string hero;
-    if (focus) {
-        hero = focus->heroUrl;
-        bool hadFocusHero = !hero.empty();
-        if (hero.empty() && !focus->productId.empty()) {
-            auto it = detailInfo_.find(focus->productId);
-            if (it != detailInfo_.end() && !it->second.heroUrl.empty()) {
-                hero = it->second.heroUrl;
-            }
-        }
-        if (hero.empty()) {
-            auto matchHero = [&](const GameTile& t) -> bool {
-                if (t.heroUrl.empty()) return false;
-                if (!focus->productId.empty() && !t.productId.empty()) {
-                    return t.productId == focus->productId;
-                }
-                if (!focus->productId.empty() && t.productId == focus->productId) return true;
-                if (!focus->titleId.empty() && t.titleId == focus->titleId) return true;
-                if (!focus->xboxTitleId.empty() && t.xboxTitleId == focus->xboxTitleId) return true;
-                return false;
-            };
-            const GameTile* matched = nullptr;
-            for (const auto& r : rows_) {
-                for (const auto& t : r.tiles) {
-                    if (matchHero(t)) { matched = &t; break; }
-                }
-                if (matched) break;
-            }
-            if (!matched) {
-                for (const auto& r : allRows_) {
-                    for (const auto& t : r.tiles) {
-                        if (matchHero(t)) { matched = &t; break; }
-                    }
-                    if (matched) break;
-                }
-            }
-            if (!matched) {
-                for (const auto* list : {&gamePassPool_, &libraryPool_, &allOwned_, &allPurchasable_}) {
-                    for (const auto& t : *list) {
-                        if (matchHero(t)) { matched = &t; break; }
-                    }
-                    if (matched) break;
-                }
-            }
-            if (matched) {
-                hero = matched->heroUrl;
-                syncHeroToRowsLocked(matched->productId, matched->titleId, matched->heroUrl,
-                                     matched->description, matched->publisher, matched->categories);
-                hadFocusHero = true;
-            }
-        }
-        if (!hadFocusHero && !hero.empty()) {
-            syncHeroToRowsLocked(focus->productId, focus->titleId, hero);
-        }
-    }
-    drawHero(c, nowMs, hero, false);
-
-    if (rows_.empty()) {
-        drawCentered(c, fonts_.semibold, tr(Str::NoGames), 500, 32, kGray);
-        drawHints(c, {{kIconOptions, tr(Str::Settings)}, {kIconTouchpad, tr(Str::HoldSignOut)}});
-        c.fillRect({0, 0, kW, 140}, kBg);
-        c.gradientV({0, 140, kW, 16}, kBg, withAlpha(kBg, 0));
-        drawTopBar(c);
-        drawTabs(c);
-        {
-            constexpr int kGridW = kLibraryCols * kCardPitch - kCardGap;
-            const int left = (kW - kGridW) / 2;
-            drawLoadingBar(c, left, 112, 420, nowMs);
-        }
-        return;
-    }
-
-    if (focus) {
-        float heroAlpha = 1.0f;
-        for (size_t r = 0; r < rows_.size(); ++r) {
-            if (rows_[r].isGrid) {
-                float dist = static_cast<float>(r) - rowY_.value;
-                if (dist < 1.0f) heroAlpha = std::clamp(dist, 0.0f, 1.0f);
-                break;
-            }
-        }
-        if (heroAlpha > 0.05f) {
-            Color titleColor = withAlpha(kWhite, static_cast<int>(255 * heroAlpha));
-            Color grayColor = withAlpha(kGray, static_cast<int>(255 * heroAlpha));
-            auto title = fonts_.bold.wrap(focus->name, 60, 1100, 1);
-            if (!title.empty()) fonts_.bold.draw(c, title[0], kMargin, 190, 60, titleColor);
-            std::string meta = focus->publisher;
-            for (size_t i = 0; i < focus->categories.size() && i < 2; ++i)
-                meta += (meta.empty() ? "" : "  \xE2\x80\xA2  ") + focus->categories[i];
-            fonts_.regular.draw(c, meta, kMargin, 272, 24, grayColor);
-            auto desc = fonts_.regular.wrap(focus->description, 22, 860, 2);
-            for (size_t i = 0; i < desc.size(); ++i)
-                fonts_.regular.draw(c, desc[i], kMargin, 318 + static_cast<int>(i) * 32, 22, grayColor);
-        }
-    }
-
-    constexpr int kGridW = kLibraryCols * kCardPitch - kCardGap;
-    const int gridLeft = (kW - kGridW) / 2;
-    int afterGridOffset = 0;
-    constexpr int clipTop = 140;
-    c.setClip({0, clipTop, kW, kH - 220});
-
-    for (size_t r = 0; r < rows_.size(); ++r) {
-        float rel = static_cast<float>(r) - rowY_.value;
-        int y = kRowTop + static_cast<int>(std::lround(rel * kRowPitch)) + afterGridOffset;
-        const GameRow& row = rows_[r];
-
-        if (row.isGrid) {
-            int offset = static_cast<int>(std::lround(rowScroll_[r].value));
-            int hy = y - offset;
-            int cardY = hy + 48;
-
-            if (hy > 80 && hy < kH) {
-                fonts_.bold.draw(c, row.title, gridLeft, hy + 8, 34, kWhite);
-                int w = fonts_.bold.measure(row.title, 34);
-                fonts_.semibold.draw(c, gamesCount(row.tiles.size()), gridLeft + w + 20, hy + 20, 22, kDim);
-            }
-
-            int firstGridRow = std::max(0, (clipTop - cardY - kCard - 40) / kGridPitchY);
-            size_t startIdx = static_cast<size_t>(firstGridRow) * static_cast<size_t>(kLibraryCols);
-            for (size_t i = startIdx; i < row.tiles.size(); ++i) {
-                int c_col = static_cast<int>(i) % kLibraryCols;
-                int c_row = static_cast<int>(i) / kLibraryCols;
-                int cy = cardY + c_row * kGridPitchY;
-                if (cy + kCard + 40 < clipTop) continue;
-                if (cy > kH) break;
-                int cx = gridLeft + c_col * kCardPitch;
-                bool focused = static_cast<int>(r) == focusRow_ && static_cast<int>(i) == focusCol_[r];
-                drawCard(c, row.tiles[i], cx, cy, focused, row.gamePassBadges);
-                if (hidden_.count(row.tiles[i].productId)) c.fillRect({cx, cy, kCard, kCard}, rgba(0, 0, 0, 120), 10);
-                auto name = fonts_.semibold.wrap(row.tiles[i].name, 20, kCard, 1);
-                if (!name.empty()) fonts_.semibold.draw(c, name[0], cx, cy + kCard + 12, 20, focused ? kWhite : kGray);
-            }
-
-            int gridHeight = 48 + ((static_cast<int>(row.tiles.size()) + kLibraryCols - 1) / kLibraryCols) * kGridPitchY;
-            afterGridOffset += gridHeight - offset - kRowPitch;
-        } else {
-            if (rel < -0.7f && afterGridOffset == 0) continue;
-            if (y > kH && afterGridOffset == 0) break;
-            fonts_.semibold.draw(c, row.title, kMargin, y, 30, kWhite);
-            int cardY = y + 48;
-            int scroll = static_cast<int>(std::lround(rowScroll_[r].value));
-            int firstCol = std::max(0, scroll / kCardPitch - 1);
-            for (size_t col = static_cast<size_t>(firstCol); col < row.tiles.size(); ++col) {
-                int x = kMargin + static_cast<int>(col) * kCardPitch - scroll;
-                if (x > kW) break;
-                if (x + kCard < 0) continue;
-                bool focused = static_cast<int>(r) == focusRow_ && static_cast<int>(col) == focusCol_[r];
-                drawCard(c, row.tiles[col], x, cardY, focused, row.gamePassBadges);
-                if (hidden_.count(row.tiles[col].productId)) c.fillRect({x, cardY, kCard, kCard}, rgba(0, 0, 0, 120), 10);
-            }
-        }
-    }
-
-    c.clearClip();
-    c.fillRect({0, 0, kW, clipTop}, kBg);
-    c.gradientV({0, clipTop, kW, 16}, kBg, withAlpha(kBg, 0));
-
-    drawTopBar(c);
-    drawTabs(c);
-    {
-        constexpr int kGridW = kLibraryCols * kCardPitch - kCardGap;
-        const int left = (kW - kGridW) / 2;
-        drawLoadingBar(c, left, 112, 420, nowMs);
-    }
-
-    // Fade the rows out under the button hints.
-    c.gradientV({0, kH - 190, kW, 110}, withAlpha(kBg, 0), withAlpha(kBg, 245));
-    c.fillRect({0, kH - 80, kW, 80}, withAlpha(kBg, 245));
-    drawHints(c, {{kIconCross, tr(Str::Select)},
-                  {kIconSquare, tr(focus && hidden_.count(focus->productId) ? Str::Unhide : Str::Hide)},
-                  {kIconTriangle, tr(Str::TabSearch)},
-                  {kIconL3, tr(Str::RefreshLibrary)},
-                  {kIconOptions, tr(Str::Settings)},
-                  {kIconTouchpad, tr(Str::HoldSignOut)}});
-    drawPads(c);
-    drawToast(c, nowMs);
+    drawNimboxHorizon(c, nowMs);
 }
 
-// Nimbox details display a single virtual CD containing the game's catalog
-// art. The image rotates within a circular mask; Play and metadata are untouched.
-void AppUi::drawNimboxDisc(Canvas& c, const GameTile& tile, uint64_t nowMs) {
-    const float t = std::clamp(nimboxDetailIntro_.value / 1000.0f, 0.0f, 1.0f);
-    const float ease = t * t * (3.0f - 2.0f * t);
-    // The case was opened on Home: Details reveals ONLY the disc.
-    // A restrained slide/scale intro implies unpacking without
-    // duplicating the physical case. Disc remains in the right-hand column.
-    const float cx = 1540.0f - 60.0f * ease;
-    constexpr float cy = 468.0f;
-    const float radius = 150.0f + 36.0f * ease;
-    const float rotation = nimboxReducedMotion_ ? 0.0f :
-                           static_cast<float>(nowMs % 60000ull) * 0.00115f;
-    // A restrained halo keeps the circular artwork readable over hero images.
-    c.fillCircle(cx + 13, cy + 17, radius + 24, rgba(1, 7, 12, 93));
-    c.strokeCircle(cx, cy, radius + 19, 3.0f, rgba(113, 223, 227, 86));
-    c.strokeCircle(cx, cy, radius + 10, 6.0f, rgba(156, 175, 183, 118));
-    c.fillCircle(cx, cy, radius + 2, rgba(198, 216, 217, 250));
-    if (auto art = images_.get(tile.tileUrl, 512, 512)) {
-        c.drawImageDisc(*art, cx, cy, radius - 4, rotation);
-    } else {
-        c.fillCircle(cx, cy, radius - 4, rgba(29, 76, 87));
-        c.strokeArc(cx, cy, radius * 0.77f, 14.0f, 0.6f, 2.1f,
-                    rgba(90, 174, 193, 165));
-    }
-    c.strokeCircle(cx, cy, radius - 4, 2.5f, rgba(238, 250, 250, 202));
-    c.strokeCircle(cx, cy, radius * 0.88f, 1.5f, rgba(244, 253, 253, 72));
-    // Metallic inner hub with spindle hole; fixed while the art spins.
-    c.fillCircle(cx, cy, 40.0f, rgba(218, 228, 229, 247));
-    c.strokeCircle(cx, cy, 39.5f, 3.0f, rgba(95, 134, 143));
-    c.strokeCircle(cx, cy, 29.0f, 5.0f, rgba(250, 254, 254, 165));
-    c.fillCircle(cx, cy, 16.0f, rgba(8, 20, 29));
-    c.strokeCircle(cx, cy, 16.0f, 3.0f, rgba(147, 181, 187));
-}
-
+// Details for Horizon are the normal game-information and playback screen.
 void AppUi::drawDetails(Canvas& c, uint64_t nowMs) {
     const GameTile* g = &detail_;
     playRect_ = {};
@@ -1700,33 +1166,12 @@ void AppUi::drawDetails(Canvas& c, uint64_t nowMs) {
     if (!drawHero(c, nowMs, g->heroUrl, true)) {
         // No hero art (yet): the cover, until the art arrives and fades in.
         drawBackground(c);
-        if (!(nimboxCarousel_ && !nimboxHorizon_ && tab_ == Tab::GamePass && !g->purchasable) &&
-            (g->playable || !g->purchasable || isFreeGame(*g))) {  // paid games show their QR code instead
+        if (g->playable || !g->purchasable || isFreeGame(*g)) {  // paid games show their QR code instead
             if (auto img = images_.get(g->tileUrl, kCover, kCover)) c.drawImage(*img, cover.x, cover.y, 255, 16);
             else c.fillRect(cover, kPlaceholder, 16);
         }
     }
     drawTopBar(c);
-    // Preview 3.0 detail page: cinematic art in the background and a
-    // readable smoked-glass text column opposite the unveiled game disc.
-    // All Play, achievements, queue and gamedata controls remain unchanged.
-    if (nimboxCarousel_ && !nimboxHorizon_ && tab_ == Tab::GamePass && !g->purchasable) {
-        c.fillRect({76, 182, 1080, 766}, rgba(3, 17, 30, 107), 20);
-        c.strokeRect({76, 182, 1080, 766}, rgba(143, 225, 243, 43), 1, 20);
-        c.gradientH({76, 182, 1040, 766}, rgba(5, 18, 29, 87),
-                    rgba(9, 37, 52, 0));
-    }
-    // The complete original title, descriptions, availability and Play
-    // handling below remain intact. Render the opened disc only in the
-    // unused right-hand visual area.
-    if (nimboxCarousel_ && !nimboxHorizon_ && tab_ == Tab::GamePass && !g->purchasable) {
-        fonts_.semibold.draw(c, "NIMBOX  /  COLECAO VIVA", kMargin, 201, 20,
-                             rgba(171, 199, 207));
-        // The media is revealed only after opening a case from the Home
-        // carousel: no duplicate green DVD box on this page.
-        // Real game artwork is printed on the rotating disc below.
-        drawNimboxDisc(c, *g, nowMs);
-    }
     int y = 260;
     for (const auto& line : fonts_.bold.wrap(g->name, 68, 960, 2)) {
         fonts_.bold.draw(c, line, kMargin, y, 68, kWhite);
@@ -1923,15 +1368,13 @@ void AppUi::drawDetails(Canvas& c, uint64_t nowMs) {
     // Play button
     Rect play{kMargin, std::max(y + 48, 620), 300, 76};
     playRect_ = play;
-    const bool livingCollection = nimboxCarousel_ && !nimboxHorizon_ && tab_ == Tab::GamePass;
-    const Color playAccent = livingCollection ? rgba(44, 155, 75) : kGreen;
+    const Color playAccent = kGreen;
     if (playFocused) {
         c.strokeRect({play.x - 7, play.y - 7, play.w + 14, play.h + 14},
-                     livingCollection ? rgba(207, 244, 205) : kWhite, 4, 45);
+                     kWhite, 4, 45);
         c.fillRect(play, playAccent, 38);
     } else {
-        c.fillRect(play, livingCollection ? rgba(35, 121, 70, 172)
-                                         : rgba(16, 124, 65, 140), 38);
+        c.fillRect(play, rgba(16, 124, 65, 140), 38);
     }
     float tx = play.x + 70, ty = play.y + play.h / 2.0f;
     c.line(tx - 8, ty - 13, tx - 8, ty + 13, 4, kWhite);
@@ -2458,9 +1901,8 @@ void AppUi::render(Canvas& c, uint64_t nowMs) {
     for (auto& a : rowScroll_) animating_ |= a.step(dt);
     animating_ |= gridScroll_.step(dt);
     animating_ |= resultScroll_.step(dt);
-    // Colecao Viva gets a slower, framerate-independent ease-out than
-    // regular list scrolling. Navigation targets stay owned by the same
-    // controller/touch code; only their visual travel is softened.
+    // Horizon's cover navigation uses a framerate-independent ease-out.
+    // Reduced-motion preference eliminates the transition.
     if (nimboxReducedMotion_) {
         nimboxSlide_.value = nimboxSlide_.target;
     } else {
@@ -2473,12 +1915,6 @@ void AppUi::render(Canvas& c, uint64_t nowMs) {
             animating_ = true;
         }
     }
-    animating_ |= nimboxDetailIntro_.step(dt);
-    if (nimboxReturningHome_ && nimboxDetailIntro_.value <= 0.5f) {
-        nimboxReturningHome_ = false;
-        screen_ = Screen::Home;
-        nimboxSlide_.value = nimboxSlide_.target = 0.0f;
-    }
     dirty_ = false;
     switch (screen_) {
         case Screen::Splash: drawSplash(c, nowMs); break;
@@ -2486,14 +1922,6 @@ void AppUi::render(Canvas& c, uint64_t nowMs) {
         case Screen::Home: drawHome(c, nowMs); break;
         case Screen::Details:
             drawDetails(c, nowMs);
-            // Dim the contents during entering/leaving the case display.
-            // The top bar and Play UI retain their original hit targets.
-            if (nimboxCarousel_ && !nimboxHorizon_ && tab_ == Tab::GamePass && !nimboxReducedMotion_ &&
-                nimboxDetailIntro_.value < 999.5f) {
-                const float fade = std::clamp(1.0f - nimboxDetailIntro_.value / 1000.0f, 0.0f, 1.0f);
-                c.fillRect({0, 138, kW, kH - 138},
-                           rgba(3, 13, 21, static_cast<uint8_t>(fade * 210.0f)));
-            }
             if (gameSettingsOpen_) drawGameSettings(c);
             if (achievementsOpen_) drawAchievementsModal(c, nowMs);
             break;

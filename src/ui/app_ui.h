@@ -564,9 +564,7 @@ private:
     void drawSplash(Canvas& c, uint64_t nowMs);
     void drawSignIn(Canvas& c, uint64_t nowMs);
     void drawHome(Canvas& c, uint64_t nowMs);
-    void drawNimboxCarousel(Canvas& c, uint64_t nowMs);
     void drawNimboxHorizon(Canvas& c, uint64_t nowMs);
-    void drawNimboxDisc(Canvas& c, const GameTile& tile, uint64_t nowMs);
     void drawTabs(Canvas& c);
     void drawConsoles(Canvas& c, uint64_t nowMs);
     void drawLibrary(Canvas& c, uint64_t nowMs);
@@ -693,17 +691,10 @@ private:
     std::vector<int> focusCol_;
     std::vector<Anim> rowScroll_;
     Anim rowY_;
-    // Scaled to 1000 because Anim::step uses a 0.5-unit snap threshold.
-    // Signed visual displacement of newly selected case while it slides into place.
+    // Horizon-only Game Pass carousel, with reduced-motion accessibility.
     Anim nimboxSlide_;
-    // R2 toggles reduced motion only in the experimental carousel.
     bool nimboxReducedMotion_ = false;
-    Anim nimboxDetailIntro_;  // cinematic library-to-details transition
-    bool nimboxReturningHome_ = false; // finish exit before switching screens
     Tab tab_ = Tab::GamePass;
-    // Horizon -> Colecao Viva 3D -> Classic via R3; all keep the catalog unchanged.
-    bool nimboxCarousel_ = true;
-    bool nimboxHorizon_ = true;
     std::vector<ConsoleTile> consoles_;
     bool allow1440_ = false;
     bool consolesKnown_ = false;
