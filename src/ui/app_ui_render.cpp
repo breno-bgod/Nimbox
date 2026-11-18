@@ -1196,6 +1196,10 @@ void AppUi::drawDetails(Canvas& c, uint64_t nowMs) {
                          rgba(190, 219, 230));
 
     drawTopBar(c);
+    // The gear is also a touch target; L2 opens these system settings from a
+    // game detail without replacing the existing Options/game profile menu.
+    fonts_.regular.draw(c, tr(Str::SettingsDetailsShortcut), 1584, 141, 18,
+                        rgba(197, 220, 235));
 
     // Main editorial column.
     int titleY = 288;
