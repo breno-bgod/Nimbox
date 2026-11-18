@@ -54,13 +54,13 @@ endif()
 
 install(DIRECTORY "${_src}/assets/" DESTINATION ${_pkg}/assets)
 
-# The icon, drawn by xcloud-cli like the PS5's icon0.png.
+# Desktop launcher uses the SAME approved external icon, not the menu logo.
 set(_icon "${CMAKE_CURRENT_BINARY_DIR}/psbox.png")
 add_custom_command(OUTPUT "${_icon}"
-    COMMAND xcloud-cli render-icon "${_icon}" 256
-    WORKING_DIRECTORY "${_src}"
-    DEPENDS xcloud-cli src/ui/brand.cpp
-    COMMENT "Drawing psbox.png")
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${_src}/assets/branding/nimboplay_launcher_256.png" "${_icon}"
+    DEPENDS "${_src}/assets/branding/nimboplay_launcher_256.png"
+    COMMENT "Installing NimboPlay external launcher art")
 add_custom_target(psbox_icon ALL DEPENDS "${_icon}")
 
 configure_file("${_src}/linux/README-linux.txt" "${CMAKE_CURRENT_BINARY_DIR}/README-linux.txt" @ONLY)
