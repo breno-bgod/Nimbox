@@ -996,71 +996,134 @@ struct StreamPlayer::Impl {
                 requestKeyframeIfWanted();
                 XC_LOGI("stream: decoder made again: %s", decoder->isHardware() ? "hardware" : "software (hardware failed)");
             }
+            const int want = decoderSwitch.exchange(-1);
 #if defined(__ANDROID__)
-            if (decoderSwitch.load(std::memory_order_relaxed) == 2) {
-                decoderSwitch.store(-1, std::memory_order_relaxed);
-                if (!surfaceDecoder) {
-                    // Release the prior hardware codec before creating Surface's MediaCodec.
-                    decoder.reset();
-                    decoder = std::make_unique<media::VideoDecoder>();
-                    if (!decoder->init(decodeThreads, false)) {
-                        end("could not start the software fallback decoder");
-                        return;
-                    }
-                    auto candidate = std::make_unique<media::AndroidSurfaceDecoder>();
-                    if (candidate->init(1920, 1080)) {
-                        surfaceDecoder = std::move(candidate);
-                        isHwDecode = true;
-                        keyframeWanted = true;
-                        requestKeyframeIfWanted();
-                        XC_LOGI("stream: switched to Android Surface output");
-                    } else {
-                        XC_LOGW("stream: Surface decoder failed; software fallback remains");
-                    }
-                }
+            if (want == 2) {
+                // New Android output is opt-in. Continue the existing decoder
+                // until a fresh IDR is available, then make a clean switch.
+                surfaceRequested = true;
+                surfaceRetryAtMs = 0;
+                surfaceFailures = 0;
+                surfaceNeedsIdr = true;
+                keyframeWanted = true;
+                requestKeyframeIfWanted();
             }
 #endif
-            if (int want = decoderSwitch.exchange(-1); want == 1 && decoder->isHardware()
+            if (want >= 0
 #if defined(__ANDROID__)
-                && !surfaceDecoder
+                && want != 2
 #endif
             ) {
-                // Already the hardware one: a second one made beside it would
-                // need memory of its own (the kept memory is this one's).
-                XC_LOGI("stream: decoder already hardware");
-            } else if (want >= 0) {
 #if defined(__ANDROID__)
+                surfaceRequested = false;
                 if (surfaceDecoder) {
+                    collectSurfaceStats();
+                    surfaceActive = false;
                     surfaceDecoder.reset();
-                    XC_LOGI("stream: returning to original Nimbox video engine");
+                    XC_LOGI("stream: returning to existing Nimbox decoder");
                 }
 #endif
-                auto next = std::make_unique<media::VideoDecoder>();
-                if (next->init(decodeThreads, want == 1)) {
-                    decoder = std::move(next);
-                    keyframeWanted = true;
-                    requestKeyframeIfWanted();
-                    XC_LOGI("stream: decoder switched to %s", decoder->isHardware() ? "hardware" : "software");
+                if (want == 1 && decoder->isHardware()) {
+                    XC_LOGI("stream: decoder already hardware");
+                } else {
+                    auto next = std::make_unique<media::VideoDecoder>();
+                    if (next->init(decodeThreads, want == 1)) {
+                        decoder = std::move(next);
+                        keyframeWanted = true;
+                        requestKeyframeIfWanted();
+                        XC_LOGI("stream: decoder switched to %s",
+                                decoder->isHardware() ? "hardware" : "software");
+                    }
                 }
             }
 #if defined(__ANDROID__)
-            if (surfaceDecoder) {
-                const uint64_t tSurface0 = platform::nowUs();
-                if (!surfaceDecoder->decode(au.data(), au.size(), frame.rtpTimestamp, hasIdrSlice(au))) {
-                    XC_LOGW("stream: Surface input failed; reverting to software decoder");
+            const bool isIdr = hasIdrSlice(au);
+            const uint64_t nowSurfaceMs = platform::nowMs();
+            if (surfaceDecoder &&
+                (activeSurfaceWidth != androidSurfaceWidth.load(std::memory_order_relaxed) ||
+                 activeSurfaceHeight != androidSurfaceHeight.load(std::memory_order_relaxed))) {
+                // Keep showing the old resolution until an IDR permits a safe
+                // MediaCodec reconfiguration. No other engine is modified.
+                if (isIdr) {
+                    collectSurfaceStats();
+                    surfaceActive = false;
                     surfaceDecoder.reset();
+                    if (!newSurface()) {
+                        ++surfaceFailures;
+                        surfaceRetryAtMs = nowSurfaceMs + 3000;
+                        keyframeWanted = true;
+                    }
+                } else {
+                    keyframeWanted = true;
+                }
+                requestKeyframeIfWanted();
+            }
+            if (surfaceRequested && !surfaceDecoder && surfaceFailures < 4 &&
+                nowSurfaceMs >= surfaceRetryAtMs) {
+                if (isIdr) {
+                    // The original FFmpeg decoder continues until this succeeds.
+                    // No duplicate xCloud login/session, audio or controller layer.
+                    if (!newSurface()) {
+                        ++surfaceFailures;
+                        surfaceRetryAtMs = nowSurfaceMs + 3000;
+                        XC_LOGW("stream: Surface retry failed (%d/4)", surfaceFailures);
+                    }
+                } else {
+                    keyframeWanted = true;
+                }
+                requestKeyframeIfWanted();
+            }
+            if (surfaceDecoder) {
+                if (surfaceNeedsIdr && !isIdr) {
+                    ++droppedFrames;
                     keyframeWanted = true;
                     requestKeyframeIfWanted();
                     continue;
                 }
+                const uint64_t tSurface0 = platform::nowUs();
+                // Retry a temporarily busy input for a bounded interval.
+                auto status = surfaceDecoder->submit(au.data(), au.size(), frame.rtpTimestamp, isIdr);
+                if (status == media::AndroidSurfaceDecoder::Submit::Busy)
+                    status = surfaceDecoder->submit(au.data(), au.size(), frame.rtpTimestamp, isIdr);
                 const uint64_t elapsed = platform::nowUs() - tSurface0;
                 decodeUs += elapsed;
                 ++decodeCalls;
                 atomicMax(decodeMaxUs, elapsed);
-                ++decodedFrames;
+                collectSurfaceStats();
+                if (status == media::AndroidSurfaceDecoder::Submit::Busy) {
+                    // A compressed P-frame must never be silently skipped as
+                    // "decoded": the dependent picture chain needs a fresh IDR.
+                    ++droppedFrames;
+                    surfaceNeedsIdr = true;
+                    keyframeWanted = true;
+                    requestKeyframeIfWanted();
+                    continue;
+                }
+                if (status == media::AndroidSurfaceDecoder::Submit::Error) {
+                    ++decodeFailures;
+                    collectSurfaceStats();
+                    surfaceActive = false;
+                    surfaceDecoder.reset();
+                    ++surfaceFailures;
+                    surfaceRetryAtMs = nowSurfaceMs + 3000;
+                    keyframeWanted = true;
+                    requestKeyframeIfWanted();
+                    XC_LOGW("stream: Surface failed; original decoder remains available");
+                    continue;
+                }
+                surfaceNeedsIdr = false;
                 isHwDecode = true;
-                // MediaCodec presents on the separate Android Surface.
-                // The CPU YUV and Vulkan/SDL paths below are unchanged.
+                pictureSize = (static_cast<uint32_t>(activeSurfaceWidth) << 16) |
+                               static_cast<uint32_t>(activeSurfaceHeight);
+                if (surfaceLastSubmitted % 120 == 1) {
+                    XC_LOGI("Surface actual output: queued=%llu released=%llu on-screen=%llu busy=%llu errors=%llu",
+                            static_cast<unsigned long long>(surfaceLastSubmitted),
+                            static_cast<unsigned long long>(surfaceLastReleased),
+                            static_cast<unsigned long long>(surfaceLastRendered),
+                            static_cast<unsigned long long>(surfaceLastBusy),
+                            static_cast<unsigned long long>(surfaceLastErrors));
+                }
+                // No CPU/YUV download and no SDL/Vulkan draw of this frame.
                 continue;
             }
 #endif
