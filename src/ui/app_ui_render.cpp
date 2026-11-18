@@ -42,7 +42,12 @@ void AppUi::drawBackground(Canvas& c) {
     c.gradientH({0, 0, kW, 520}, rgba(26, 74, 98, 38), rgba(5, 21, 40, 0));
 }
 
-void AppUi::drawLogo(Canvas& c, float cx, float cy, float r) { drawBrandMark(c, cx, cy, r); }
+void AppUi::drawLogo(Canvas& c, float cx, float cy, float r) {
+    const int h = std::max(1, static_cast<int>(r * 2.0f));
+    const int w = std::max(1, static_cast<int>(r * 3.7f));
+    drawInternalBrand(c, static_cast<int>(cx - w * 0.5f),
+                      static_cast<int>(cy - h * 0.5f), w, h);
+}
 
 void AppUi::drawGamerscoreBadge(Canvas& c, float cx, float cy, float r) {
     // A filled disc with a "G" cut out of it, drawn from shapes (a letter of
@@ -99,7 +104,7 @@ void AppUi::drawCloudTime(Canvas& c, int x, int y) {
 #else
     constexpr int kBrandPx = 22;
 #endif
-    const int w = std::max(fonts_.semibold.measure("NIMBOX", kBrandPx), end - x);
+    const int w = std::max(fonts_.semibold.measure("NIMBOPLAY", kBrandPx), end - x);
     const Rect bar{x, y + kLineH + 2, w, kBarH};
     c.fillRect(bar, rgba(255, 255, 255, 36), 2);
     const double f = std::clamp(static_cast<double>(playtimeRemaining_) / static_cast<double>(playtimeMax_), 0.0, 1.0);
@@ -138,17 +143,10 @@ void AppUi::drawTopBar(Canvas& c) {
     constexpr int kBadgeMargin = 13;
 #endif
 
-    drawLogo(c, kMargin + kLogoR, 72, kLogoR);
-
-    int brandX = kMargin + kLogoR * 2 + 20;
-    if (hasCloudTime) {
-        fonts_.semibold.draw(c, "NIMBOX", brandX, 42, kBrandPx, kWhite);
-        drawCloudTime(c, brandX, 72);
-    } else {
-        fonts_.semibold.draw(c, "NIMBOX", brandX, 46, kBrandPx, kWhite);
-        fonts_.regular.draw(c, "CLOUD GAMING", brandX, 77, 13,
-                            rgba(173, 221, 229));
-    }
+    // NimboPlay's complete transparent wordmark is the primary header brand.
+    // No extra text beside it: the lettering is already included in the image.
+    drawInternalBrand(c, 91, 20, 184, 100);
+    if (hasCloudTime) drawCloudTime(c, 292, 59);
 
     // Avatar and centered Settings touch button
     constexpr int kAvatarRight = kW - 120;
@@ -383,8 +381,7 @@ bool AppUi::drawHero(Canvas& c, uint64_t nowMs, const std::string& url, bool det
 
 void AppUi::drawSplash(Canvas& c, uint64_t nowMs) {
     drawBackground(c);
-    drawLogo(c, kW / 2.0f, 400, 64);
-    drawCentered(c, fonts_.bold, tr(Str::AppName), 500, 52, kWhite);
+    drawInternalBrand(c, kW / 2 - 235, 283, 470, 255);
     drawCentered(c, fonts_.regular, status_, 590, 28, kGray);
     drawSpinner(c, kW / 2.0f, 720, 26, nowMs);
 }
@@ -397,9 +394,8 @@ void AppUi::drawSignIn(Canvas& c, uint64_t nowMs) {
     c.gradientV({1160, 190, 660, 690}, rgba(19, 76, 91, 34),
                 rgba(5, 21, 38, 24));
     const int left = 180;
-    drawLogo(c, left + 26, 160, 26);
-    fonts_.semibold.draw(c, tr(Str::AppName), left + 70, 144, 30, kWhite);
-    fonts_.semibold.draw(c, "NIMBOX  /  ACESSO", left, 214, 19,
+    drawInternalBrand(c, left - 12, 113, 208, 113);
+    fonts_.semibold.draw(c, "ACESSO", left, 232, 19,
                          preview31::kAccent);
     fonts_.bold.draw(c, tr(Str::SignInTitle), left, 260, 72, kWhite);
     fonts_.regular.draw(c, tr(Str::SignInStep1), left, 400, 32, kGray);
@@ -776,7 +772,7 @@ void AppUi::drawLibrary(Canvas& c, uint64_t nowMs) {
     drawTabs(c);
     // Preview 3.x library hierarchy. Keep the existing owned/purchasable/
     // hidden sections, sort selector, hitboxes and catalog data.
-    fonts_.semibold.draw(c, "NIMBOX  /  BIBLIOTECA", kMargin, 141, 18,
+    fonts_.semibold.draw(c, "BIBLIOTECA", kMargin, 141, 18,
                          preview31::kAccent);
     fonts_.bold.draw(c, "Seus jogos", kMargin, 171, 38, preview31::kText);
     fonts_.regular.draw(c, "Colecao, organizacao e jogos disponiveis",
@@ -1068,7 +1064,7 @@ void AppUi::drawNimboxHorizon(Canvas& c, uint64_t nowMs) {
     c.gradientV({0, 475, kW, 520}, rgba(8, 20, 34, 15), rgba(7, 17, 29, 243));
     drawTopBar(c);
     drawTabs(c);
-    fonts_.semibold.draw(c, "NIMBOX  /  HORIZON", 104, 197, 19, env.accent);
+    fonts_.semibold.draw(c, "HORIZON", 104, 197, 19, env.accent);
     if (!focus || rows_.empty()) {
         fonts_.semibold.draw(c, tr(Str::NoGames), 104, 354, 36, kWhite);
         drawHints(c, {{kIconOptions, tr(Str::Settings)}, {kIconTouchpad, tr(Str::HoldSignOut)}});
