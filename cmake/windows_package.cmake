@@ -11,7 +11,7 @@ set(_src "${CMAKE_CURRENT_SOURCE_DIR}")
 # The executable target
 install(TARGETS psbox RUNTIME DESTINATION ${_pkg})
 # Preserve the psbox CMake target and runtime IDs, but ship a NimboPlay.exe.
-install(CODE "file(RENAME \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${_pkg}/psbox.exe\" \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${_pkg}/NimboPlay.exe\")"
+install(CODE "file(RENAME \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${_pkg}/psbox.exe\" \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${_pkg}/NimboPlay.exe\")")
 
 # Bundle SDL3.dll beside psbox.exe
 if(TARGET SDL3::SDL3-shared)
