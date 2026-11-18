@@ -22,6 +22,12 @@ int main() {
     assert(h::kDetailsButton.y + h::kDetailsButton.h < cover.y);
     assert(h::contains(h::kPlayButton, h::kPlayButton.x + 5, h::kPlayButton.y + 5));
     assert(!h::contains(h::kPlayButton, h::kDetailsButton.x + 5, h::kDetailsButton.y + 5));
+    // No cover collisions in the idle layout, including focused/neighbor pairs.
+    for (int off = -h::kSideItems; off < h::kSideItems; ++off) {
+        const auto left = h::tileRect(float(off));
+        const auto right = h::tileRect(float(off + 1));
+        assert(left.x + left.w < right.x);
+    }
     // Profile surface stays within safe area and doesn't block the gear.
     assert(h::kProfilePanel.x >= 96);
     assert(h::kProfilePanel.x + h::kProfilePanel.w <= 1920 - 96);
