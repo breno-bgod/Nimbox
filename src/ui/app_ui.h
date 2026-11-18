@@ -120,7 +120,7 @@ struct NavInput {
 // What the Settings screen edits.
 struct SettingsChoice {
     int language = 0;      // ui::Language
-    int resolution = 0;    // 0 = 1080p, 1 = 720p, 2 = 1440p (experimental)
+    int resolution = 0;    // 0 = 1080p, 1 = 720p, 2 = Best Auto, 3 = explicit 1440p QHD
     std::string region;    // gssv region name; empty = automatic
     int nimboxTheme = 0;          // visual-only studio theme
     int nimboxReflection = 44;    // local virtual floor reflection (0..100)

@@ -51,7 +51,8 @@ namespace {
 
 int resolutionToInt(const std::string& res) {
     if (res == "720p") return 1;
-    if (res == "1440p" || res == "best") return 2;
+    if (res == "best") return 2;
+    if (res == "1440p") return 3;
     return 0;
 }
 
@@ -220,7 +221,7 @@ bool Settings::load(const std::string& path) {
         int pFps = static_cast<int>(obj["fpsLimit"].asInt(fpsLimit));
         p.fpsLimit = (pFps == 30 || pFps == 60 || pFps == 120) ? pFps : 0;
         int resDef = resolutionToInt(resolution);
-        p.resolution = static_cast<int>(std::clamp<int64_t>(obj["resolution"].asInt(resDef), 0, 2));
+        p.resolution = static_cast<int>(std::clamp<int64_t>(obj["resolution"].asInt(resDef), 0, 3));
         p.deadzoneLeft = static_cast<int>(std::clamp<int64_t>(obj["deadzoneLeft"].asInt(deadzoneLeft), 0, 50));
         p.deadzoneRight = static_cast<int>(std::clamp<int64_t>(obj["deadzoneRight"].asInt(deadzoneRight), 0, 50));
         p.triggerStrength = static_cast<int>(std::clamp<int64_t>(obj["triggerStrength"].asInt(triggerStrength), 0, 4));

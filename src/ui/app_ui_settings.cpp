@@ -629,7 +629,7 @@ std::vector<std::string> AppUi::settingOptions(int row) const {
     } else if (row == nimbox_theme::kAppearanceMotion) {
         out = {tr(Str::Deactivated), tr(Str::Activated)};
     } else if (row == 1) {
-        out = {tr(Str::Res720), tr(Str::Res1080), tr(Str::ResBest)};  // kResolutionOrder
+        out = {tr(Str::Res720), tr(Str::Res1080), "1440p (QHD)", tr(Str::ResBest)};  // kResolutionOrder
     } else if (row == 3) {
         // Left and right stick (the tester changes them).
         out = {std::to_string(settings_.deadzone[0]) + " %  \xC2\xB7  " + std::to_string(settings_.deadzone[1]) + " %"};
@@ -726,7 +726,7 @@ int AppUi::settingSelected(int row) const {
     if (row == nimbox_theme::kAppearanceReflection) return nimbox_theme::clampReflection(settings_.nimboxReflection) / 10;
     if (row == nimbox_theme::kAppearanceMotion) return settings_.nimboxReducedMotion ? 1 : 0;
     if (row == 1) {
-        for (int i = 0; i < 3; ++i)
+        for (int i = 0; i < 4; ++i)
             if (kResolutionOrder[i] == settings_.resolution) return i;
     }
     if (row == 3 || row == 12 || row == 14 || row == 17 || row == 18 || row == 19 || row == 23 || row == 25) return 0;
@@ -983,11 +983,11 @@ void AppUi::handleGameSettings(const NavInput& in, UiEvent& ev) {
             activeGameHasCustom_ = true;
             dirty_ = true;
             break;
-        case 4: { // Resolution (1 = 720p, 0 = 1080p, 2 = Best (Auto))
-            static constexpr int kOrder[3] = {1, 0, 2};
+        case 4: { // Resolution (1 = 720p, 0 = 1080p, 3 = 1440p, 2 = Best Auto)
+            static constexpr int kOrder[4] = {1, 0, 3, 2};
             int pos = 0;
-            for (int i = 0; i < 3; ++i) if (kOrder[i] == activeGameProfile_.resolution) pos = i;
-            activeGameProfile_.resolution = kOrder[(pos + 3 + dir) % 3];
+            for (int i = 0; i < 4; ++i) if (kOrder[i] == activeGameProfile_.resolution) pos = i;
+            activeGameProfile_.resolution = kOrder[(pos + 4 + dir) % 4];
             activeGameHasCustom_ = true;
             dirty_ = true;
             break;
@@ -1081,10 +1081,10 @@ void AppUi::handleGameSettings(const NavInput& in, UiEvent& ev) {
             dirty_ = true;
             break;
         case 4: {
-            static constexpr int kOrder[3] = {1, 0, 2};
+            static constexpr int kOrder[4] = {1, 0, 3, 2};
             int pos = 0;
-            for (int i = 0; i < 3; ++i) if (kOrder[i] == activeGameProfile_.resolution) pos = i;
-            activeGameProfile_.resolution = kOrder[(pos + 1) % 3];
+            for (int i = 0; i < 4; ++i) if (kOrder[i] == activeGameProfile_.resolution) pos = i;
+            activeGameProfile_.resolution = kOrder[(pos + 1) % 4];
             activeGameHasCustom_ = true;
             dirty_ = true;
             break;
@@ -2589,7 +2589,7 @@ void AppUi::drawGameSettings(Canvas& c) {
         }
         case 4:
             label = tr(Str::Resolution);
-            value = activeGameProfile_.resolution == 1 ? "720p" : activeGameProfile_.resolution == 2 ? tr(Str::ResBest) : "1080p";
+            value = activeGameProfile_.resolution == 1 ? "720p" : activeGameProfile_.resolution == 3 ? "1440p (QHD)" : activeGameProfile_.resolution == 2 ? tr(Str::ResBest) : "1080p";
             break;
         case 5:
             label = tr(Str::Deadzone);
