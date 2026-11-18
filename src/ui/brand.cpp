@@ -14,6 +14,9 @@
 // External OS launcher and PS5 shell artwork remain separate.
 extern const unsigned char xc_internal_nimboplay_brand[];
 extern const std::size_t xc_internal_nimboplay_brand_size;
+// Separate, approved EXTERNAL square launcher icon.
+extern const unsigned char xc_nimboplay_external_launcher[];
+extern const std::size_t xc_nimboplay_external_launcher_size;
 
 namespace xc::ui {
 
@@ -66,14 +69,34 @@ void drawBrandMark(Canvas& c, float cx, float cy, float r, Color color) {
     c.line(right, bottom, right, top, thickness, color);
 }
 
+// Launcher image in the binary, independent of the in-app cloud wordmark.
+static const Image& externalLauncherSource() {
+    static const Image source = [] {
+        Image icon;
+        if (xc_nimboplay_external_launcher_size > 1) {
+            const std::string bytes(
+                reinterpret_cast<const char*>(xc_nimboplay_external_launcher),
+                xc_nimboplay_external_launcher_size - 1);
+            decodeImage(bytes, icon);
+        }
+        return icon;
+    }();
+    return source;
+}
+
 void drawAppIcon(Canvas& c, const Fonts& fonts) {
+    const Image& source = externalLauncherSource();
+    if (source.w > 0 && source.h > 0) {
+        // CLI render-icon uses this C++ code for every requested output size.
+        const Image fitted = coverResize(source, c.width(), c.height());
+        c.drawImage(fitted, 0, 0);
+        return;
+    }
+    // Rendering fallback only; CI tests fail if the asset is missing.
     const int s = c.width();
     c.gradientV({0, 0, s, s}, rgba(22, 71, 94), rgba(5, 18, 31));
-    drawBrandMark(c, s * 0.5f, s * 0.39f, s * 0.27f);
-    const char* word = "NIMBOX";
-    const int px = s / 10;
-    const int tw = fonts.bold.measure(word, px);
-    fonts.bold.draw(c, word, (s - tw) / 2, static_cast<int>(s * 0.76f), px, rgba(236, 249, 253));
+    drawBrandMark(c, s * 0.5f, s * 0.5f, s * 0.27f);
+    (void)fonts;
 }
 
 void drawHomeArt(Canvas& c, const Fonts& fonts, bool launch) {
@@ -97,14 +120,18 @@ void drawHomeArt(Canvas& c, const Fonts& fonts, bool launch) {
     if (!launch)
         c.gradientH({0, 0, static_cast<int>(w * 0.45f), c.height()},
                     rgba(0, 0, 0, 140), rgba(0, 0, 0, 0));
-    drawBrandMark(c, cx, cy, r);
-    if (launch) {
-        const char* name = "NIMBOX";
-        const int px = static_cast<int>(h * 0.065f);
-        const int tw = fonts.bold.measure(name, px);
-        fonts.bold.draw(c, name, (c.width() - tw) / 2,
-                        static_cast<int>(cy + r * 1.45f), px, rgba(255, 255, 255));
+    // PS5 home art uses the same approved external square icon.
+    // The icon already contains the wordmark, so no duplicate title is drawn.
+    const auto& launcher = externalLauncherSource();
+    if (launcher.w > 0 && launcher.h > 0) {
+        const int size = std::max(1, static_cast<int>(r * 2.0f));
+        const Image fitted = coverResize(launcher, size, size);
+        c.drawImage(fitted, static_cast<int>(cx - size * 0.5f),
+                    static_cast<int>(cy - size * 0.5f), 255, 40);
+    } else {
+        drawBrandMark(c, cx, cy, r);
     }
+    (void)fonts;
 }
 
 }  // namespace xc::ui
