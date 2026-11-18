@@ -66,8 +66,8 @@ add_custom_command(OUTPUT "${_icon}"
 add_custom_target(psbox_icon ALL DEPENDS "${_icon}")
 
 configure_file("${_src}/linux/README-linux.txt" "${CMAKE_CURRENT_BINARY_DIR}/README-linux.txt" @ONLY)
-install(FILES "${_src}/linux/psbox.desktop" "${_icon}" "${CMAKE_CURRENT_BINARY_DIR}/README-linux.txt"
-        DESTINATION ${_pkg})
+install(FILES "${_src}/linux/psbox.desktop" DESTINATION ${_pkg} RENAME NimboPlay.desktop)
+install(FILES "${_icon}" "${CMAKE_CURRENT_BINARY_DIR}/README-linux.txt" DESTINATION ${_pkg})
 
 # The licenses of what psbox links or the package carries (the PS5 runtime
 # and PS5_Mesa are not in it).
