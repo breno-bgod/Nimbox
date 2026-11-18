@@ -5,6 +5,7 @@
 #include "ui/app_ui_internal.h"
 #include "ui/cloud_time.h"
 #include "ui/nimbox_horizon_layout.h"
+#include "ui/nimbox_detail_showcase.h"
 
 #include <algorithm>
 
@@ -1151,7 +1152,9 @@ void AppUi::drawHome(Canvas& c, uint64_t nowMs) {
     drawNimboxHorizon(c, nowMs);
 }
 
-// Details for Horizon are the normal game-information and playback screen.
+// Nimbox Showcase: an editorial, console-first detail page. The game image
+// occupies the stage; focusable actions use the same native controller/touch
+// events as before. No extra service or HTML view is involved.
 void AppUi::drawDetails(Canvas& c, uint64_t nowMs) {
     const GameTile* g = &detail_;
     playRect_ = {};
@@ -1159,289 +1162,247 @@ void AppUi::drawDetails(Canvas& c, uint64_t nowMs) {
     claimRect_ = {};
     c.clear(kBg);
     if (g->productId.empty() && g->titleId.empty()) return;
-    // Without its hero art (games to buy, search results, or not downloaded
-    // yet): the cover on the right, never another game's backdrop.
-    constexpr int kCover = 420;
-    const Rect cover{kW - kMargin - kCover, 170, kCover, kCover};
-    if (!drawHero(c, nowMs, g->heroUrl, true)) {
-        // No hero art (yet): the cover, until the art arrives and fades in.
-        drawBackground(c);
-        if (g->playable || !g->purchasable || isFreeGame(*g)) {  // paid games show their QR code instead
-            if (auto img = images_.get(g->tileUrl, kCover, kCover)) c.drawImage(*img, cover.x, cover.y, 255, 16);
-            else c.fillRect(cover, kPlaceholder, 16);
-        }
-    }
-    drawTopBar(c);
-    int y = 260;
-    for (const auto& line : fonts_.bold.wrap(g->name, 68, 960, 2)) {
-        fonts_.bold.draw(c, line, kMargin, y, 68, kWhite);
-        y += 82;
-    }
-    y += 6;
+
+    const bool isF2P = isFreeGame(*g);
+    const bool effectivePlayable = isEffectivePlayableLocked(*g);
+    const bool needsPurchase = !effectivePlayable && !g->playable && (isF2P || g->purchasable);
     const char* planName = planDisplayName(g->plan);
+
+    if (!drawHero(c, nowMs, g->heroUrl, true)) {
+        drawBackground(c);
+        // Never reuse the previous game's hero when this one has no art.
+        if (auto cover = images_.get(g->tileUrl, 900, 900))
+            c.drawImage(*cover, 900, 70, 160, 18);
+    }
+
+    // A quiet editorial stage, not a large opaque "app card". The artwork
+    // remains visible between the text and the narrow information rail.
+    c.gradientH({0, 160, 1130, 750}, rgba(4, 13, 24, 174), rgba(4, 13, 24, 0));
+    c.gradientH({1320, 162, 600, 762}, rgba(3, 11, 20, 0), rgba(3, 11, 20, 190));
+    c.gradientV({0, 745, kW, 210}, rgba(5, 13, 23, 0), rgba(5, 13, 23, 205));
+    c.fillRect(showcase::kFrame, rgba(8, 20, 35, 28), 20);
+    c.strokeRect(showcase::kFrame, rgba(216, 232, 247, 76), 1, 20);
+    // Fine section markers and a PlayStation-style cool-white focused state.
+    c.fillRect({showcase::kTextX, 233, 48, 3}, rgba(219, 241, 249), 2);
+    fonts_.semibold.draw(c, tr(Str::DetailsShowcase), showcase::kTextX, 248, 19,
+                         rgba(190, 219, 230));
+
+    drawTopBar(c);
+
+    // Main editorial column.
+    int titleY = 288;
+    const auto titleLines = fonts_.bold.wrap(g->name, 63, showcase::kTextW, 2);
+    for (const auto& line : titleLines) {
+        fonts_.bold.draw(c, line, showcase::kTextX, titleY, 63, kWhite);
+        titleY += 78;
+    }
+    int byY = titleY + 13;
     std::string byLine;
     if (!g->publisher.empty()) byLine = trf(Str::PublisherBy, g->publisher);
-    if (planName && g->playable)
-        byLine += (byLine.empty() ? "" : "  \xE2\x80\xA2  ") + trf(Str::IncludedWithPlan, planName);
+    if (planName && g->playable) {
+        if (!byLine.empty()) byLine += "   \xE2\x80\xA2   ";
+        byLine += trf(Str::IncludedWithPlan, planName);
+    }
     if (!byLine.empty()) {
-        fonts_.semibold.draw(c, byLine, kMargin, y, 26, kGray);
-        y += 40;
+        fonts_.semibold.draw(c, fonts_.semibold.fit(byLine, 23, showcase::kTextW),
+                             showcase::kTextX, byY, 23, rgba(210, 224, 232));
     }
 
-    // Age rating & content descriptors (ClassInd, ESRB, PEGI)
-    if (!g->ratingAge.empty()) {
-        Color badgeBg = rgba(100, 100, 100);
-        Color badgeFg = kWhite;
-        if (g->ratingAge == "Livre" || g->ratingAge == "E" || g->ratingAge == "3+" || g->ratingAge == "0") {
-            badgeBg = rgba(0, 160, 60);
-        } else if (g->ratingAge == "10+" || g->ratingAge == "E10+" || g->ratingAge == "7+") {
-            badgeBg = rgba(0, 120, 220);
-        } else if (g->ratingAge == "12+") {
-            badgeBg = rgba(230, 180, 0);
-            badgeFg = rgba(20, 20, 20);
-        } else if (g->ratingAge == "14+" || g->ratingAge == "T") {
-            badgeBg = rgba(235, 100, 0);
-        } else if (g->ratingAge == "16+" || g->ratingAge == "M") {
-            badgeBg = rgba(210, 30, 30);
-        } else if (g->ratingAge == "18+" || g->ratingAge == "AO") {
-            badgeBg = rgba(30, 30, 30);
-        }
+    // A single calm metadata row rather than unstructured text over the image.
+    std::string metadata;
+    if (!g->ratingAge.empty()) metadata = g->ratingAge;
+    if (const char* platform = platformLabel(g->platform)) {
+        if (!metadata.empty()) metadata += "   \xE2\x80\xA2   ";
+        metadata += platform;
+    }
+    for (size_t i = 0; i < g->categories.size() && i < 3; ++i) {
+        if (!metadata.empty()) metadata += "   \xE2\x80\xA2   ";
+        metadata += g->categories[i];
+    }
+    if (g->mouseKeyboard) {
+        if (!metadata.empty()) metadata += "   \xE2\x80\xA2   ";
+        metadata += tr(Str::MouseKeyboardSupport);
+    }
+    if (!metadata.empty()) {
+        fonts_.regular.draw(c, fonts_.regular.fit(metadata, 21, showcase::kTextW),
+                            showcase::kTextX, byY + 42, 21, rgba(191, 213, 222));
+    }
 
-        int textW = fonts_.bold.measure(g->ratingAge, 20);
-        int badgeW = std::max(38, textW + 16);
-        int badgeH = 28;
-        Rect badge{kMargin, y + 2, badgeW, badgeH};
-        c.fillRect(badge, badgeBg, 6);
-        if (badgeBg == rgba(30, 30, 30)) {
-            c.strokeRect(badge, rgba(255, 255, 255, 160), 1, 6);
-        }
-        fonts_.bold.draw(c, g->ratingAge, badge.x + (badge.w - textW) / 2, fonts_.bold.centeredY(badge.y, badge.h, 20), 20, badgeFg);
+    // About the game. Keep full descriptions in the model, trim ONLY the
+    // presentation to leave the action row fixed for all title lengths.
+    c.line(showcase::kTextX, 559, showcase::kTextX + 625, 559, 1,
+           rgba(208, 232, 239, 90));
+    fonts_.semibold.draw(c, tr(Str::DetailsAbout), showcase::kTextX, 580, 24, kWhite);
+    int descY = 622;
+    for (const auto& line : fonts_.regular.wrap(g->description, 23, 905, 4)) {
+        fonts_.regular.draw(c, line, showcase::kTextX, descY, 23,
+                            rgba(207, 222, 231));
+        descY += 34;
+    }
 
-        std::string descLine;
-        if (!g->ratingSystem.empty()) descLine = g->ratingSystem;
-        for (const auto& d : g->ratingDescriptors) {
-            std::string next = (descLine.empty() ? "" : "  \xE2\x80\xA2  ") + d;
-            if (fonts_.semibold.measure(descLine + next, 22) > 750) {
-                descLine += " ...";
-                break;
+    // Right-hand rail: real Xbox data, with no invented trailers or awards.
+    auto panel = [&](Rect bounds) {
+        c.fillRect(bounds, rgba(5, 15, 27, 181), 16);
+        c.strokeRect(bounds, rgba(209, 231, 241, 72), 1, 16);
+    };
+    panel(showcase::kAchievementsPanel);
+    const int rx = showcase::kRailX + 25;
+    fonts_.semibold.draw(c, tr(Str::Achievements), rx, 281, 23, kWhite);
+    int unlocked = 0, total = 0, score = 0, possibleScore = 0;
+    if (auto it = achievements_.find(g->xboxTitleId); it != achievements_.end()) {
+        unlocked = it->second.unlockedCount;
+        total = it->second.totalCount;
+        score = it->second.unlockedGamerscore;
+        possibleScore = it->second.totalGamerscore;
+    }
+    if (!g->xboxTitleId.empty()) {
+        std::string progress = total > 0 ? std::to_string(unlocked) + " / " + std::to_string(total) : "--";
+        fonts_.bold.draw(c, progress, rx, 319, 36, kWhite);
+        std::string gs = total > 0 ? std::to_string(score) + " / " + std::to_string(possibleScore) + " G" : "";
+        fonts_.regular.draw(c, gs, rx + 185, 331, 20, kGray);
+        c.fillRect({rx, 392, 354, 8}, rgba(210, 227, 237, 43), 4);
+        if (total > 0) {
+            int progressW = static_cast<int>(354.0 * std::clamp(unlocked, 0, total) / total);
+            if (progressW > 0)
+                c.fillRect({rx, 392, progressW, 8}, rgba(226, 248, 255), 4);
+        }
+    } else {
+        fonts_.regular.draw(c, tr(Str::NoAchievements), rx, 334, 22, kGray);
+    }
+
+    uint64_t playedSeconds = 0;
+    if (!g->productId.empty()) {
+        if (auto it = settings_.titlePlaytime.find(g->productId); it != settings_.titlePlaytime.end())
+            playedSeconds = it->second;
+    }
+    if (!playedSeconds && !g->titleId.empty()) {
+        if (auto it = settings_.titlePlaytime.find(g->titleId); it != settings_.titlePlaytime.end())
+            playedSeconds = it->second;
+    }
+
+    panel(showcase::kSessionPanel);
+    fonts_.semibold.draw(c, tr(Str::DetailsSession), rx, 489, 22, kWhite);
+    int lineY = 527;
+    if (queueTitle_ == g->titleId && queueSeconds_ >= 0) {
+        const std::string queue = queueSeconds_ < 60
+            ? trf(Str::QueueSeconds, std::to_string(queueSeconds_))
+            : trf(Str::QueueMinutes, std::to_string((queueSeconds_ + 59) / 60));
+        fonts_.regular.draw(c, fonts_.regular.fit(queue, 21, 353), rx, lineY, 21, kGray);
+        lineY += 35;
+    }
+    if (playedSeconds > 0) {
+        const std::string played = trf(Str::PlaytimePlayed, formatPlaytime(playedSeconds));
+        fonts_.regular.draw(c, fonts_.regular.fit(played, 21, 353), rx, lineY, 21, kGray);
+        lineY += 35;
+    }
+    if (lineY == 527 && planName)
+        fonts_.regular.draw(c, planName, rx, lineY, 21, kGray);
+    if (lineY == 527 && !planName && !g->publisher.empty())
+        fonts_.regular.draw(c, fonts_.regular.fit(g->publisher, 21, 353), rx, lineY, 21, kGray);
+
+    panel(showcase::kArtworkPanel);
+    const Rect artwork{showcase::kRailX + 24, 659, 174, 194};
+    c.fillRect(artwork, rgba(31, 52, 65), 12);
+    if (auto image = images_.get(g->tileUrl, artwork.w, artwork.h))
+        c.drawImage(*image, artwork.x, artwork.y, 255, 12);
+    int mediaX = artwork.x + artwork.w + 20;
+    fonts_.semibold.draw(c, tr(Str::DetailsArtwork), mediaX, 678, 21, kWhite);
+    if (planName && g->playable) {
+        fonts_.regular.draw(c, fonts_.regular.fit(planName, 18, 171),
+                            mediaX, 715, 18, kGray);
+    }
+    if (!g->ratingSystem.empty())
+        fonts_.regular.draw(c, fonts_.regular.fit(g->ratingSystem, 18, 170),
+                            mediaX, 751, 18, kGray);
+    if (g->mouseKeyboard)
+        fonts_.regular.draw(c, fonts_.regular.fit(tr(Str::MouseKeyboardSupport), 18, 170),
+                            mediaX, 790, 18, kGray);
+
+    // Premium action states retain the exact account entitlement logic and
+    // event mapping already implemented by the Nimbox controller handler.
+    if (needsPurchase) {
+        if (isF2P) {
+            fonts_.semibold.draw(c, tr(Str::FreeToPlay), showcase::kTextX, 718, 22, kWhite);
+            const auto hint = fonts_.regular.wrap(tr(Str::FreeAcquireHint), 20, 880, 2);
+            int hy = 753;
+            for (const auto& line : hint) {
+                fonts_.regular.draw(c, line, showcase::kTextX, hy, 20, kGray);
+                hy += 27;
             }
-            descLine += next;
-        }
-        if (!descLine.empty()) {
-            fonts_.semibold.draw(c, descLine, badge.x + badge.w + 14, fonts_.semibold.centeredY(badge.y, badge.h, 22), 22, kDim);
-        }
-        y += 38;
-    }
-    std::string cats;
-    if (const char* p = platformLabel(g->platform)) cats = p;
-    for (const auto& cat : g->categories) cats += (cats.empty() ? "" : "  \xE2\x80\xA2  ") + cat;
-    if (g->mouseKeyboard) cats += std::string(cats.empty() ? "" : "  \xE2\x80\xA2  ") + tr(Str::MouseKeyboardSupport);
-    if (!cats.empty()) {
-        fonts_.regular.draw(c, cats, kMargin, y, 24, kDim);
-        y += 44;
-    }
-    y += 10;
-    bool isFreePlayer = isFreeAccountLocked();
-    bool isF2P = isFreeGame(*g);
-    bool effectivePlayable = isEffectivePlayableLocked(*g);
-    // Shorter for a free or purchasable game, whose page also has the hint and Play/price below.
-    int descLines = !effectivePlayable && !g->playable && (isF2P || g->purchasable) ? 4 : 6;
-    for (const auto& line : fonts_.regular.wrap(g->description, 24, 880, descLines)) {
-        fonts_.regular.draw(c, line, kMargin, y, 24, kGray);
-        y += 34;
-    }
-    if (!effectivePlayable && !g->playable && (isF2P || g->purchasable)) {
-        // Free to play: "Get Free" button to claim license directly; Paid: price & store QR.
-        int ty = y + 30;
-        auto price = prices_.find(g->productId);
-        bool free = isFreeGame(*g);
-        if (free) {
-            // Free to play: "Get Free" button to claim license directly.
-            fonts_.bold.draw(c, tr(Str::Free), kMargin, ty, 52, kWhite);
-            ty += 84;
-            fonts_.semibold.draw(c, tr(Str::FreeToPlay), kMargin, ty, 28, kWhite);
-            ty += 48;
-            for (const auto& line : fonts_.regular.wrap(tr(Str::FreeAcquireHint), 24, 820, 3)) {
-                fonts_.regular.draw(c, line, kMargin, ty, 24, kGray);
-                ty += 34;
-            }
+            claimRect_ = showcase::kClaimButton;
+            c.fillRect(claimRect_, rgba(235, 245, 252), 26);
+            if (detailButtonFocus_ == 0)
+                c.strokeRect({claimRect_.x - 6, claimRect_.y - 6,
+                              claimRect_.w + 12, claimRect_.h + 12}, kWhite, 3, 30);
             const char* label = tr(Str::ClaimFree);
-            int tw = fonts_.semibold.measure(label, 30);
-            int btnW = std::max(320, tw + 64);
-            Rect claimBtn{kMargin, ty + 30, btnW, 76};
-            claimRect_ = claimBtn;
-            if (detailButtonFocus_ == 0) {
-                c.strokeRect({claimBtn.x - 7, claimBtn.y - 7, claimBtn.w + 14, claimBtn.h + 14}, kWhite, 4, 45);
-            }
-            c.fillRect(claimBtn, kGreen, 38);
-            fonts_.semibold.draw(c, label, claimBtn.x + (claimBtn.w - tw) / 2, claimBtn.y + 22, 30, kWhite);
-        } else if (price != prices_.end()) {
-            // The price, and the regular one crossed out while on sale.
-            int px = kMargin;
-            fonts_.bold.draw(c, price->second.now, px, ty, 52, kWhite);
-            px += fonts_.bold.measure(price->second.now, 52) + 24;
-            if (!price->second.was.empty()) {
-                int w = fonts_.semibold.measure(price->second.was, 30);
-                fonts_.semibold.draw(c, price->second.was, px, ty + 14, 30, kDim);
-                c.line(static_cast<float>(px), static_cast<float>(ty + 32), static_cast<float>(px + w),
-                       static_cast<float>(ty + 32), 2, kDim);
-            }
-            ty += 84;
-        }
-        if (!free) {
-            drawBag(c, kMargin + 12, ty + 16, kGreen);
-            fonts_.semibold.draw(c, tr(Str::BuyToPlay), kMargin + 36, ty, 28, kWhite);
-            ty += 48;
-            for (const auto& line : fonts_.regular.wrap(tr(Str::BuyHint), 24, 820, 3)) {
-                fonts_.regular.draw(c, line, kMargin, ty, 24, kGray);
-                ty += 34;
-            }
+            fonts_.semibold.draw(c, label,
+                                 claimRect_.x + (claimRect_.w - fonts_.semibold.measure(label, 28)) / 2,
+                                 claimRect_.y + 23, 28, rgba(13, 30, 46));
+        } else {
+            if (auto it = prices_.find(g->productId); it != prices_.end())
+                fonts_.bold.draw(c, it->second.now, showcase::kTextX, 759, 34, kWhite);
+            const char* label = tr(Str::BuyToPlay);
+            fonts_.semibold.draw(c, label, showcase::kTextX, 832, 25, kWhite);
             std::string storeLocale;
             if (settings_.storeCountry == "br") storeLocale = "pt-BR/";
             else if (settings_.storeCountry == "jp") storeLocale = "ja-JP/";
             else if (settings_.storeCountry == "kr") storeLocale = "ko-KR/";
             else if (settings_.storeCountry == "pl") storeLocale = "pl-PL/";
             else if (settings_.storeCountry == "us") storeLocale = "en-US/";
-            Rect box = drawQr(c, "https://www.xbox.com/" + storeLocale + "games/store/p/" + g->productId,
-                              kW - kMargin, 190, 440);
-            if (box.w > 0) {
+            Rect qr = drawQr(c, "https://www.xbox.com/" + storeLocale + "games/store/p/" + g->productId,
+                             showcase::kRailX + showcase::kRailW - 25, 644, 185);
+            if (qr.w > 0) {
                 const char* scan = tr(Str::ScanToBuy);
-                int w = fonts_.semibold.measure(scan, 26);
-                fonts_.semibold.draw(c, scan, box.x + (box.w - w) / 2, box.y + box.h + 22, 26, kWhite);
+                fonts_.regular.draw(c, fonts_.regular.fit(scan, 16, 205), qr.x, qr.y + qr.h + 10, 16, kWhite);
             }
         }
-        std::vector<Hint> hints;
-        if (free) hints.push_back({kIconCross, tr(Str::ClaimFree)});
-        hints.push_back({kIconOptions, tr(Str::GameSettings)});
-        hints.push_back({kIconTriangle, tr(favorites_.count(g->productId) ? Str::RemoveFavorite : Str::AddFavorite)});
-        hints.push_back({kIconSquare, tr(hidden_.count(g->productId) ? Str::Unhide : Str::Hide)});
-        if (!isAcquired(*g)) hints.push_back({kIconR3, tr(wishlist_.count(g->productId) ? Str::RemoveWishlist : Str::AddWishlist)});
-        if (!g->xboxTitleId.empty()) hints.push_back({kIconL3, tr(Str::Achievements)});
-        hints.push_back({kIconCircle, tr(Str::Back)});
-        drawHints(c, hints);
-        drawToast(c, nowMs);
-        return;
-    }
-    if (!effectivePlayable) {
-        // Bought separately or outside the subscription: no Play button.
-        std::string msg = (isFreePlayer && !isF2P) ? tr(Str::GamePassRequired) : (planName ? trf(Str::IncludedWithPlan, planName) : std::string(tr(Str::NotPlayable)));
-        int w = std::max(560, fonts_.semibold.measure(msg, 28) + 124);
-        Rect note{kMargin, std::max(y + 48, 620), w, 76};
-        c.fillRect(note, rgba(255, 255, 255, 40), 38);
-        drawLock(c, note.x + 52, note.y + note.h / 2);
-        fonts_.semibold.draw(c, msg, note.x + 90, note.y + 22, 28, kGray);
-
-        int nextBadgeX = note.x + note.w + 24;
-        uint64_t playedSeconds = 0;
-        if (!g->productId.empty()) {
-            auto it = settings_.titlePlaytime.find(g->productId);
-            if (it != settings_.titlePlaytime.end()) playedSeconds = it->second;
-        }
-        if (!playedSeconds && !g->titleId.empty()) {
-            auto it = settings_.titlePlaytime.find(g->titleId);
-            if (it != settings_.titlePlaytime.end()) playedSeconds = it->second;
-        }
-        if (playedSeconds > 0) {
-            std::string playedText = trf(Str::PlaytimePlayed, formatPlaytime(playedSeconds));
-            int pw = fonts_.semibold.measure(playedText, 24);
-            Rect pill{nextBadgeX, note.y + 14, pw + 44, 48};
-            c.fillRect(pill, rgba(0, 0, 0, 150), 24);
-            fonts_.semibold.draw(c, playedText, pill.x + 22, pill.y + 12, 24, kWhite);
-        }
-
-        std::vector<Hint> hints = {
-            {kIconOptions, tr(Str::GameSettings)},
-            {kIconTriangle, tr(favorites_.count(g->productId) ? Str::RemoveFavorite : Str::AddFavorite)},
-            {kIconSquare, tr(hidden_.count(g->productId) ? Str::Unhide : Str::Hide)}
-        };
-        if (!isAcquired(*g)) hints.push_back({kIconR3, tr(wishlist_.count(g->productId) ? Str::RemoveWishlist : Str::AddWishlist)});
-        if (!g->xboxTitleId.empty()) hints.push_back({kIconL3, tr(Str::Achievements)});
-        hints.push_back({kIconCircle, tr(Str::Back)});
-        drawHints(c, hints);
-        drawToast(c, nowMs);
-        return;
-    }
-    bool hasAchievements = !g->xboxTitleId.empty();
-    bool playFocused = (detailButtonFocus_ == 0);
-    bool achFocused = (detailButtonFocus_ == 1 && hasAchievements);
-
-    // Play button
-    Rect play{kMargin, std::max(y + 48, 620), 300, 76};
-    playRect_ = play;
-    const Color playAccent = kGreen;
-    if (playFocused) {
-        c.strokeRect({play.x - 7, play.y - 7, play.w + 14, play.h + 14},
-                     kWhite, 4, 45);
-        c.fillRect(play, playAccent, 38);
+    } else if (!effectivePlayable) {
+        Rect note = showcase::kLockedNotice;
+        c.fillRect(note, rgba(8, 22, 36, 215), 26);
+        c.strokeRect(note, rgba(228, 239, 245, 110), 1, 26);
+        drawLock(c, note.x + 39, note.y + 41);
+        const std::string status = isFreeAccountLocked() && !isF2P ? tr(Str::GamePassRequired)
+            : planName ? trf(Str::IncludedWithPlan, planName) : std::string(tr(Str::NotPlayable));
+        fonts_.semibold.draw(c, fonts_.semibold.fit(status, 24, note.w - 110),
+                             note.x + 76, note.y + 25, 24, kWhite);
     } else {
-        c.fillRect(play, rgba(16, 124, 65, 140), 38);
-    }
-    float tx = play.x + 70, ty = play.y + play.h / 2.0f;
-    c.line(tx - 8, ty - 13, tx - 8, ty + 13, 4, kWhite);
-    c.line(tx - 8, ty - 13, tx + 13, ty, 4, kWhite);
-    c.line(tx - 8, ty + 13, tx + 13, ty, 4, kWhite);
-    fonts_.semibold.draw(c, tr(Str::Play), play.x + 108, play.y + 20, 32, kWhite);
+        playRect_ = showcase::kPlayButton;
+        const bool playFocused = detailButtonFocus_ == 0;
+        c.fillRect(playRect_, playFocused ? rgba(243, 247, 253) : rgba(232, 244, 251, 185), 26);
+        if (playFocused)
+            c.strokeRect({playRect_.x - 6, playRect_.y - 6,
+                          playRect_.w + 12, playRect_.h + 12}, kWhite, 3, 30);
+        const Color ink = rgba(11, 30, 48);
+        c.line(playRect_.x + 42, playRect_.y + 27, playRect_.x + 42, playRect_.y + 53, 3, ink);
+        c.line(playRect_.x + 42, playRect_.y + 27, playRect_.x + 65, playRect_.y + 40, 3, ink);
+        c.line(playRect_.x + 42, playRect_.y + 53, playRect_.x + 65, playRect_.y + 40, 3, ink);
+        fonts_.semibold.draw(c, tr(Str::Play), playRect_.x + 93, playRect_.y + 23, 31, ink);
 
-    int nextBadgeX = play.x + play.w + 24;
-
-    // Achievements button beside Play
-    if (hasAchievements) {
-        std::string achText = tr(Str::Achievements);
-        auto it = achievements_.find(g->xboxTitleId);
-        if (it != achievements_.end() && it->second.totalCount > 0) {
-            const auto& ach = it->second;
-            achText = std::to_string(ach.unlockedCount) + "/" + std::to_string(ach.totalCount) +
-                      " (" + std::to_string(ach.unlockedGamerscore) + "/" + std::to_string(ach.totalGamerscore) + " G)";
+        if (!g->xboxTitleId.empty()) {
+            achRect_ = showcase::kAchievementsButton;
+            const bool focused = detailButtonFocus_ == 1;
+            c.fillRect(achRect_, focused ? rgba(243, 247, 253) : rgba(12, 27, 43, 210), 26);
+            c.strokeRect(achRect_, rgba(213, 233, 243, 130), focused ? 3 : 1, 26);
+            if (focused)
+                c.strokeRect({achRect_.x - 6, achRect_.y - 6,
+                              achRect_.w + 12, achRect_.h + 12}, kWhite, 3, 30);
+            drawGamerscoreBadge(c, static_cast<float>(achRect_.x + 44),
+                                static_cast<float>(achRect_.y + 39), 13);
+            fonts_.semibold.draw(c, fonts_.semibold.fit(tr(Str::Achievements), 24, achRect_.w - 90),
+                                 achRect_.x + 74, achRect_.y + 27, 24,
+                                 focused ? ink : kWhite);
         }
-        int textW = fonts_.semibold.measure(achText, 26);
-        int achW = std::max(240, textW + 80);
-        Rect achBtn{nextBadgeX, play.y, achW, 76};
-        achRect_ = achBtn;
-        if (achFocused) {
-            c.strokeRect({achBtn.x - 7, achBtn.y - 7, achBtn.w + 14, achBtn.h + 14}, kWhite, 4, 45);
-            c.fillRect(achBtn, kGreen, 38);
-        } else {
-            c.fillRect(achBtn, rgba(255, 255, 255, 30), 38);
-        }
-        drawGamerscoreBadge(c, static_cast<float>(achBtn.x + 36), static_cast<float>(achBtn.y + 38), 13.0f);
-        fonts_.semibold.draw(c, achText, achBtn.x + 60, achBtn.y + 22, 26, kWhite);
-        nextBadgeX += achBtn.w + 24;
     }
 
-    // The service's estimate of the wait to start it, beside Play.
-    if (queueTitle_ == g->titleId && queueSeconds_ >= 0) {
-        std::string wait = queueSeconds_ < 60 ? trf(Str::QueueSeconds, std::to_string(queueSeconds_))
-                                              : trf(Str::QueueMinutes, std::to_string((queueSeconds_ + 59) / 60));
-        int w = fonts_.regular.measure(wait, 26);
-        Rect pill{nextBadgeX, play.y + 14, w + 44, 48};
-        c.fillRect(pill, rgba(0, 0, 0, 150), 24);  // readable over any hero art
-        fonts_.regular.draw(c, wait, pill.x + 22, pill.y + 10, 26, kWhite);
-        nextBadgeX += pill.w + 16;
-    }
-    uint64_t playedSeconds = 0;
-    if (!g->productId.empty()) {
-        auto it = settings_.titlePlaytime.find(g->productId);
-        if (it != settings_.titlePlaytime.end()) playedSeconds = it->second;
-    }
-    if (!playedSeconds && !g->titleId.empty()) {
-        auto it = settings_.titlePlaytime.find(g->titleId);
-        if (it != settings_.titlePlaytime.end()) playedSeconds = it->second;
-    }
-    if (playedSeconds > 0) {
-        std::string playedText = trf(Str::PlaytimePlayed, formatPlaytime(playedSeconds));
-        int w = fonts_.semibold.measure(playedText, 24);
-        Rect pill{nextBadgeX, play.y + 14, w + 44, 48};
-        c.fillRect(pill, rgba(0, 0, 0, 150), 24);
-        fonts_.semibold.draw(c, playedText, pill.x + 22, pill.y + 12, 24, kWhite);
-        nextBadgeX += pill.w + 16;
-    }
-    std::vector<Hint> hints = {
-        {kIconCross, tr(achFocused ? Str::Achievements : Str::Play)},
-        {kIconOptions, tr(Str::GameSettings)},
-        {kIconTriangle, tr(favorites_.count(g->productId) ? Str::RemoveFavorite : Str::AddFavorite)},
-        {kIconSquare, tr(hidden_.count(g->productId) ? Str::Unhide : Str::Hide)}
-    };
+    preview31::footerBackdrop(c);
+    std::vector<Hint> hints;
+    if (claimRect_.w > 0) hints.push_back({kIconCross, tr(Str::ClaimFree)});
+    else if (playRect_.w > 0) hints.push_back({kIconCross, tr(detailButtonFocus_ == 1 && achRect_.w > 0 ? Str::Achievements : Str::Play)});
+    hints.push_back({kIconOptions, tr(Str::GameSettings)});
+    hints.push_back({kIconTriangle, tr(favorites_.count(g->productId) ? Str::RemoveFavorite : Str::AddFavorite)});
+    hints.push_back({kIconSquare, tr(hidden_.count(g->productId) ? Str::Unhide : Str::Hide)});
     if (!isAcquired(*g)) hints.push_back({kIconR3, tr(wishlist_.count(g->productId) ? Str::RemoveWishlist : Str::AddWishlist)});
+    if (!g->xboxTitleId.empty() && achRect_.w == 0) hints.push_back({kIconL3, tr(Str::Achievements)});
     hints.push_back({kIconCircle, tr(Str::Back)});
     drawHints(c, hints);
     drawToast(c, nowMs);
