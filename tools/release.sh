@@ -16,7 +16,7 @@
 # app's Linux AppImage (tools/desktop/package-appimage.sh in
 # build-linux-release, SDL3 from CMAKE_PREFIX_PATH or the system, bundled;
 # Linux always ships as an AppImage, never a tarball):
-# PSBox-vX.Y.Z-linux-x86_64.AppImage + .sha256 + .sig, signed the same way,
+# NimboPlay-vX.Y.Z-linux-x86_64.AppImage + .sha256 + .sig, signed the same way,
 # psbox checked for tokens and the version, its symbols in
 # symbols/vX.Y.Z/psbox.debug. Its glibc baseline is this machine's: the one
 # attached to a release is built by .github/workflows/release-linux.yml on
