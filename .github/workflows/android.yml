@@ -8,6 +8,7 @@ on:
     branches:
       - main
       - feature/nimbox-android-integrated-h264-v1
+      - feature/android-surface-third-engine
     paths:
       - 'android/**'
       - 'src/app/**'
