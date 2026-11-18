@@ -1054,12 +1054,7 @@ static void testFreeAccountPlayability() {
     row.tiles = {paidTile, f2pTile};
     app.setRows({row});
     app.showHome();
-    // This test verifies the legacy grid's game selection and Play pathway.
-    // Horizon -> Colecao Viva -> Classic: two R3 presses are required.
-    ui::NavInput classicUi;
-    classicUi.r3 = true;
-    app.handle(classicUi);
-    app.handle(classicUi);
+    // Horizon is the only Game Pass collection; verify paid/free play flow.
 
     // Paid game on free account: cannot launch
     ui::NavInput in;
@@ -1268,8 +1263,13 @@ static void testNimboxHorizonGeometry() {
     CHECK(middle.x + middle.w < right.x);
     CHECK(horizon::contains(middle, middle.x+10, middle.y+10));
     CHECK(!horizon::contains(middle, 0, 0));
-    CHECK(horizon::contains(horizon::kModeSwitch, horizon::kModeSwitch.x+10,
-                            horizon::kModeSwitch.y+10));
+    CHECK(horizon::contains(horizon::kPlayButton,
+                            horizon::kPlayButton.x + 10, horizon::kPlayButton.y + 10));
+    CHECK(horizon::indexForOffset(0, 3, -1) == 2);
+    CHECK(horizon::indexForOffset(0, 3, 1) == 1);
+    CHECK(horizon::indexForOffset(0, 3, 2) == -1);
+    const auto order = horizon::drawOrder(0, 3, 0.0f);
+    CHECK(order.size() == 3 && order.back() == 0);
 }
 
 static void testNimboxDefaultCarouselNavigation() {
@@ -1288,9 +1288,12 @@ static void testNimboxDefaultCarouselNavigation() {
     }
     app.setRows({row});
     app.showHome();
+    ui::NavInput removedModeShortcut;
+    removedModeShortcut.r3 = true;
+    app.handle(removedModeShortcut);
 
-    // Nimbox is the default cloud home: left from the first game wraps to
-    // the last physical case. Classic mode would clamp at the first tile.
+    // Horizon is the only cloud home: left from the first cover wraps
+    // to the last; R3 must not resurrect a removed visualization.
     ui::NavInput left;
     left.left = true;
     app.handle(left);
@@ -7440,12 +7443,7 @@ static void testDesktopMouseNav() {
     row.tiles.push_back(tile2);
     uiApp.setRows({row});
     uiApp.showHome();
-    // The coordinates below are the classic rectangular tile grid.
-    // Horizon -> Colecao Viva -> Classic via two R3 presses.
-    ui::NavInput classicUi;
-    classicUi.r3 = true;
-    uiApp.handle(classicUi);
-    uiApp.handle(classicUi);
+    // Desktop mouse navigation uses Horizon's real shared card geometry.
 
     // 1. Mouse cursor state, initial position, and clamping
     CHECK(uiApp.mouseCursorX() == 960.0f);
@@ -7476,14 +7474,14 @@ static void testDesktopMouseNav() {
 
     // 3. Hovering over a card updates focus
     {
-        // First card is at kMargin (96) + 0, cardY = kRowTop (470) + 48 = 518
-        auto ev = uiApp.onMouseMove(120.0f, 550.0f);
+        // Centered Horizon cover at (960, 731).
+        auto ev = uiApp.onMouseMove(960.0f, 731.0f);
         CHECK(ev.action == ui::Action::None);
     }
 
     // 4. Clicking a card opens details
     {
-        auto ev = uiApp.onMouseDown(120.0f, 550.0f, 1);
+        auto ev = uiApp.onMouseDown(960.0f, 731.0f, 1);
         CHECK(ev.action == ui::Action::None);
         // AppUi should now be showing details
         CHECK(uiApp.detailWanted(100) == "GAME_001");
@@ -8771,12 +8769,7 @@ static void testBlock1Corrections() {
         friendsRow.tiles = {friendTile};
         app.setRows({friendsRow});
         app.showHome();
-        // Classic returns immediately; the 3D Colecao Viva animates its exit.
-        // Horizon -> Colecao Viva -> Classic via two R3 presses.
-        ui::NavInput classicUi;
-        classicUi.r3 = true;
-        app.handle(classicUi);
-        app.handle(classicUi);
+        // Horizon's details return immediately, preserving hero metadata.
 
         // 3a. On Home screen with tile focused, heroWanted requests the missing heroUrl
         CHECK(app.heroWanted(100) == "PROD_FRIEND_01");
