@@ -79,14 +79,16 @@ AndroidSurfaceDecoder::Counters AndroidSurfaceDecoder::stats() const {
     if (!env) return result;
     auto arr = static_cast<jlongArray>(env->CallStaticObjectMethod(activityClass_, statsMethod_));
     if (clearJniError(env, "stats") || !arr) return result;
-    if (env->GetArrayLength(arr) >= 5) {
-        jlong data[5] = {};
-        env->GetLongArrayRegion(arr, 0, 5, data);
+    if (env->GetArrayLength(arr) >= 7) {
+        jlong data[7] = {};
+        env->GetLongArrayRegion(arr, 0, 7, data);
         result.submitted = static_cast<uint64_t>(data[0]);
         result.released = static_cast<uint64_t>(data[1]);
         result.rendered = static_cast<uint64_t>(data[2]);
         result.inputBusy = static_cast<uint64_t>(data[3]);
         result.errors = static_cast<uint64_t>(data[4]);
+        result.outputWidth = static_cast<int>(data[5]);
+        result.outputHeight = static_cast<int>(data[6]);
     }
     env->DeleteLocalRef(arr);
     return result;
