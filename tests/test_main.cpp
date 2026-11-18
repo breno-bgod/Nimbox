@@ -1477,7 +1477,7 @@ static void testStreamMenu() {
     CHECK(!menu.isOpen());
     menu.open(1, true);
     CHECK(press([](xc::ui::NavInput& n) { n.back = true; }) == MenuAction::Close);
-    // Best (Auto) offered as resolution 2; cycling is 720p (1) -> 1080p (0) -> Best (2).
+    // Four options: Best (2) -> 720p (1) -> 1080p (0) -> QHD (3) -> Best (2).
     menu.open(2, false, 0, 1, 0, false, false);
     CHECK(menu.resolution() == 2);
     for (int i = 0; i < 5; ++i) press([](xc::ui::NavInput& n) { n.down = true; });  // to the resolution (Xbox -> Stats -> Upscaler -> Sharpness -> Deband -> Resolution)
@@ -1486,7 +1486,9 @@ static void testStreamMenu() {
     press([](xc::ui::NavInput& n) { n.right = true; });
     CHECK(menu.resolution() == 0);  // 720p -> 1080p
     press([](xc::ui::NavInput& n) { n.right = true; });
-    CHECK(menu.resolution() == 2);  // 1080p -> Best (2)
+    CHECK(menu.resolution() == 3);  // 1080p -> explicit 1440p QHD
+    press([](xc::ui::NavInput& n) { n.right = true; });
+    CHECK(menu.resolution() == 2);  // 1440p QHD -> Best (Auto)
 
     // Test stats indicator customization
     menu.open(0, true);
