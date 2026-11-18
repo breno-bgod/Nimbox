@@ -4,6 +4,10 @@
 #include <cstdint>
 #include "ui/brand.h"
 #include "ui/image_cache.h"
+#include <map>
+#include <mutex>
+#include <string>
+#include "ui/image_cache.h"
 
 #include <algorithm>
 #include <cmath>
@@ -17,7 +21,54 @@
 extern const unsigned char xc_internal_nimble_brand[];
 extern const std::size_t xc_internal_nimble_brand_size;
 
+// Binary built directly into xcloud_ui by CMake. Never fetched over network.
+extern const unsigned char xc_internal_nimble_brand[];
+extern const std::size_t xc_internal_nimble_brand_size;
+
 namespace xc::ui {
+
+void drawInternalBrand(Canvas& c, int x, int y, int w, int h) {
+    if (w <= 0 || h <= 0) return;
+    static const Image source = [] {
+        Image image;
+        if (xc_internal_nimble_brand_size > 1) {
+            const std::string bytes(reinterpret_cast<const char*>(xc_internal_nimble_brand),
+                                    xc_internal_nimble_brand_size - 1);
+            decodeImage(bytes, image);
+        }
+        return image;
+    }();
+    if (source.w <= 0 || source.h <= 0) {
+        drawBrandMark(c, x + w * 0.5f, y + h * 0.5f,
+                      static_cast<float>(std::min(w, h)) * 0.35f);
+        return;
+    }
+    // Contain instead of cover: small details of the cloud and the complete
+    // wordmark must never be cut off. Result is cached per logical UI size.
+    static std::mutex cacheMutex;
+    static std::map<std::pair<int, int>, Image> cache;
+    std::lock_guard<std::mutex> lock(cacheMutex);
+    const std::pair<int, int> size{w, h};
+    auto it = cache.find(size);
+    if (it == cache.end()) {
+        const float scale = std::min(float(w) / source.w, float(h) / source.h);
+        const int fittedW = std::clamp(int(source.w * scale + 0.5f), 1, w);
+        const int fittedH = std::clamp(int(source.h * scale + 0.5f), 1, h);
+        Image fitted = coverResize(source, fittedW, fittedH);
+        Image image;
+        image.w = w;
+        image.h = h;
+        image.opaque = false;
+        image.px.assign(size_t(w) * h, 0);
+        const int offX = (w - fittedW) / 2, offY = (h - fittedH) / 2;
+        for (int row = 0; row < fittedH; ++row)
+            std::copy_n(fitted.px.data() + size_t(row) * fittedW, fittedW,
+                        image.px.data() + size_t(row + offY) * w + offX);
+        it = cache.emplace(size, std::move(image)).first;
+    }
+    c.drawImage(it->second, x, y);
+}
+
 
 // The logo is loaded once from the executable and scaled only on the first
 // use of each size. Fit, rather than crop, preserves its cloud and lettering.
