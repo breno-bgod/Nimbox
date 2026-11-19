@@ -13,6 +13,19 @@ Descobrir em qual etapa um título com restrição por tipo de dispositivo deixa
 
 Nenhum resultado do comando deve ser interpretado como permissão para usar identidade de outro dispositivo.
 
+## Android: APK Alpha com diagnostico integrado
+
+**Nao requer Windows nem xcloud-cli.** No APK debug NimboPlay Alpha, entre na conta Xbox normalmente e aguarde a biblioteca aparecer. Na tela inicial, abra o botao flutuante **NX Teste** (o botao fica oculto durante o streaming).
+
+1. Selecione **Killer Instinct 2 Classic**, **Grand Theft Auto VI** ou **Fortnite**.
+2. Escolha **Consultar catalogo e dispositivos** para verificar a lista GSSV sem iniciar nenhuma sessao de jogo.
+3. Opcionalmente, escolha **Testar solicitacao de sessao**; a segunda confirmacao e obrigatoria. Apenas um jogo encontrado sem ambiguidades e com `hasEntitlement` verdadeiro pode ser testado.
+4. Leia a resposta no painel e utilize **Copiar resultado** para compartilhar apenas o texto tecnico, sem capturas de login.
+
+O menu e o JNI existem apenas no aplicativo Android, enquanto o botao visual e exposto somente quando o APK tiver a flag Android **debuggable** (o artefato `nimboplay-android-alpha`). O programa reutiliza **o worker C++ e o GSSV autenticado do proprio aplicativo**; nao cria um segundo login e nao altera autenticacao, device info, controle, video ou audio.
+
+**Limitacoes:** o resultado depende dos titulos enviados para a conta/cliente naquele instante. A ausencia na lista nao significa indisponibilidade universal. O campo allowedDeviceTypes nao constitui atestacao completa. O teste de sessao apenas pede/encerra a sessao; nenhum gameplay e iniciado. Descarte o resultado se o aplicativo for fechado durante a consulta. A validacao em aparelho fisico deve ocorrer antes de afirmar que o fluxo funciona.
+
 ## Windows: pacote experimental pronto para testar
 
 O ZIP do GitHub Actions inclui o aplicativo `NimboPlay.exe`, a ferramenta `xcloud-cli.exe` e o iniciador `Testar-xCloud.cmd`. Extraia o ZIP completo e clique duas vezes em `Testar-xCloud.cmd`. Escolha Killer Instinct 2 Classic, Grand Theft Auto VI ou Fortnite; o modo de consulta nao inicia nenhuma sessao. O modo de sessao exige segunda confirmacao e direitos de acesso reconhecidos pelo servico.
