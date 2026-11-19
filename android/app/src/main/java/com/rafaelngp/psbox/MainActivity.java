@@ -244,6 +244,7 @@ public class MainActivity extends SDLActivity {
         final TextView report = new TextView(this);
         report.setTextSize(14);
         report.setTextColor(Color.WHITE);
+        report.setBackgroundColor(Color.rgb(19, 27, 41));
         report.setPadding(dp(16), dp(16), dp(16), dp(16));
         report.setText("Consultando o serviço xCloud... \n"
                 + "Esta operação usa o login já existente e não inicia o streaming.");
