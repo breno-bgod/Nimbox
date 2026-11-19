@@ -438,6 +438,7 @@ if(XC_DESKTOP_APP)
         add_library(psbox SHARED
             $<TARGET_OBJECTS:xcloud_appcore>
             src/app/desktop_main.cpp
+            src/app/android_device_diagnostics.cpp
         )
         set_target_properties(psbox PROPERTIES OUTPUT_NAME "main")
         target_link_libraries(psbox PRIVATE
