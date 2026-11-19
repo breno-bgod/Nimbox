@@ -185,10 +185,9 @@ public class MainActivity extends SDLActivity {
                 "Fortnite"
         };
         new AlertDialog.Builder(this)
-                .setTitle("NX Diagnóstico xCloud - Experimental")
-                .setMessage("Usa sua conta Xbox já conectada ao NimboPlay. "
-                        + "Nenhuma alteração de identidade ou desbloqueio é realizada. "
-                        + "Selecione o jogo:")
+                .setTitle("NX Diagnóstico - Escolha um jogo")
+                // Do not setMessage alongside setItems: Android's default
+                // AlertController can hide the choice list when both are set.
                 .setItems(titles, (dialog, which) -> chooseDiagnosticMode(titles[which]))
                 .setNegativeButton("Cancelar", null)
                 .show();
