@@ -26,6 +26,22 @@ O menu e o JNI existem apenas no aplicativo Android, enquanto o botao visual e e
 
 **Limitacoes:** o resultado depende dos titulos enviados para a conta/cliente naquele instante. A ausencia na lista nao significa indisponibilidade universal. O campo allowedDeviceTypes nao constitui atestacao completa. O teste de sessao apenas pede/encerra a sessao; nenhum gameplay e iniciado. Descarte o resultado se o aplicativo for fechado durante a consulta. A validacao em aparelho fisico deve ocorrer antes de afirmar que o fluxo funciona.
 
+## Observacoes dos testes Android (18/11/2026)
+
+A pessoa que testou no NimboPlay Alpha encontrou **Killer Instinct 2 Classic** na biblioteca e recebeu uma recusa de reproducao com a mensagem indicando Xbox One, Series X|S e Samsung TV. O app so exibe esse erro quando o caminho de gameplay falha e o codigo reconhece \`DeviceTypeNotAllowed\`; a lista legivel vem de \`allowedDeviceTypes\`.
+
+**GTA VI nao apareceu em nenhuma pesquisa feita no app.** Isso e um resultado de busca local, e nao comprova que o titulo nao esta na resposta GSSV ou que nunca sera autorizado. Os titulos GSSV sao retornados sem nome; para comparar por nome e necessario ter a correspondencia de productId/titleId obtida do catalogo.
+
+O botao NX Teste da primeira revisao podia ficar preso porque chamava \`hydrateTitles()\` para todos os titulos e nao exibia progresso ou tempo limite. A revisao seguinte:
+
+- Reaproveita os nomes/IDs que a biblioteca do proprio NimboPlay ja carregou, sem hidratar milhares de produtos novamente.
+- Consulta GSSV e cruza os IDs reconhecidos pela biblioteca.
+- Distingue \`NAO_ENCONTRADO_CATALOGO_LOCAL\` de \`ENCONTRADO_LOCALMENTE_MAS_NAO_VINCULADO_GSSV\`. O primeiro **nao prova** ausencia na lista GSSV, cujos nomes nao vem no protocolo.
+- Exibe estagio e tempo de espera no Android; apos 120 segundos, mostra timeout em vez de permanecer indefinidamente em loading. A requisicao nativa em curso nao e interrompida por fechar a janela.
+- Mantem uma solicitacao em fila separada do \`g_command\` para nao a perder quando o worker recebe uma atualizacao, comando de login ou outra operacao.
+
+Primeiro testar Killer Instinct 2 Classic em **Consultar catalogo**; em seguida **Testar solicitacao de sessao** (com confirmacao). Testar GTA VI em **Consultar catalogo** e anotar se aparece \`NAO_ENCONTRADO_CATALOGO_LOCAL\`; o status nao significa que uma hipotetica sessao de GTA VI foi recusada.
+
 ## Windows: pacote experimental pronto para testar
 
 O ZIP do GitHub Actions inclui o aplicativo `NimboPlay.exe`, a ferramenta `xcloud-cli.exe` e o iniciador `Testar-xCloud.cmd`. Extraia o ZIP completo e clique duas vezes em `Testar-xCloud.cmd`. Escolha Killer Instinct 2 Classic, Grand Theft Auto VI ou Fortnite; o modo de consulta nao inicia nenhuma sessao. O modo de sessao exige segunda confirmacao e direitos de acesso reconhecidos pelo servico.
