@@ -7,6 +7,7 @@ import android.content.ClipboardManager;
 import android.content.pm.ApplicationInfo;
 import android.graphics.Color;
 import android.os.Handler;
+import android.os.SystemClock;
 import android.view.Gravity;
 import android.widget.Button;
 import android.widget.ScrollView;
@@ -268,6 +269,11 @@ public class MainActivity extends SDLActivity {
             mDeviceDiagnosticDialog = null;
         });
         mDeviceDiagnosticDialog.show();
+        // Do not leave a modal loading screen spinning forever if the worker
+        // is busy or the remote GSSV endpoint stalls. The native job may still
+        // complete after this UI timeout; no concurrent second job is launched.
+        final long startedAtMs = SystemClock.elapsedRealtime();
+        final long maxVisibleWaitMs = 120_000L;
         mDeviceDiagnosticPoll = new Runnable() {
             @Override public void run() {
                 if (mDeviceDiagnosticDialog == null ||
@@ -276,14 +282,34 @@ public class MainActivity extends SDLActivity {
                 try {
                     result = nativeDeviceDiagnosisReport();
                 } catch (UnsatisfiedLinkError e) {
-                    report.setText("O diagnóstico C++ não está disponível neste APK.");
+                    report.setText("ERRO: o diagnóstico C++ não está disponível neste APK.");
                     return;
                 }
-                if (result != null && !"NX_DIAG_RUNNING".equals(result)) {
-                    report.setText(result);
+                if (result == null) {
+                    report.setText("ERRO: o motor não retornou o estado do diagnóstico.");
                     return;
                 }
-                mDeviceDiagnosticHandler.postDelayed(this, 500);
+                if (result.startsWith("NX_DIAG_RUNNING")) {
+                    long seconds = (SystemClock.elapsedRealtime() - startedAtMs) / 1000;
+                    if (seconds * 1000 >= maxVisibleWaitMs) {
+                        report.setText("TEMPO LIMITE (120 segundos)\n\n"
+                                + "O diagnóstico ainda não concluiu esta etapa: "
+                                + result.substring(Math.min(result.length(), "NX_DIAG_RUNNING|".length()))
+                                + "\n\nVolte ao menu e verifique a conexão. "
+                                + "Não faça outro teste enquanto o anterior estiver em processamento. "
+                                + "Nenhuma conclusão sobre o acesso ao jogo pode ser tirada deste tempo limite.");
+                        return;
+                    }
+                    String stage = result.startsWith("NX_DIAG_RUNNING|")
+                            ? result.substring("NX_DIAG_RUNNING|".length())
+                            : "Aguardando processamento...";
+                    report.setText("NX DIAGNÓSTICO - EM ANDAMENTO\n\n"
+                            + stage + "\n\nTempo decorrido: " + seconds + " s"
+                            + "\n\nEste teste usa sua conta Xbox já autenticada.");
+                    mDeviceDiagnosticHandler.postDelayed(this, 500);
+                    return;
+                }
+                report.setText(result);
             }
         };
         mDeviceDiagnosticHandler.post(mDeviceDiagnosticPoll);
