@@ -8,6 +8,18 @@
 
 namespace xc::xcloud {
 
+std::string fetchOwnPresence(const std::string& auth) {
+    if (auth.empty()) return {};
+    net::Request req;
+    req.method = "GET";
+    req.url = "https://userpresence.xboxlive.com/users/me";
+    req.headers = {{"Authorization", auth}, {"x-xbl-contract-version", "3"}};
+    const auto response = net::perform(req);
+    if (!response.ok()) return {};
+    const auto record = json::parse(response.body);
+    return record ? (*record)["state"].str() : std::string();
+}
+
 bool fetchFriendsPresence(const std::string& xblAuth, std::vector<FriendPresence>& out, std::string& err,
                           const std::string& language) {
     if (xblAuth.empty()) {

@@ -172,7 +172,8 @@ void AppUi::drawTopBar(Canvas& c, bool overArt) {
     c.strokeCircle(scx, scy, 9.5f, 3.5f, kWhite);
     c.fillCircle(scx, scy, 4.0f, rgba(20, 20, 20));
     if (overArt) {
-        const auto name = fonts_.semibold.fit(gamertag_, kGamertagPx, 280);
+        drawSocialButtons(c);
+        const auto name = fonts_.semibold.fit(gamertag_, kGamertagPx, 250);
         fonts_.semibold.draw(c, name, x - 16 - fonts_.semibold.measure(name, kGamertagPx),
                              fonts_.semibold.centeredY(46, 52, kGamertagPx), kGamertagPx, kWhite);
         return;
@@ -1091,6 +1092,27 @@ void AppUi::drawNimboxHorizon(Canvas& c, uint64_t nowMs) {
     }
     const int rowIndex = std::clamp(focusRow_, 0, int(rows_.size()) - 1);
     const GameRow& row = rows_[size_t(rowIndex)];
+    const auto entry = [&](Rect r, const char* label, bool primary) {
+        if (primary) c.fillRect(r, preview31::kSelect, 14);
+        else c.fillRect(r, rgba(6, 13, 24, 130), 14);
+        const auto text = fonts_.semibold.fit(label, 23, r.w - 30);
+        fonts_.semibold.draw(c, text, r.x + (r.w - fonts_.semibold.measure(text, 23)) / 2,
+                             fonts_.semibold.centeredY(r.y, r.h, 23), 23, primary ? kBg : kWhite);
+    };
+    const std::string exploreKey = (g_keyboardHints ? "Z" : buttonName(g_glyphStyle, PadButton::L2)) +
+                                   std::string("  ") + tr(Str::BrowseHome);
+    entry(horizon::kExplore, exploreKey.c_str(), false);
+    if (row.catalogId == xcloud::sigl::kAllGames) {
+        fonts_.bold.draw(c, tr(Str::BrowseAll), 104, 248, 70, kWhite);
+        fonts_.regular.draw(c, gamesCount(row.tiles.size()), 106, 348, 26, kGray);
+        entry(horizon::kPlayButton, tr(Str::OpenCollection), true);
+        entry(horizon::kDetailsButton, tr(Str::BrowseGenres), false);
+        fonts_.regular.draw(c, tr(Str::HorizonVerticalHint), 104, 950, 21, kGray);
+        drawHints(c, {{kIconCross, tr(Str::OpenCollection)}, {kIconTriangle, tr(Str::TabSearch)}, {kIconOptions, tr(Str::Settings)}});
+        drawnCollection_ = outgoingCollection_ = -1;
+        return;
+    }
+    entry(horizon::kViewShelf, tr(Str::OpenCollection), false);
     const int count = int(row.tiles.size());
     if (count <= 0) {
         fonts_.semibold.draw(c, tr(Str::NoGames), 104, 352, 38, kWhite);
@@ -1264,22 +1286,7 @@ void AppUi::drawProfilePanel(Canvas& c) {
     fonts_.semibold.draw(c, fonts_.semibold.fit(plan.empty() ? "Xbox" : plan, 22, 408),
                          x + 128, cy + 22, 22, accent);
 
-    c.fillRect({x, panel.y + 235, right - x, 1}, preview31::kGlassLine);
-    fonts_.regular.draw(c, tr(Str::GamerscoreLabel), x, panel.y + 264, 23, kGray);
-    const std::string score = gamerscore_.empty() ? "—" : gamerscore_;
-    fonts_.bold.draw(c, fonts_.bold.fit(score, 56, right - x), x, panel.y + 300, 56, kWhite);
-    drawCloudTime(c, x, panel.y + 398);
-    const std::string values[] = {ownedKnown_ ? std::to_string(owned_.size()) : "—",
-        std::to_string(favorites_.size()), consolesKnown_ ? std::to_string(consoles_.size()) : "—"};
-    const Str labels[] = {Str::YourGames, Str::Favorites, Str::TabConsoles};
-    for (int i = 0; i < 3; ++i) {
-        const int y = panel.y + 477 + 83 * i;
-        c.fillRect({x, y, right - x, 1}, preview31::kGlassLine);
-        fonts_.regular.draw(c, tr(labels[i]), x, y + 22, 24, kGray);
-        fonts_.semibold.draw(c, values[i], right - fonts_.semibold.measure(values[i], 31),
-                             y + 17, 31, kWhite);
-    }
-
+    drawProfileActions(c, x, right);
     // Hide base-screen touch targets while this native modal has focus.
     hintRects_.clear();
     c.gradientV({0, kH - 120, kW, 40}, rgba(8, 13, 21, 0), rgba(8, 13, 21));
@@ -1289,6 +1296,7 @@ void AppUi::drawProfilePanel(Canvas& c) {
 
 void AppUi::drawHome(Canvas& c, uint64_t nowMs) {
     if (searching_) return drawSearch(c, nowMs);
+    if (!directory_.empty()) return drawDirectory(c);
     if (tab_ == Tab::Library) return drawLibrary(c, nowMs);
     if (tab_ == Tab::Consoles) return drawConsoles(c, nowMs);
     drawNimboxHorizon(c, nowMs);

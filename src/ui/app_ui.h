@@ -17,6 +17,7 @@
 #include "ui/pad_icons.h"
 #include "ui/strings.h"
 #include "xcloud/achievements.h"
+#include "xcloud/social.h"
 
 #include <cstdint>
 #include <map>
@@ -90,6 +91,7 @@ struct GameRow {
     std::vector<GameTile> tiles;
     bool gamePassBadges = true;
     bool isGrid = false;
+    std::string catalogId;
 };
 
 enum class Screen { Splash, SignIn, Home, Details, Launching, Streaming, Error, Settings, Updating };
@@ -321,6 +323,7 @@ public:
     void showSplash(const std::string& status);
     void showSignIn(const std::string& code, const std::string& url);
     // The signed-in account, top right; `gamerscore` (digits) under the name.
+    void setSocial(std::vector<xcloud::FriendPresence> friends, std::string presence, bool loaded);
     void setProfile(const std::string& gamertag, const std::string& gamerpicUrl, const std::string& gamerscore = {});
     // The account's Game Pass plan under the name ("Ultimate", "Premium",
     // "Essential"...; "GamePass" for a member whose plan isn't known); empty
@@ -708,6 +711,36 @@ private:
     int collectionOffsetY_ = 0;
     horizon::BoundaryGate horizonBoundary_{};
     bool nimboxReducedMotion_ = false;
+    enum class Directory { Explore, Genres, GenreGames, All, Featured, Pass, Keyboard, Own, Shelf,
+                           Friends, Notices, Awards, Link, SignOut };
+    struct DirectoryPage {
+        Directory kind = Directory::Explore;
+        std::string title, url;
+        std::vector<std::string> labels;
+        std::vector<GameTile> games;
+        int focus = 0;
+    };
+    std::vector<DirectoryPage> directory_;
+    std::vector<xcloud::FriendPresence> friends_;
+    std::string ownPresence_;
+    bool friendsLoaded_ = false;
+    std::vector<std::string> notices_;
+    bool unreadNotices_ = false;
+    int profileFocus_ = 0;
+    bool directoryFromProfile_ = false;
+    void rememberNotice(const std::string& message);
+    void openDirectory(Directory kind, const std::string& title, const std::string& url = {});
+    void fillDirectory(DirectoryPage& page);
+    void backDirectory();
+    void activateDirectory(UiEvent& ev);
+    void activateProfile(UiEvent& ev);
+    void handleDirectory(const NavInput& in, UiEvent& ev);
+    bool directoryPointer(float x, float y, int button, UiEvent& ev);
+    int directoryColumns(const DirectoryPage& page) const;
+    Rect directoryCell(const DirectoryPage& page, int index) const;
+    void drawDirectory(Canvas& c);
+    void drawProfileActions(Canvas& c, int x, int right);
+    void drawSocialButtons(Canvas& c);
     bool profileOpen_ = false;  // UI-only: never changes account or streaming state
     Tab tab_ = Tab::GamePass;
     std::vector<ConsoleTile> consoles_;

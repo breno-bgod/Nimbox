@@ -16,6 +16,10 @@ constexpr Rect kPlayButton{104, 432, 204, 62};
 constexpr Rect kDetailsButton{325, 432, 205, 62};
 // Avatar hit box is separate from the Settings gear at x=1834..1886.
 constexpr Rect kProfileAvatarTap{1744, 30, 65, 84};
+constexpr Rect kExplore{568, 432, 234, 62}, kViewShelf{824, 432, 220, 62};
+constexpr Rect kFriends{1292, 46, 48, 52}, kBell{1350, 46, 48, 52};
+constexpr Rect kBrowseBack{96, 96, 72, 64}, kBrowseSearch{1478, 98, 340, 64};
+constexpr Rect profileAction(int index) { return {1220, 480 + index * 65, 552, 58}; }
 constexpr Rect kProfilePanel{1176, 136, 640, 792};
 constexpr Rect kProfileClose{1736, 160, 48, 48};
 inline Rect tileRect(float offset, int displacementY = 0) {

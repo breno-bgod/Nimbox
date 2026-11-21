@@ -947,11 +947,19 @@ void Library::hydrate(const Changed& changed, const std::atomic<bool>* stop) {
             static_cast<unsigned long long>((platform::nowMs() - t0) / 1000));
 }
 
-void Library::loadFriends(const std::string& xblAuth, const Changed& changed, const std::atomic<bool>* stop) {
+void Library::loadFriends(const std::string& xblAuth, const Changed& changed, const std::atomic<bool>* stop,
+                          const SocialChanged& social) {
     if (xblAuth.empty() || (stop && *stop)) return;
     std::vector<xcloud::FriendPresence> presence;
     std::string err;
-    if (!xcloud::fetchFriendsPresence(xblAuth, presence, err, language_)) return;
+    const bool loaded = xcloud::fetchFriendsPresence(xblAuth, presence, err, language_);
+    if (stop && *stop) return;
+    if (social) {
+        auto own = xcloud::fetchOwnPresence(xblAuth);
+        if (stop && *stop) return;
+        social(presence, std::move(own), loaded);
+    }
+    if (!loaded) return;
     if (stop && *stop) return;
 
     // Map Xbox Live Title ID / Cloud Title ID -> Store Product ID

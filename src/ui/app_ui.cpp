@@ -168,6 +168,15 @@ bool AppUi::reportOpen() const {
 
 void AppUi::setProfile(const std::string& gamertag, const std::string& gamerpicUrl, const std::string& gamerscore) {
     std::lock_guard<std::mutex> lock(mutex_);
+    if (gamertag_ != gamertag || gamertag.empty()) {
+        directory_.clear();
+        friends_.clear();
+        friendsLoaded_ = false;
+        ownPresence_.clear();
+        notices_.clear();
+        unreadNotices_ = profileOpen_ = directoryFromProfile_ = false;
+        profileFocus_ = 0;
+    }
     gamertag_ = gamertag;
     gamerpicUrl_ = gamerpicUrl;
     gamerscore_ = gamerscore;
@@ -536,6 +545,7 @@ void AppUi::toggleHidden(const GameTile& tile, UiEvent& ev) {
     else hidden_.erase(tile.productId);
     if (!caps_.console) {
         toast_ = tr(hide ? Str::HiddenToast : Str::UnhiddenToast);
+        rememberNotice(toast_);
         toastUntil_ = 0;
     }
     rebuild(true);  // the cursor stays put; the next game takes the place
@@ -550,6 +560,7 @@ void AppUi::toggleFavorite(const GameTile& tile, UiEvent& ev) {
     else favorites_.erase(tile.productId);
     if (!caps_.console) {
         toast_ = tr(fav ? Str::AddedToFavorites : Str::RemovedFromFavorites);
+        rememberNotice(toast_);
         toastUntil_ = 0;
     }
     prefsEvent(ev);
@@ -589,6 +600,7 @@ void AppUi::toggleWishlist(const GameTile& tile, UiEvent& ev) {
     else wishlist_.erase(tile.productId);
     if (!caps_.console) {
         toast_ = tr(wish ? Str::AddedToWishlist : Str::RemovedFromWishlist);
+        rememberNotice(toast_);
         toastUntil_ = 0;
     }
     rebuild();
@@ -1151,6 +1163,7 @@ void AppUi::showHome(const std::string& toast) {
     }
     screen_ = Screen::Home;
     if (!caps_.console && !toast.empty()) {
+        rememberNotice(toast);
         toast_ = toast;
         toastUntil_ = 0;  // set on first render
     }
@@ -1160,6 +1173,7 @@ void AppUi::showHome(const std::string& toast) {
 void AppUi::showToast(const std::string& toast) {
     std::lock_guard<std::mutex> lock(mutex_);
     if (!toast.empty()) {
+        rememberNotice(toast);
         toast_ = toast;
         toastUntil_ = 0;
         dirty_ = true;

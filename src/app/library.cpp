@@ -498,6 +498,7 @@ std::vector<ui::GameRow> Library::rows() const {
     for (const auto& r : layout_) {
         ui::GameRow row;
         row.title = r.title;
+        row.catalogId = r.siglId;
         row.gamePassBadges = r.badges;
         row.isGrid = r.isGrid;
         for (const auto& [pid, tid] : r.items) {

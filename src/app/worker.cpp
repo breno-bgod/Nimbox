@@ -40,6 +40,10 @@ namespace xc::app {
 std::atomic<bool> g_stopHydration{false};
 platform::Thread g_hydrationThread;
 
+static void publishSocial(std::vector<xcloud::FriendPresence> people, std::string own, bool loaded) {
+    g_ui->setSocial(std::move(people), std::move(own), loaded);
+}
+
 void stopHydration() {
     g_stopHydration = true;
     if (g_hydrationThread.joinable()) g_hydrationThread.join();
@@ -417,10 +421,10 @@ void loadLibrary(auth::AuthManager& am, xcloud::GssvClient& gssv, bool forceRefr
             platform::setThreadAffinity(platform::ThreadRole::Worker, "xcloud_hydr");
             auto changed = [&] { publish(*existingLib); };
             existingLib->loadFirstScreen(xblAuth, changed, &g_stopHydration);
-            existingLib->loadFriends(xblAuth, changed, &g_stopHydration);
+            existingLib->loadFriends(xblAuth, changed, &g_stopHydration, publishSocial);
             existingLib->loadPlatforms(xblAuth, changed, &g_stopHydration);
             existingLib->hydrate(changed, &g_stopHydration);
-            existingLib->loadFriends(xblAuth, changed, &g_stopHydration);
+            existingLib->loadFriends(xblAuth, changed, &g_stopHydration, publishSocial);
             g_ui->setLoading(false, 0, 0);
             if (!g_stopHydration) libraryRefreshEnded(existingLib->incomplete());
         });
@@ -555,12 +559,12 @@ void loadLibrary(auth::AuthManager& am, xcloud::GssvClient& gssv, bool forceRefr
         platform::setThreadAffinity(platform::ThreadRole::Worker, "xcloud_hydr");
         auto changed = [&] { publish(*library); };
         library->loadFirstScreen(xblAuth, changed, &g_stopHydration);
-        library->loadFriends(xblAuth, changed, &g_stopHydration);
+        library->loadFriends(xblAuth, changed, &g_stopHydration, publishSocial);
         library->loadOwned(owned, changed, &g_stopHydration);
         library->loadCatalogNames(changed, &g_stopHydration);
         library->loadPlatforms(xblAuth, changed, &g_stopHydration);
         library->hydrate(changed, &g_stopHydration);
-        library->loadFriends(xblAuth, changed, &g_stopHydration);
+        library->loadFriends(xblAuth, changed, &g_stopHydration, publishSocial);
         g_ui->setLoading(false, 0, 0);
         if (!g_stopHydration) libraryRefreshEnded(library->incomplete());
     });

@@ -27,6 +27,7 @@
 #include <cstdint>
 #include "ui/app_ui.h"
 #include "xcloud/catalog.h"
+#include "xcloud/social.h"
 #include "xcloud/gssv.h"
 
 #include <atomic>
@@ -75,7 +76,9 @@ public:
     // games; stops early when `stop` is set.
     void hydrate(const Changed& changed, const std::atomic<bool>* stop = nullptr);
     // Active friends playing cloud-accessible games now.
-    void loadFriends(const std::string& xblAuth, const Changed& changed, const std::atomic<bool>* stop = nullptr);
+    using SocialChanged = std::function<void(std::vector<xcloud::FriendPresence>, std::string, bool)>;
+    void loadFriends(const std::string& xblAuth, const Changed& changed, const std::atomic<bool>* stop = nullptr,
+                     const SocialChanged& social = {});
 
     std::vector<ui::GameRow> rows() const;
     std::vector<ui::GameTile> owned() const;
