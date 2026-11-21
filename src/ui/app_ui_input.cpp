@@ -925,11 +925,10 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
                 dirty_ = true;
                 return ev;
             }
-        } else if (tab_ == Tab::Consoles && y >= 320 && y < 700) {
-            constexpr int kCardW = 480, kCardH = 380, kGap = 40, kTop = 320;
+        } else if (tab_ == Tab::Consoles) {
             for (size_t i = 0; i < consoles_.size(); ++i) {
-                int cx = kMargin + static_cast<int>(i) * (kCardW + kGap);
-                if (x >= cx && x < cx + kCardW && y >= kTop && y < kTop + kCardH) {
+                const Rect card = consoleCardRect(static_cast<int>(i), consoleFocus_);
+                if (nimbox_theme::contains(card, x, y)) {
                     consoleFocus_ = static_cast<int>(i);
                     const ConsoleTile& con = consoles_[i];
                     ev.action = Action::Play;

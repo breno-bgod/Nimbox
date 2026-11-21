@@ -1259,21 +1259,9 @@ void AppUi::handleGameSettings(const NavInput& in, UiEvent& ev) {
 }
 
 void AppUi::drawSettings(Canvas& c) {
-    // A cached, blurred Home/Details is underneath. Keep the glass reading
-    // surfaces darker and more neutral than the brighter NimboPlay logo.
-    const Color cyan = rgba(145, 201, 250);
-    c.fillRect({0, 0, kW, kH}, rgba(4, 11, 22, 132));
-    c.gradientV({0, 0, kW, kH}, rgba(7, 20, 37, 25), rgba(3, 10, 22, 96));
-    c.fillRect({69, 190, 1196, 758}, rgba(0, 5, 12, 56), 25);
-    c.fillRect({1280, 190, 586, 758}, rgba(0, 5, 12, 59), 25);
-    c.fillRect({76, 181, 1180, 756}, rgba(10, 22, 37, 207), 22);
-    c.strokeRect({76, 181, 1180, 756}, rgba(203, 228, 246, 62), 1, 22);
-    c.fillRect({1287, 181, 570, 756}, rgba(10, 22, 37, 216), 22);
-    c.strokeRect({1287, 181, 570, 756}, rgba(203, 228, 246, 61), 1, 22);
-    c.gradientH({94, 184, 530, 2}, rgba(112, 224, 239, 148), rgba(112, 224, 239, 0));
-    c.gradientH({1306, 184, 320, 2}, rgba(112, 224, 239, 126), rgba(112, 224, 239, 0));
-    c.fillRect({95, 201, 3, 52}, rgba(102, 214, 237, 140), 2);
-    c.fillRect({1307, 201, 3, 52}, rgba(102, 214, 237, 130), 2);
+    c.fillRect({0, 0, kW, kH}, withAlpha(kBg, 185));
+    preview31::glassPanel(c, {76, 181, 1180, 756}, 22);
+    preview31::glassPanel(c, {1287, 181, 570, 756}, 22);
     drawTopBar(c);
 
     // Back button next to Settings title for touch navigation
@@ -1286,12 +1274,7 @@ void AppUi::drawSettings(Canvas& c) {
 
     // Editorial page header; the back and Settings targets remain intact.
     fonts_.bold.draw(c, tr(Str::Settings), kMargin + 72, 127, 44, kWhite);
-    // NimboPlay wordmark remains visible through the shared native top bar.
-    fonts_.semibold.draw(c, "CONSOLE EXPERIENCE", 1306, 136, 16,
-                         rgba(142, 197, 214));
-    fonts_.bold.draw(c, "SEU ESPACO, SUAS REGRAS", 112, 203, 19, rgba(233, 247, 249));
-    fonts_.regular.draw(c, "Ajustes do sistema e experiencias personalizadas", 112, 229,
-                        17, rgba(145, 180, 191));
+
     if (loading_) {
         drawLoadingBar(c, kW - kMargin - 480, 100, 480, lastRender_);
     }
@@ -1314,6 +1297,8 @@ void AppUi::drawSettings(Canvas& c) {
                                         "Nitidez CAS", "Saida do chat de voz"};
     constexpr int kRowW = kSettingsRowW, kRowH = kSettingsRowH, kGap = kSettingsGap, kGroupGap = kSettingsGroupGap, kRowPx = kSettingsRowPx;
     constexpr int kListTop = kSettingsListTop, kClipTop = kSettingsClipTop;
+    if (settingsRow_ >= 0 && settingsRow_ < kSettingRows)
+        fonts_.semibold.draw(c, labels[settingsRow_], kMargin + 24, 202, 27, preview31::kText);
     Rect rows[kSettingRows];  // by row id
     int y = kListTop - static_cast<int>(std::lround(settingsScrollY_));
     c.setClip({kMargin - 8, kClipTop, kRowW + 16, kSettingsListBottom - kClipTop});
@@ -1328,8 +1313,8 @@ void AppUi::drawSettings(Canvas& c) {
         const int count = static_cast<int>(end - first);
         Rect slab{kMargin + 3, sectionY - 4, kRowW - 6,
                   count * (kRowH + kGap) - kGap + 8};
-        c.fillRect(slab, rgba(5, 19, 33, 156), 14);
-        c.strokeRect(slab, rgba(138, 181, 195, 40), 1, 14);
+        c.fillRect(slab, withAlpha(kBg, 140), 14);
+        c.strokeRect(slab, preview31::kGlassLine, 1, 14);
         c.line(slab.x + 18.0f, slab.y + 1.0f, slab.x + slab.w - 18.0f,
                slab.y + 1.0f, 1.0f, rgba(170, 220, 232, 23));
         sectionY += count * (kRowH + kGap);
@@ -1341,8 +1326,8 @@ void AppUi::drawSettings(Canvas& c) {
                                 i == 14 ? "CONTROLES E ACESSIBILIDADE" :
                                 i == 19 ? "MANUTENCAO" :
                                 i == nimbox_theme::kAppearanceFirst ? "APARÊNCIA" : "PREFERENCIAS";
-            c.fillRect({kMargin + 5, y + 7, 4, 18}, cyan, 2);
-            fonts_.bold.draw(c, group, kMargin + 21, y + 7, 17, rgba(159, 212, 228));
+            c.fillRect({kMargin + 5, y + 7, 4, 18}, preview31::kAccent, 2);
+            fonts_.bold.draw(c, group, kMargin + 21, y + 7, 17, preview31::kAccent);
             c.line(kMargin + 360.0f, y + 16.0f, kMargin + kRowW - 18.0f,
                    y + 16.0f, 1.0f, rgba(141, 196, 209, 30));
             y += kGroupGap;
@@ -1376,17 +1361,17 @@ void AppUi::drawSettings(Canvas& c) {
             // Only the focused row becomes an illuminated card; resting
             // rows share a subtle category surface instead of flat blocks.
             c.fillRect({r.x + 5, r.y + 1, r.w - 10, r.h - 2},
-                       focused ? rgba(188, 217, 237, 49) : rgba(255, 255, 255, 5), 10);
+                       focused ? withAlpha(preview31::kSelect, 44) : rgba(255, 255, 255, 5), 10);
             if (focused) {
                 c.gradientH({r.x + 11, r.y + 4, 220, r.h - 8},
-                            rgba(173, 208, 234, 32), rgba(173, 208, 234, 0));
-                c.fillRect({r.x + 6, r.y + 5, 4, r.h - 10}, cyan, 2);
+                            withAlpha(preview31::kAccent, 38), withAlpha(preview31::kAccent, 0));
+                c.fillRect({r.x + 6, r.y + 5, 4, r.h - 10}, preview31::kAccent, 2);
                 c.strokeRect({r.x + 5, r.y + 1, r.w - 10, r.h - 2},
-                             dropdownOpen_ ? rgba(195, 218, 236, 108) : rgba(211, 234, 249, 154),
+                             dropdownOpen_ ? rgba(195, 218, 236, 108) : withAlpha(preview31::kSelect, 157),
                              dropdownOpen_ ? 1 : 2, 10);
             } // Resting rows have no spreadsheet-like divider lines.
             fonts_.semibold.draw(c, labels[i], r.x + 32, ty, kRowPx,
-                                 focused ? kWhite : rgba(217, 231, 237));
+                                 focused ? kWhite : preview31::kText);
             float cx = static_cast<float>(r.x + r.w - 40), cy = static_cast<float>(r.y + r.h / 2);
             const bool isSubmenuRow = (i == 3 || i == 4 || i == 12 || i == 14 || i == 15);
             if (isSubmenuRow) {
@@ -1461,6 +1446,15 @@ void AppUi::drawSettings(Canvas& c) {
         y += kRowH + kGap;
     }
     c.resetClip();
+    const int viewport = kSettingsListBottom - kSettingsListTop;
+    const int total = settingsTotalHeight(caps_);
+    if (total > viewport) {
+        const int height = viewport * viewport / total;
+        const float fraction = std::clamp(settingsScrollY_ / (total - viewport), 0.0f, 1.0f);
+        const int top = kSettingsListTop + static_cast<int>((viewport - height) * fraction);
+        c.fillRect({1242, kSettingsListTop, 4, viewport}, preview31::kGlassLine, 2);
+        c.fillRect({1242, top, 4, height}, preview31::kMuted, 2);
+    }
     static constexpr Str kSettingDescs[28] = {
         Str::SettingDescLanguage,
         Str::SettingDescResolution,
@@ -1513,14 +1507,14 @@ void AppUi::drawSettings(Canvas& c) {
             : settingsRow_ == 34
             ? "Seleciona a saida do chat de voz: automatico ou TV e headset."
             : tr(kSettingDescs[settingsRow_]);
-        c.fillRect({100, 869, 1132, 59}, rgba(5, 17, 30, 204), 13);
+        c.fillRect({100, 869, 1132, 59}, withAlpha(kBg, 204), 13);
         c.strokeRect({100, 869, 1132, 59}, rgba(126, 183, 204, 51), 1, 13);
-        c.fillRect({101, 883, 4, 30}, cyan, 2);
-        auto lines = fonts_.regular.wrap(desc, 18, kRowW - 66, 2);
+        c.fillRect({101, 883, 4, 30}, preview31::kAccent, 2);
+        auto lines = fonts_.regular.wrap(desc, 21, kRowW - 66, 2);
         const int hintBaseline = 902;
         int dy = (lines.size() > 1) ? (hintBaseline - 26) : hintBaseline;
         for (const auto& line : lines) {
-            fonts_.regular.draw(c, line, kMargin + 25, dy, 21, rgba(172, 205, 219));
+            fonts_.regular.draw(c, line, kMargin + 25, dy, 21, preview31::kMuted);
             dy += 26;
         }
     }
@@ -1530,11 +1524,8 @@ void AppUi::drawSettings(Canvas& c) {
     // with demonstration features from the HTML prototype.
     if (tester_ == Tester::None && !pickerOpen_) {
         fonts_.bold.draw(c, "Ambiente visual", 1328, 204, 30, kWhite);
-        fonts_.regular.draw(c, "Escolha a atmosfera da sua colecao", 1328, 245,
-                            17, rgba(152, 189, 201));
-        c.fillRect({1310, 272, 524, 225}, rgba(4, 17, 31, 150), 16);
+        c.fillRect({1310, 272, 524, 225}, withAlpha(kBg, 150), 16);
         c.strokeRect({1310, 272, 524, 225}, rgba(138, 202, 217, 48), 1, 16);
-        fonts_.semibold.draw(c, "CENARIOS   /   05", 1328, 278, 13, rgba(127, 205, 226));
         for (int i = 0; i < nimbox_theme::kThemeCount; ++i) {
             const auto& theme = nimbox_theme::kPalettes[i];
             const Rect card = nimbox_theme::kThemeCards[i];
@@ -1547,10 +1538,10 @@ void AppUi::drawSettings(Canvas& c) {
                    card.y + 28.0f, 1.0f, rgba(225, 250, 252, 68));
             c.fillRect({card.x, card.y + card.h - 31, card.w, 31},
                        rgba(5, 18, 33, 205), 7);
-            c.strokeRect(card, selected ? rgba(172, 241, 249, 245) :
+            c.strokeRect(card, selected ? preview31::kText :
                          rgba(147, 186, 200, 92), selected ? 3 : 1, 9);
             if (selected) c.fillRect({card.x + 9, card.y + card.h - 4,
-                                      card.w - 18, 3}, rgba(118, 228, 239, 210), 1);
+                                      card.w - 18, 3}, preview31::kAccent, 1);
             fonts_.semibold.draw(c, theme.name, card.x + 13,
                                  card.y + card.h - 27, 17, kWhite);
             if (selected) c.fillCircle(card.x + card.w - 17, card.y + 13,
@@ -1565,7 +1556,7 @@ void AppUi::drawSettings(Canvas& c) {
         c.fillRect({track.x, track.y + 2, track.w, track.h - 4}, rgba(55, 83, 101), 5);
         c.fillRect({track.x, track.y + 2,
                     track.w * nimbox_theme::clampReflection(settings_.nimboxReflection) / 100,
-                    track.h - 4}, rgba(93, 204, 230), 5);
+                    track.h - 4}, preview31::kAccent, 5);
         const float thumbX = static_cast<float>(track.x) +
                              track.w * nimbox_theme::clampReflection(settings_.nimboxReflection) / 100.0f;
         c.fillCircle(thumbX, track.y + track.h / 2.0f, 13.0f, rgba(69, 145, 173, 68));
@@ -1589,10 +1580,10 @@ void AppUi::drawSettings(Canvas& c) {
         Rect remotePanel{1310, 656, 523, 250};
         c.fillRect({remotePanel.x + 3, remotePanel.y + 7, remotePanel.w,
                     remotePanel.h}, rgba(0, 5, 13, 75), 16);
-        c.fillRect(remotePanel, rgba(8, 20, 34, 241), 16);
+        c.fillRect(remotePanel, withAlpha(kBg, 241), 16);
         c.strokeRect(remotePanel, rgba(118, 181, 205, 75), 1, 16);
         c.fillRect({remotePanel.x + 1, remotePanel.y + 25, 3, 61},
-                   rgba(102, 218, 238, 166), 2);
+                   preview31::kAccent, 2);
         fonts_.bold.draw(c, tr(Str::WebControlTitle), 1330, 672, 21, kWhite);
         std::string qrUrl = !webUrl_.empty() ? webUrl_ :
                             "http://" + platform::localIPv4() + ":8080";

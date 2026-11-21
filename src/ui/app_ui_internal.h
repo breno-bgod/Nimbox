@@ -44,6 +44,14 @@ inline void drawLock(Canvas& c, int cx, int cy) {
 
 constexpr int kW = 1920, kH = 1080;
 constexpr int kMargin = 96;
+// Keep the focused console fully visible as the strip moves past its third card.
+inline Rect consoleCardRect(int index, int focus) {
+    constexpr int width = 480, pitch = 520;
+    constexpr int visible = (kW - 2 * kMargin + pitch - width) / pitch;
+    const int first = std::max(0, focus - visible + 1);
+    return {kMargin + (index - first) * pitch, 320, width, 380};
+}
+
 constexpr int kCard = 240;
 constexpr int kCardGap = 24;
 constexpr int kCardPitch = kCard + kCardGap;
@@ -53,13 +61,13 @@ constexpr uint64_t kHeroFadeMs = 300;
 // Legacy CTA hit box remains empty; touching the projected cover opens
 // Details via the existing input path (no control logic changes).
 
-constexpr Color kBg = rgba(8, 17, 31);
+constexpr Color kBg = rgba(16, 16, 19);
 constexpr Color kWhite = rgba(255, 255, 255);
-constexpr Color kGray = rgba(190, 190, 190);
-constexpr Color kDim = rgba(140, 140, 140);
+constexpr Color kGray = preview31::kMuted;
+constexpr Color kDim = rgba(166, 159, 151);
 constexpr Color kGreen = rgba(16, 124, 16);
-constexpr Color kPanel = rgba(17, 36, 53);
-constexpr Color kPlaceholder = rgba(26, 45, 63);
+constexpr Color kPanel = rgba(37, 35, 38);
+constexpr Color kPlaceholder = rgba(52, 48, 47);
 
 enum Icon { kIconCross, kIconCircle, kIconOptions, kIconTriangle, kIconTouchpad, kIconSquare, kIconR3, kIconL3, kIconL2R2, kIconDpadLR, kIconL1R1 };
 

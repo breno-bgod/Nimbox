@@ -593,7 +593,7 @@ void StreamMenu::drawGuitarTab(Canvas& c) const {
         if (!itemShown(i)) continue;
         const Rect row = rowRect(y, kRowH - 4);
         const bool sel = i == selected_;
-        if (sel) c.fillRect(row, kWhite, 8);
+        if (sel) c.fillRect(row, preview31::kSelect, 8);
         const char* label = i == XboxButton   ? tr(Str::MenuXboxButton)
                             : i == PlayerItem ? tr(Str::MenuPlayer)
                             : i == StrumItem  ? tr(Str::MenuStrum)
@@ -619,7 +619,7 @@ void StreamMenu::drawGuitarTab(Canvas& c) const {
     for (int item = GuitarLane0; item <= GuitarReset; ++item) {
         const Rect row = rowRect(y, kBindH - 4);
         const bool sel = item == selected_;
-        if (sel) c.fillRect(row, kWhite, 8);
+        if (sel) c.fillRect(row, preview31::kSelect, 8);
         const int ty = fonts_.semibold.centeredY(row.y, row.h, kBindPx);
         if (item == GuitarReset) {
             fonts_.semibold.draw(c, tr(Str::GuitarBindReset), row.x + 16, ty, kBindPx, sel ? kDark : kWhite);
@@ -739,8 +739,9 @@ Canvas StreamMenu::renderMenu(const StreamInfo& info) const {
     Canvas c(canvasW, kMenuH);
     std::fill(c.data(), c.data() + static_cast<size_t>(canvasW) * kMenuH, 0u);
     c.fillRect({0, 0, kMenuW, kMenuH}, kPanel, 0);
-    c.fillRect({0, 0, kMenuW, 6}, kGreen);
+    c.gradientV({0, 0, kMenuW, 90}, withAlpha(preview31::kAccent, 22), withAlpha(kPanel, 0));
     constexpr int kPad = 40;
+    c.fillRect({kPad, 0, 64, 3}, preview31::kAccent, 1);
 
     auto icon = [&](bool cross, int x, int hy) {
         if (g_glyphStyle == GlyphStyle::Xbox) {  // A / B
@@ -780,7 +781,7 @@ Canvas StreamMenu::renderMenu(const StreamInfo& info) const {
         for (int i = 0; i < 8; ++i) {
             Rect row{kPad - 16, kTop + i * kRowH, kMenuW - 2 * (kPad - 16), kRowH - 4};
             bool sel = i == statsCustomIndex_;
-            if (sel) c.fillRect(row, kWhite, 8);
+            if (sel) c.fillRect(row, preview31::kSelect, 8);
             Color fg = sel ? kDark : kWhite;
             bool on = (statsMask_ & kIndicators[i].mask) != 0;
 
@@ -842,7 +843,7 @@ Canvas StreamMenu::renderMenu(const StreamInfo& info) const {
         for (int i = 0; i < 6; ++i) {
             Rect row{kPad - 16, kTop + i * kRowH, kMenuW - 2 * (kPad - 16), kRowH - 4};
             bool sel = i == touchpadCustomIndex_;
-            if (sel) c.fillRect(row, kWhite, 8);
+            if (sel) c.fillRect(row, preview31::kSelect, 8);
             Color fg = sel ? kDark : kWhite;
             int ty = fonts_.semibold.centeredY(row.y, row.h, kPx);
             fonts_.semibold.draw(c, touchpadTriggerLabel(i), row.x + 16, ty, kPx, fg);
@@ -891,7 +892,7 @@ Canvas StreamMenu::renderMenu(const StreamInfo& info) const {
         const int gw = fonts_.semibold.measure(tabGuitar, 18) + 24;
         const Rect r{kPad, tabY, gw, tabH};
         c.fillRect(r, rgba(255, 255, 255, 24), 6);
-        c.fillRect({r.x + 6, r.y + r.h - 3, r.w - 12, 3}, kGreen, 2);
+        c.fillRect({r.x + 6, r.y + r.h - 3, r.w - 12, 3}, preview31::kAccent, 2);
         fonts_.semibold.draw(c, tabGuitar, r.x + 12, fonts_.semibold.centeredY(r.y, r.h, 18), 18, kWhite);
     } else {
         int bx = kPad;
@@ -918,7 +919,7 @@ Canvas StreamMenu::renderMenu(const StreamInfo& info) const {
         Rect genRect{bx, tabY, gw, tabH};
         if (genActive) {
             c.fillRect(genRect, rgba(255, 255, 255, 24), 6);
-            c.fillRect({genRect.x + 6, genRect.y + genRect.h - 3, genRect.w - 12, 3}, kGreen, 2);
+            c.fillRect({genRect.x + 6, genRect.y + genRect.h - 3, genRect.w - 12, 3}, preview31::kAccent, 2);
         }
         fonts_.semibold.draw(c, tabGen, genRect.x + 12, fonts_.semibold.centeredY(genRect.y, genRect.h, 18), 18,
                              genActive ? kWhite : kDim);
@@ -935,7 +936,7 @@ Canvas StreamMenu::renderMenu(const StreamInfo& info) const {
         Rect ctrlRect{bx, tabY, cw, tabH};
         if (ctrlActive) {
             c.fillRect(ctrlRect, rgba(255, 255, 255, 24), 6);
-            c.fillRect({ctrlRect.x + 6, ctrlRect.y + ctrlRect.h - 3, ctrlRect.w - 12, 3}, kGreen, 2);
+            c.fillRect({ctrlRect.x + 6, ctrlRect.y + ctrlRect.h - 3, ctrlRect.w - 12, 3}, preview31::kAccent, 2);
         }
         fonts_.semibold.draw(c, tabCtrl, ctrlRect.x + 12, fonts_.semibold.centeredY(ctrlRect.y, ctrlRect.h, 18), 18,
                              ctrlActive ? kWhite : kDim);
@@ -992,7 +993,7 @@ Canvas StreamMenu::renderMenu(const StreamInfo& info) const {
 #endif
         Rect row{kPad - 16, rowY, kMenuW - 2 * (kPad - 16), kRowH - 4};
         bool sel = i == selected_;
-        if (sel) c.fillRect(row, kWhite, 8);
+        if (sel) c.fillRect(row, preview31::kSelect, 8);
         Color fg = sel ? kDark : kWhite;
         int ty = fonts_.semibold.centeredY(row.y, row.h, kPx);
 

@@ -28,15 +28,15 @@ constexpr int kPageMargin = 96;
 // physical case is the ONLY Details entry point from the carousel.
 constexpr Rect kDetailsCta{0, 0, 0, 0};
 
-constexpr Color kSky = rgba(15, 48, 72);
-constexpr Color kStudioLow = rgba(8, 32, 53);
-constexpr Color kShelfBg = rgba(9, 30, 48);
-constexpr Color kGlass = rgba(11, 37, 56, 194);
-constexpr Color kGlassLine = rgba(156, 186, 194, 60);
-constexpr Color kText = rgba(238, 249, 255);
-constexpr Color kMuted = rgba(180, 205, 220);
-constexpr Color kAccent = rgba(171, 199, 207);
-constexpr Color kSelect = rgba(219, 235, 232);
+constexpr Color kSky = rgba(70, 61, 55);
+constexpr Color kStudioLow = rgba(23, 22, 25);
+constexpr Color kShelfBg = rgba(27, 26, 29);
+constexpr Color kGlass = rgba(39, 37, 39, 240);
+constexpr Color kGlassLine = rgba(233, 220, 195, 55);
+constexpr Color kText = rgba(249, 246, 238);
+constexpr Color kMuted = rgba(203, 197, 186);
+constexpr Color kAccent = rgba(244, 194, 125);
+constexpr Color kSelect = rgba(243, 230, 208);
 
 inline void glassPanel(Canvas& c, Rect r, int radius = 18) {
     c.fillRect(r, kGlass, radius);
@@ -45,17 +45,17 @@ inline void glassPanel(Canvas& c, Rect r, int radius = 18) {
 
 inline void shelfBackdrop(Canvas& c) {
     c.gradientV({0, kHeroShelfBoundary, 1920, kFooterTop - kHeroShelfBoundary},
-                rgba(18, 61, 80), kShelfBg);
+                kStudioLow, kShelfBg);
     c.line(84.0f, static_cast<float>(kHeroShelfBoundary),
            1836.0f, static_cast<float>(kHeroShelfBoundary),
-           1.0f, rgba(179, 232, 245, 48));
+           1.0f, kGlassLine);
 }
 
 inline void footerBackdrop(Canvas& c) {
     c.fillRect({0, kFooterTop, 1920, 1080 - kFooterTop},
-               rgba(5, 23, 37, 246));
+               withAlpha(kStudioLow, 246));
     c.line(0.0f, static_cast<float>(kFooterTop), 1920.0f,
-           static_cast<float>(kFooterTop), 1.0f, rgba(149, 210, 232, 72));
+           static_cast<float>(kFooterTop), 1.0f, kGlassLine);
 }
 
 } // namespace xc::ui::preview31

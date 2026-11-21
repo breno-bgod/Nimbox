@@ -37,9 +37,8 @@ void AppUi::drawCentered(Canvas& c, const Font& f, const std::string& text, int 
 }
 
 void AppUi::drawBackground(Canvas& c) {
-    // Horizon: the same midnight-blue base in every native menu.
-    c.gradientV({0, 0, kW, kH}, rgba(15, 43, 65), kBg);
-    c.gradientH({0, 0, kW, 520}, rgba(26, 74, 98, 38), rgba(5, 21, 40, 0));
+    c.gradientV({0, 0, kW, kH}, preview31::kStudioLow, kBg);
+    c.gradientH({0, 0, kW, 520}, rgba(134, 98, 63, 30), withAlpha(kBg, 0));
 }
 
 void AppUi::drawLogo(Canvas& c, float cx, float cy, float r) {
@@ -114,10 +113,10 @@ void AppUi::drawCloudTime(Canvas& c, int x, int y) {
 void AppUi::drawTopBar(Canvas& c) {
     // A frosted, dark header preserves the original touch and controller
     // targets while making all native screens visually consistent.
-    c.fillRect({0, 0, kW, 122}, rgba(6, 16, 29, 228));
-    c.gradientV({0, 122, kW, 28}, rgba(6, 16, 29, 110), rgba(6, 16, 29, 0));
+    c.fillRect({0, 0, kW, 122}, withAlpha(kBg, 231));
+    c.gradientV({0, 122, kW, 28}, withAlpha(kBg, 110), withAlpha(kBg, 0));
     c.line(50.0f, 121.0f, static_cast<float>(kW - 50), 121.0f, 1.0f,
-           rgba(84, 199, 224, 85));
+           preview31::kGlassLine);
     const bool hasCloudTime = playtimeUnlimited_ || playtimeRemaining_ >= 0;
 #if defined(__ANDROID__)
     constexpr int kAvatar = 64;
@@ -395,15 +394,13 @@ void AppUi::drawSplash(Canvas& c, uint64_t nowMs) {
 
 void AppUi::drawSignIn(Canvas& c, uint64_t nowMs) {
     drawBackground(c);
-    c.gradientH({0, 80, kW, 920}, rgba(8, 27, 42, 115), rgba(13, 71, 85, 105));
+    c.gradientH({0, 80, kW, 920}, withAlpha(kBg, 115), rgba(95, 69, 49, 75));
     preview31::glassPanel(c, {139, 110, 890, 850}, 22);
     preview31::glassPanel(c, {1160, 190, 660, 690}, 22);
-    c.gradientV({1160, 190, 660, 690}, rgba(19, 76, 91, 34),
+    c.gradientV({1160, 190, 660, 690}, withAlpha(preview31::kAccent, 14),
                 rgba(5, 21, 38, 24));
     const int left = 180;
     drawInternalBrand(c, left - 12, 113, 208, 113);
-    fonts_.semibold.draw(c, "ACESSO", left, 232, 19,
-                         preview31::kAccent);
     fonts_.bold.draw(c, tr(Str::SignInTitle), left, 260, 72, kWhite);
     fonts_.regular.draw(c, tr(Str::SignInStep1), left, 400, 32, kGray);
     std::string shortUrl = codeUrl_;
@@ -514,15 +511,12 @@ void AppUi::drawTabs(Canvas& c) {
         bool on = static_cast<int>(tab_) == i;
         Rect r{x, kY, widths[i], kH};
         if (on) {
-            // The native tab remains the SAME target as before; only its
-            // appearance follows Preview 3.0's bright active navigation pill.
-            c.fillRect({r.x - 5, r.y - 5, r.w + 10, r.h + 10},
-                       rgba(82, 197, 222, 28), kH / 2);
-            c.fillRect(r, rgba(237, 250, 254), kH / 2);
-            c.strokeRect(r, rgba(194, 240, 246), 2, kH / 2);
+            c.fillRect(r, withAlpha(preview31::kText, 18), 12);
+            c.fillRect({r.x + kPad, r.y + r.h - 3, r.w - 2 * kPad, 3},
+                       preview31::kAccent, 1);
         }
         fonts_.semibold.draw(c, labels[i], x + kPad, fonts_.semibold.centeredY(kY, kH, kPx),
-                             kPx, on ? rgba(12, 49, 66) : kGray);
+                             kPx, on ? preview31::kText : kGray);
         x += widths[i] + kGap;
     }
     shoulder(g_keyboardHints ? "E" : buttonName(g_glyphStyle, PadButton::R1), x - kGap + 40);
@@ -773,17 +767,13 @@ void AppUi::drawLibrary(Canvas& c, uint64_t nowMs) {
     }
     c.clearClip();
     c.fillRect({0, 0, kW, clipTop}, kBg);
-    c.gradientH({0, 122, kW, clipTop - 122}, rgba(23, 68, 91), rgba(5, 19, 34));
+    c.gradientH({0, 122, kW, clipTop - 122}, preview31::kStudioLow, kBg);
     c.gradientV({0, clipTop, kW, 12}, kBg, withAlpha(kBg, 0));
     drawTopBar(c);
     drawTabs(c);
     // Preview 3.x library hierarchy. Keep the existing owned/purchasable/
     // hidden sections, sort selector, hitboxes and catalog data.
-    fonts_.semibold.draw(c, "BIBLIOTECA", kMargin, 141, 18,
-                         preview31::kAccent);
-    fonts_.bold.draw(c, "Seus jogos", kMargin, 171, 38, preview31::kText);
-    fonts_.regular.draw(c, "Colecao, organizacao e jogos disponiveis",
-                        kMargin, 216, 18, preview31::kMuted);
+    fonts_.bold.draw(c, tr(Str::YourGames), left, 155, 48, preview31::kText);
     if (owned_.empty() && purchasable_.empty() && hiddenTiles_.empty()) {
         if (!ownedKnown_) {
             drawSpinner(c, kW / 2.0f, 470, 26, nowMs);
@@ -1005,15 +995,16 @@ void AppUi::drawConsoles(Canvas& c, uint64_t nowMs) {
         return;
     }
     // One card per console: a drawn Xbox, its name, model and state.
-    constexpr int kCardW = 480, kCardH = 380, kGap = 40, kTop = 320;
     for (size_t i = 0; i < consoles_.size(); ++i) {
         const ConsoleTile& con = consoles_[i];
-        int x = kMargin + static_cast<int>(i) * (kCardW + kGap);
-        if (x > kW) break;
+        const Rect card = consoleCardRect(static_cast<int>(i), consoleFocus_);
+        if (card.x + card.w <= 0) continue;
+        if (card.x >= kW) break;
+        const int x = card.x, kTop = card.y, kCardW = card.w;
         bool focused = static_cast<int>(i) == consoleFocus_;
-        Rect card{x, kTop, kCardW, kCardH};
         if (focused) c.strokeRect({card.x - 7, card.y - 7, card.w + 14, card.h + 14}, kWhite, 4, 22);
-        c.fillRect(card, kPanel, 16);
+        preview31::glassPanel(c, card, 16);
+        c.fillRect({x + 24, kTop + 222, kCardW - 48, 1}, preview31::kGlassLine);
         // The console: a Series X stands as a tower, the others lie flat.
         bool tower = con.type == "XboxSeriesX";
         Rect box = tower ? Rect{x + kCardW / 2 - 55, kTop + 40, 110, 170} : Rect{x + kCardW / 2 - 120, kTop + 90, 240, 70};
@@ -1051,8 +1042,8 @@ void AppUi::drawNimboxHorizon(Canvas& c, uint64_t nowMs) {
     // Premium PS5 presentation, entirely in the existing software Canvas.
     // No HTML, GPU backend changes or streaming/input pipeline dependencies.
     const auto& env = nimbox_theme::palette(settings_.nimboxTheme);
-    const Color deep = rgba(6, 15, 29);
-    const Color soft = rgba(201, 220, 230);
+    const Color deep = kBg;
+    const Color soft = preview31::kMuted;
     const Color accent = env.accent;
     c.clear(deep);
     const GameTile* focus = focusedTile();
@@ -1076,8 +1067,7 @@ void AppUi::drawNimboxHorizon(Canvas& c, uint64_t nowMs) {
     drawTopBar(c);
     drawTabs(c);
 
-    c.fillRect({104, 177, 34, 4}, accent, 2);
-    fonts_.semibold.draw(c, tr(Str::HorizonExplore), 151, 170, 20, accent);
+
 
     if (!focus || rows_.empty()) {
         fonts_.semibold.draw(c, tr(Str::NoGames), 104, 352, 38, kWhite);
@@ -1098,18 +1088,18 @@ void AppUi::drawNimboxHorizon(Canvas& c, uint64_t nowMs) {
 
     // Strong editorial hierarchy: collection, game, metadata, two real actions.
     const std::string collection = row.title.empty() ? "GAME PASS" : row.title;
-    fonts_.semibold.draw(c, fonts_.semibold.fit(collection, 43, 1290), 104, 223, 43, kWhite);
+    fonts_.semibold.draw(c, fonts_.semibold.fit(collection, 28, 1080), 104, 235, 28, soft);
     const std::string collectionPos = trf(Str::HorizonCollectionPosition,
         std::to_string(rowIndex + 1), std::to_string(rows_.size()));
     const Rect collectionChip{1490, 203, 325, 46};
-    c.fillRect(collectionChip, rgba(8, 24, 42, 153), 23);
-    c.strokeRect(collectionChip, rgba(205, 236, 247, 63), 1, 23);
+    c.fillRect(collectionChip, withAlpha(kPanel, 183), 23);
+    c.strokeRect(collectionChip, preview31::kGlassLine, 1, 23);
     const std::string chipLabel = fonts_.semibold.fit(collectionPos, 19, collectionChip.w - 30);
     fonts_.semibold.draw(c, chipLabel,
         collectionChip.x + (collectionChip.w - fonts_.semibold.measure(chipLabel, 19)) / 2,
         fonts_.semibold.centeredY(collectionChip.y, collectionChip.h, 19), 19, soft);
 
-    fonts_.bold.draw(c, fonts_.bold.fit(focus->name, 61, 1080), 104, 325, 61, kWhite);
+    fonts_.bold.draw(c, fonts_.bold.fit(focus->name, 74, 1130), 100, 292, 74, preview31::kText);
     std::string meta = focus->publisher;
     if (!focus->categories.empty()) {
         if (!meta.empty()) meta += "  -  ";
@@ -1119,18 +1109,18 @@ void AppUi::drawNimboxHorizon(Canvas& c, uint64_t nowMs) {
         fonts_.regular.draw(c, fonts_.regular.fit(meta, 23, 1040), 107, 408, 23, soft);
 
     const bool canPlay = isEffectivePlayableLocked(*focus);
-    const Color primary = rgba(238, 249, 253);
+    const Color primary = preview31::kText;
     c.fillRect({horizon::kPlayButton.x, horizon::kPlayButton.y + 5,
                 horizon::kPlayButton.w, horizon::kPlayButton.h}, rgba(2, 9, 20, 100), 17);
-    c.fillRect(horizon::kPlayButton, primary, 16);
+    c.fillRect(horizon::kPlayButton, preview31::kSelect, 16);
     c.strokeRect(horizon::kPlayButton, rgba(255, 255, 255, 175), 1, 16);
     fonts_.semibold.draw(c, canPlay ? "R2  JOGAR" : "VER JOGO",
         horizon::kPlayButton.x + 27,
         fonts_.semibold.centeredY(horizon::kPlayButton.y, horizon::kPlayButton.h, 26),
         26, rgba(12, 35, 51));
 
-    c.fillRect(horizon::kDetailsButton, rgba(8, 25, 45, 168), 16);
-    c.strokeRect(horizon::kDetailsButton, rgba(210, 237, 246, 134), 2, 16);
+    c.fillRect(horizon::kDetailsButton, withAlpha(kPanel, 205), 16);
+    c.strokeRect(horizon::kDetailsButton, withAlpha(preview31::kText, 120), 2, 16);
     fonts_.semibold.draw(c, "DETALHES", horizon::kDetailsButton.x + 37,
         fonts_.semibold.centeredY(horizon::kDetailsButton.y, horizon::kDetailsButton.h, 26),
         26, primary);
@@ -1154,19 +1144,19 @@ void AppUi::drawNimboxHorizon(Canvas& c, uint64_t nowMs) {
         const Rect card = horizon::tileRect(float(offset) + nimboxSlide_.value / 1000.0f);
         const bool center = offset == 0;
         if (center) c.fillRect({card.x - 10, card.y - 10, card.w + 20, card.h + 20},
-                               rgba(141, 212, 233, 39), 22);
+                               withAlpha(preview31::kAccent, 42), 22);
         c.fillRect({card.x - 5, card.y + 13, card.w + 10, card.h + 8},
                    rgba(0, 5, 12, center ? 145 : 85), 18);
-        c.fillRect(card, rgba(28, 52, 72), 15);
+        c.fillRect(card, kPlaceholder, 15);
         if (!tile.tileUrl.empty()) {
             if (auto art = images_.get(tile.tileUrl, card.w, card.h))
                 c.drawImage(*art, card.x, card.y, center ? 255 : 211, 15);
         }
         if (center) {
             c.strokeRect({card.x - 5, card.y - 5, card.w + 10, card.h + 10},
-                         rgba(229, 250, 255), 3, 19);
+                         preview31::kText, 3, 19);
             c.strokeRect({card.x - 8, card.y - 8, card.w + 16, card.h + 16},
-                         rgba(130, 210, 233, 125), 1, 21);
+                         withAlpha(preview31::kAccent, 170), 1, 21);
         } else {
             c.fillRect(card, rgba(3, 13, 25, 28), 15);
         }
@@ -1205,16 +1195,16 @@ void AppUi::drawProfilePanel(Canvas& c) {
     // Real signed-in metadata only; no unsupported friends/online claims.
     const bool english = language() == Language::English;
     const Rect panel = horizon::kProfilePanel;
-    const Color bright = rgba(242, 250, 255);
-    const Color muted = rgba(193, 213, 228);
+    const Color bright = preview31::kText;
+    const Color muted = preview31::kMuted;
     const Color accent = nimbox_theme::palette(settings_.nimboxTheme).accent;
     c.fillRect({0, 0, kW, kH}, rgba(2, 8, 19, 214));
     c.fillRect({panel.x + 10, panel.y + 16, panel.w, panel.h},
                rgba(0, 4, 12, 150), 30);
-    c.fillRect(panel, rgba(12, 30, 51, 248), 28);
-    c.strokeRect(panel, rgba(187, 227, 245, 91), 2, 28);
+    c.fillRect(panel, withAlpha(kPanel, 248), 28);
+    c.strokeRect(panel, preview31::kGlassLine, 2, 28);
     c.gradientH({panel.x + 3, panel.y + 3, panel.w - 6, 204},
-                rgba(49, 91, 121, 86), rgba(12, 30, 51, 0));
+                withAlpha(preview31::kAccent, 30), withAlpha(kPanel, 0));
     fonts_.semibold.draw(c, english ? "PLAYER PROFILE" : "PERFIL DO JOGADOR",
                          panel.x + 60, panel.y + 45, 24, accent);
     c.line(float(panel.x + 60), float(panel.y + 105),
@@ -1313,9 +1303,9 @@ void AppUi::drawDetails(Canvas& c, uint64_t nowMs) {
     c.fillRect(showcase::kFrame, rgba(8, 20, 35, 28), 20);
     c.strokeRect(showcase::kFrame, rgba(216, 232, 247, 76), 1, 20);
     // Fine section markers and a PlayStation-style cool-white focused state.
-    c.fillRect({showcase::kTextX, 233, 48, 3}, rgba(219, 241, 249), 2);
+    c.fillRect({showcase::kTextX, 233, 48, 3}, preview31::kAccent, 2);
     fonts_.semibold.draw(c, tr(Str::DetailsShowcase), showcase::kTextX, 248, 19,
-                         rgba(190, 219, 230));
+                         preview31::kMuted);
 
     drawTopBar(c);
     // The gear is also a touch target; L2 opens these system settings from a
