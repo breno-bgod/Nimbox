@@ -544,9 +544,10 @@ void AppUi::toggleHidden(const GameTile& tile, UiEvent& ev) {
     bool hide = !hidden_.count(tile.productId);
     if (hide) hidden_.insert(tile.productId);
     else hidden_.erase(tile.productId);
+    const std::string notice = tr(hide ? Str::HiddenToast : Str::UnhiddenToast);
+    rememberNotice(notice);
     if (!caps_.console) {
-        toast_ = tr(hide ? Str::HiddenToast : Str::UnhiddenToast);
-        rememberNotice(toast_);
+        toast_ = notice;
         toastUntil_ = 0;
     }
     rebuild(true);  // the cursor stays put; the next game takes the place
@@ -559,9 +560,10 @@ void AppUi::toggleFavorite(const GameTile& tile, UiEvent& ev) {
     bool fav = !favorites_.count(tile.productId);
     if (fav) favorites_.insert(tile.productId);
     else favorites_.erase(tile.productId);
+    const std::string notice = tr(fav ? Str::AddedToFavorites : Str::RemovedFromFavorites);
+    rememberNotice(notice);
     if (!caps_.console) {
-        toast_ = tr(fav ? Str::AddedToFavorites : Str::RemovedFromFavorites);
-        rememberNotice(toast_);
+        toast_ = notice;
         toastUntil_ = 0;
     }
     prefsEvent(ev);
@@ -599,9 +601,10 @@ void AppUi::toggleWishlist(const GameTile& tile, UiEvent& ev) {
     bool wish = !wishlist_.count(tile.productId);
     if (wish) wishlist_.insert(tile.productId);
     else wishlist_.erase(tile.productId);
+    const std::string notice = tr(wish ? Str::AddedToWishlist : Str::RemovedFromWishlist);
+    rememberNotice(notice);
     if (!caps_.console) {
-        toast_ = tr(wish ? Str::AddedToWishlist : Str::RemovedFromWishlist);
-        rememberNotice(toast_);
+        toast_ = notice;
         toastUntil_ = 0;
     }
     rebuild();
@@ -1163,8 +1166,8 @@ void AppUi::showHome(const std::string& toast) {
         syncHeroToRowsLocked(detail_.productId, detail_.titleId, detail_.heroUrl, detail_.description, detail_.publisher, detail_.categories);
     }
     screen_ = Screen::Home;
+    rememberNotice(toast);
     if (!caps_.console && !toast.empty()) {
-        rememberNotice(toast);
         toast_ = toast;
         toastUntil_ = 0;  // set on first render
     }

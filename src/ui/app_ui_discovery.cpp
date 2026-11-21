@@ -157,7 +157,7 @@ void AppUi::activateDirectory(UiEvent& ev) {
                                    Directory::Keyboard, Directory::Own};
         if (p.focus < 6) openDirectory(kinds[p.focus], label);
         else if (p.focus == 6) openDirectory(Directory::Link, label,
-            "https://store.ubisoft.com/ubisoftplus/games?access=xbox&offer=classics");
+            std::string("https://www.xbox.com/") + gameLocale() + "/xbox-game-pass/games#ubisoftclassics");
         else openDirectory(Directory::Shelf, label);
     } else if (p.kind == Directory::SignOut) {
         if (p.focus == 0) backDirectory();

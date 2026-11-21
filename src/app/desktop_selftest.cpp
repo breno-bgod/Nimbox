@@ -432,6 +432,9 @@ int desktopSelftest(const std::string& dir) {
             ui.handle(down);
             ui.handle(accept);
             ui.handle(down);
+            ui.render(canvas, platform::nowMs());
+            drawCanvas(canvas);
+            check(screenshot(dir, "6i-horizon-catalog.png", shot) && varied(shot), "Native catalog grid capture");
             ui.handle(accept);
             check(ui.screen() == ui::Screen::Details && ui.detailTile().productId == all.tiles[6].productId,
                   "All games opens a six-column library");
@@ -444,6 +447,9 @@ int desktopSelftest(const std::string& dir) {
             ui.handle(up);
             ui.onMouseDown(620, 460, 1);  // Explore
             ui.onMouseDown(810, 290, 1);  // Genres
+            ui.render(canvas, platform::nowMs());
+            drawCanvas(canvas);
+            check(screenshot(dir, "6j-horizon-genres.png", shot) && varied(shot), "Genre picker capture");
             ui.onMouseDown(810, 290, 1);  // Strategy
             ui.handle(accept);
             check(ui.screen() == ui::Screen::Details && ui.detailTile().productId == all.tiles[0].productId,
@@ -452,7 +458,29 @@ int desktopSelftest(const std::string& dir) {
             ui.handle(back);
             ui.handle(back);
             ui.handle(back);
+            xcloud::FriendPresence friendOnline;
+            friendOnline.gamertag = "Test player";
+            friendOnline.presenceState = "Online";
+            ui.setSocial({friendOnline}, "Away", true);
+            ui.onMouseDown(1314, 70, 1);
+            ui.render(canvas, platform::nowMs());
+            drawCanvas(canvas);
+            check(screenshot(dir, "6k-horizon-friends.png", shot) && varied(shot), "Friends screen capture");
+            ui.handle(back);
+            ui.showToast("Test notification");
+            ui.onMouseDown(1370, 70, 1);
+            ui.render(canvas, platform::nowMs());
+            drawCanvas(canvas);
+            check(screenshot(dir, "6l-horizon-notifications.png", shot) && varied(shot), "Notification inbox capture");
+            ui.handle(back);
+            ui.onMouseDown(1770, 70, 1);
+            ui.onMouseDown(1240, 825, 1);  // Sign out, still requires confirmation
+            check(ui.handle(accept).action != ui::Action::SignOut, "Sign-out defaults to Cancel");
+            ui.onMouseDown(1240, 825, 1);
+            ui.handle(down);
+            check(ui.handle(accept).action == ui::Action::SignOut, "Explicit sign-out confirmation dispatches the event");
             ui.setRows({showcase, discovery});
+            ui.render(canvas, platform::nowMs());
         }
         ui::NavInput nextCollection;
         nextCollection.down = true;

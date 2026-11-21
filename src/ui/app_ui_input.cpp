@@ -509,7 +509,7 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
             handleGameSettings(NavInput{.back = true}, ev);
             return ev;
         }
-        if (searching_) {
+        if (screen_ == Screen::Home && searching_) {
             searching_ = false;
             dirty_ = true;
             return ev;
