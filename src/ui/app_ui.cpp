@@ -442,6 +442,7 @@ void AppUi::rebuild(bool keepPosition) {
         for (int i = 0; libraryTile(i); ++i)
             if (libraryTile(i)->productId == focused) gridFocus_ = i;
     }
+    if (!directory_.empty()) fillDirectory(directory_.back());
     if (searching_) runSearch(true);
     refreshDetail();
     dirty_ = true;

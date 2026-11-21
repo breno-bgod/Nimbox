@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+#include <set>
 #include "ui/app_ui_internal.h"
 #include "ui/nimbox_horizon_layout.h"
 
@@ -52,13 +53,16 @@ void AppUi::openDirectory(Directory kind, const std::string& title, const std::s
 }
 
 void AppUi::fillDirectory(DirectoryPage& page) {
+    const std::string selected = page.focus < static_cast<int>(page.games.size()) ? page.games[page.focus].productId :
+                                 page.focus < static_cast<int>(page.labels.size()) ? page.labels[page.focus] : "";
     page.labels.clear();
     page.games.clear();
     const auto kind = page.kind;
     if (kind == Directory::Explore) {
         page.labels = {tr(Str::BrowseAll), tr(Str::BrowseGenres), tr(Str::BrowseFeatured),
                        tr(Str::BrowsePass), tr(Str::FilterMouseKeyboard), tr(Str::BrowseOwn), "Ubisoft+ Classics"};
-        for (const auto& row : rows_) if (!row.isGrid) page.labels.push_back(row.title);
+        for (const auto& row : rows_)
+            if (!row.isGrid && row.title != tr(Str::HiddenSection)) page.labels.push_back(row.title);
     } else if (kind == Directory::Friends) {
         for (const auto& f : friends_) page.labels.push_back(f.gamertag);
     } else if (kind == Directory::Notices) {
@@ -95,18 +99,25 @@ void AppUi::fillDirectory(DirectoryPage& page) {
             for (const auto& row : rows_) if (row.catalogId == xcloud::sigl::kMostPopular) { append(row.tiles); break; }
             if (page.games.size() < 8) append(gamePassPool_);
         } else {
-            for (const auto& row : rows_) if (row.isGrid) append(row.tiles);
+            for (const auto& row : rows_) if (row.catalogId == xcloud::sigl::kAllGames) append(row.tiles);
             append(gamePassPool_);
             if (kind != Directory::Pass) append(libraryPool_);
         }
         page.labels.assign(genres.begin(), genres.end());
     }
     const int count = static_cast<int>(std::max(page.labels.size(), page.games.size()));
+    if (!selected.empty()) {
+        for (size_t i = 0; i < page.games.size(); ++i)
+            if (page.games[i].productId == selected) { page.focus = static_cast<int>(i); break; }
+        for (size_t i = 0; i < page.labels.size(); ++i)
+            if (page.labels[i] == selected) { page.focus = static_cast<int>(i); break; }
+    }
     page.focus = std::clamp(page.focus, 0, std::max(0, count - 1));
 }
 
 void AppUi::backDirectory() {
     directory_.pop_back();
+    if (!directory_.empty()) fillDirectory(directory_.back());
     if (directory_.empty() && directoryFromProfile_) {
         profileOpen_ = true;
         directoryFromProfile_ = false;
@@ -226,7 +237,11 @@ void AppUi::drawProfileActions(Canvas& c, int x, int right) {
     fonts_.semibold.draw(c, presenceLabel(ownPresence_), x, y, 23, kWhite);
     const auto stat = std::string(tr(Str::GamerscoreLabel)) + "   " + score;
     fonts_.regular.draw(c, stat, right - fonts_.regular.measure(stat, 22), y, 22, kGray);
-    drawCloudTime(c, x, y + 42);
+    drawCloudTime(c, x, y + 36);
+    const std::string counts = std::string(tr(Str::YourGames)) + "  " + (ownedKnown_ ? std::to_string(owned_.size()) : "—") +
+        "     " + tr(Str::Favorites) + "  " + std::to_string(favorites_.size()) +
+        "     " + tr(Str::TabConsoles) + "  " + (consolesKnown_ ? std::to_string(consoles_.size()) : "—");
+    fonts_.regular.draw(c, fonts_.regular.fit(counts, 20, right-x), x, y+77, 20, kGray);
     for (int i = 0; i < 6; ++i) {
         const Rect r = horizon::profileAction(i);
         if (i == profileFocus_) c.fillRect(r, withAlpha(kWhite, 40), 9);

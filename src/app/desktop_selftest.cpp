@@ -18,6 +18,7 @@
 #include "media/audio_out.h"
 #include "platform/platform.h"
 #include "ui/app_ui.h"
+#include "xcloud/catalog.h"
 #include "ui/nimbox_detail_showcase.h"
 #include "ui/canvas.h"
 #include "ui/font.h"
@@ -418,6 +419,41 @@ int desktopSelftest(const std::string& dir) {
                   screenshot(dir, "6-nimbox-horizon-home.png", shot) && varied(shot),
               "Horizon is the only Game Pass home (6-nimbox-horizon-home.png)");
 
+        {
+            auto all = showcase;
+            all.title = "Full catalog";
+            all.catalogId = xcloud::sigl::kAllGames;
+            all.isGrid = true;
+            all.tiles[0].categories = {"Strategy"};
+            for (size_t i = 1; i < all.tiles.size(); ++i) all.tiles[i].categories = {"Adventure"};
+            ui.setRows({showcase, all});
+            ui::NavInput down, accept, back, up;
+            down.down = accept.accept = back.back = up.up = true;
+            ui.handle(down);
+            ui.handle(accept);
+            ui.handle(down);
+            ui.handle(accept);
+            check(ui.screen() == ui::Screen::Details && ui.detailTile().productId == all.tiles[6].productId,
+                  "All games opens a six-column library");
+            ui.handle(back);
+            ui.handle(accept);
+            check(ui.screen() == ui::Screen::Details && ui.detailTile().productId == all.tiles[6].productId,
+                  "Returning from details retains the selected game");
+            ui.handle(back);
+            ui.handle(back);
+            ui.handle(up);
+            ui.onMouseDown(620, 460, 1);  // Explore
+            ui.onMouseDown(810, 290, 1);  // Genres
+            ui.onMouseDown(810, 290, 1);  // Strategy
+            ui.handle(accept);
+            check(ui.screen() == ui::Screen::Details && ui.detailTile().productId == all.tiles[0].productId,
+                  "A genre opens its own filtered grid");
+            ui.handle(back);
+            ui.handle(back);
+            ui.handle(back);
+            ui.handle(back);
+            ui.setRows({showcase, discovery});
+        }
         ui::NavInput nextCollection;
         nextCollection.down = true;
         ui.handle(nextCollection);
