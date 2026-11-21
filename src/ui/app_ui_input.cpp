@@ -415,7 +415,8 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
     if (screen_ == Screen::Streaming || screen_ == Screen::Splash) {
         return ev;
     }
-    if (screen_ == Screen::Home && !searching_ && !updatePrompt_ && !quitPrompt_ && !reportOpen_ && (!directory_.empty() || (onCatalogShelf() && !profileOpen_))) {
+    if (screen_ == Screen::Home && !searching_ && !updatePrompt_ && !quitPrompt_ && !reportOpen_ &&
+        (!directory_.empty() || (onCatalogShelf() && !profileOpen_ && (button == 3 || y >= 122)))) {
         directoryPointer(x, y, button, ev);
         return ev;
     }

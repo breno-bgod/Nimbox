@@ -21,6 +21,10 @@ constexpr Rect kCatalogGenres{1168, 98, 270, 64}, kGenreAll{792, 794, 336, 58};
 constexpr Rect kGenrePrev{44, 452, 56, 76}, kGenreNext{1820, 452, 56, 76};
 constexpr Rect kFriends{1292, 46, 48, 52}, kBell{1350, 46, 48, 52};
 constexpr Rect kBrowseBack{96, 96, 72, 64}, kBrowseSearch{1478, 98, 340, 64};
+constexpr Rect directoryHeading(Rect r, bool inlineShelf) {
+    if (inlineShelf) r.y += 48;
+    return r;
+}
 constexpr Rect profileAction(int index) { return {1220, 480 + index * 65, 552, 58}; }
 constexpr Rect kProfilePanel{1176, 136, 640, 792};
 constexpr Rect kProfileClose{1736, 160, 48, 48};

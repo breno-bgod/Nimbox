@@ -186,6 +186,12 @@ void AppUi::fillDirectory(DirectoryPage& page) {
         } else if (kind == Directory::Featured) {
             for (const auto& row : rows_) if (row.catalogId == xcloud::sigl::kMostPopular) { append(row.tiles); break; }
             if (page.games.size() < 8) append(gamePassPool_);
+        } else if (kind == Directory::All || kind == Directory::Genres || kind == Directory::GenreGames) {
+            // These three views browse exactly the catalog advertised by this shelf.
+            const auto all = std::find_if(rows_.begin(), rows_.end(), [](const GameRow& r) {
+                return r.catalogId == xcloud::sigl::kAllGames;
+            });
+            append(all == rows_.end() ? gamePassPool_ : all->tiles);
         } else {
             for (const auto& row : rows_) if (row.catalogId == xcloud::sigl::kAllGames) append(row.tiles);
             append(gamePassPool_);
@@ -354,12 +360,13 @@ void AppUi::handleDirectory(const NavInput& in, UiEvent& ev) {
 
 bool AppUi::directoryPointer(float x, float y, int button, UiEvent& ev) {
     auto& p = activeDirectory();
-    if (button == 3 || (button == 1 && horizon::contains(horizon::kBrowseBack, x, y))) {
+    const bool inlineShelf = directory_.empty();
+    if (button == 3 || (button == 1 && horizon::contains(horizon::directoryHeading(horizon::kBrowseBack,inlineShelf), x, y))) {
         backDirectory();
         return true;
     }
     if (button != 1) return true;
-    if (p.kind == Directory::All && horizon::contains(horizon::kCatalogGenres,x,y)) {
+    if (p.kind == Directory::All && horizon::contains(horizon::directoryHeading(horizon::kCatalogGenres,inlineShelf),x,y)) {
         openDirectory(Directory::Genres,tr(Str::BrowseGenres)); return true;
     }
     if (p.kind == Directory::Genres) {
@@ -380,7 +387,7 @@ bool AppUi::directoryPointer(float x, float y, int button, UiEvent& ev) {
         else continue;
         handleDirectory(input,ev); return true;
     }
-    if (!p.games.empty() && horizon::contains(horizon::kBrowseSearch, x, y)) {
+    if (!p.games.empty() && horizon::contains(horizon::directoryHeading(horizon::kBrowseSearch,inlineShelf), x, y)) {
         NavInput search;
         search.triangle = true;
         handleDirectory(search, ev);
@@ -436,21 +443,27 @@ void AppUi::drawDirectory(Canvas& c) {
     const auto& p = activeDirectory();
     drawCollectionBackdrop(c, lastRender_, focusedTile());
     c.fillRect({0,0,kW,kH}, rgba(6, 14, 24, 158));
-    const Rect back = horizon::kBrowseBack;
+    const bool inlineShelf = directory_.empty();
+    if (inlineShelf) {
+        drawTopBar(c,true);
+        drawTabs(c);
+    }
+    const Rect back = horizon::directoryHeading(horizon::kBrowseBack,inlineShelf);
+    const int titleY = back.y - 5;
     c.line(back.x + 36, back.y + 20, back.x + 24, back.y + 32, 3, kWhite);
     c.line(back.x + 24, back.y + 32, back.x + 36, back.y + 44, 3, kWhite);
-    fonts_.bold.draw(c, fonts_.bold.fit(p.title, 52, 1190), 184, 91, 52, kWhite);
+    fonts_.bold.draw(c, fonts_.bold.fit(p.title, 52, 1190), 184, titleY, 52, kWhite);
     const int count = static_cast<int>(std::max(p.games.size(), p.labels.size()));
     if (p.kind == Directory::All) {
-        const Rect r = horizon::kCatalogGenres;
+        const Rect r = horizon::directoryHeading(horizon::kCatalogGenres,inlineShelf);
         c.fillRect(r, rgba(26,44,59,215), 15);
         const auto name = tr(Str::BrowseGenres);
         fonts_.semibold.draw(c, name, r.x+(r.w-fonts_.semibold.measure(name,24))/2,
                              fonts_.semibold.centeredY(r.y,r.h,24),24,kWhite);
     }
     if (!p.games.empty()) {
-        fonts_.regular.draw(c, gamesCount(count), 186, 168, 23, kGray);
-        fonts_.semibold.draw(c, tr(Str::TabSearch), horizon::kBrowseSearch.x + 22, 115, 24, kWhite);
+        fonts_.regular.draw(c, gamesCount(count), 186, titleY+77, 23, kGray);
+        fonts_.semibold.draw(c, tr(Str::TabSearch), horizon::kBrowseSearch.x + 22, titleY+24, 24, kWhite);
     }
     if ((p.kind == Directory::Link || (p.kind == Directory::Ubisoft && p.games.empty()))) {
         drawQr(c, p.url, 1130, 278, 340);
