@@ -5067,21 +5067,21 @@ static void testVisibleSettingsRows() {
     };
     const ui::UiCaps ps5;
     auto all = ui::visibleSettingsRows(ps5);
-    CHECK((ids(all) == std::vector<int>{0, 2, 8, 27, 17, 18, 24, 25, 1, 20, 31, 32, 33, 9, 26, 10, 11, 34, 14, 12, 3, 15, 4, 21, 5, 6, 16, 22, 19, 7, 23, 28, 29, 30}));
-    CHECK((groups(all) == std::vector<bool>{false, false, false, false, false, false, false, false, true, false, false, false, false, false, false, false, false, false, true, false, false, false, false, false, false, false, false, false, true, false, true, true, false, false}));
+    CHECK((ids(all) == std::vector<int>{0, 28, 30, 1, 20, 26, 10, 31, 32, 33, 9, 11, 34, 14, 3, 4, 15, 12, 5, 6, 21, 2, 8, 27, 17, 18, 16, 22, 24, 25, 7, 19, 23}));
+    CHECK(std::none_of(all.begin(), all.end(), [](const SettingsRowPos& row) { return row.groupStart; }));
     ui::UiCaps pc;
     pc.lightBar = pc.triggerRumble = pc.adaptiveTriggers = pc.gyro = pc.touchpad = false;
     pc.upscalers = pc.sharpen = pc.deband = pc.highRefresh = pc.console = pc.selfUpdate = pc.trophies = false;
     pc.openUrl = true;
     auto desk = ui::visibleSettingsRows(pc);
-    CHECK((ids(desk) == std::vector<int>{0, 2, 8, 27, 17, 18, 1, 20, 26, 10, 11, 34, 14, 12, 3, 5, 16, 22, 19, 7, 23, 28, 29, 30}));
-    CHECK((groups(desk) == std::vector<bool>{false, false, false, false, false, false, true, false, false, false, false, false, true, false, false, false, false, false, true, false, true, true, false, false}));
+    CHECK((ids(desk) == std::vector<int>{0, 28, 30, 1, 20, 26, 10, 11, 34, 14, 3, 12, 5, 2, 8, 27, 17, 18, 16, 22, 7, 19, 23}));
+    CHECK(std::none_of(desk.begin(), desk.end(), [](const SettingsRowPos& row) { return row.groupStart; }));
     // The desktop app's window: Display mode after the resolution, in the stream's group.
     ui::UiCaps win = pc;
     win.desktopWindow = true;
     auto w = ui::visibleSettingsRows(win);
-    CHECK((ids(w) == std::vector<int>{0, 2, 8, 27, 17, 18, 1, 20, 13, 26, 10, 11, 34, 14, 12, 3, 5, 16, 22, 19, 7, 23, 28, 29, 30}));
-    CHECK((groups(w) == std::vector<bool>{false, false, false, false, false, false, true, false, false, false, false, false, false, true, false, false, false, false, false, true, false, true, true, false, false}));
+    CHECK((ids(w) == std::vector<int>{0, 28, 30, 1, 20, 26, 10, 13, 11, 34, 14, 3, 12, 5, 2, 8, 27, 17, 18, 16, 22, 7, 19, 23}));
+    CHECK(std::none_of(w.begin(), w.end(), [](const SettingsRowPos& row) { return row.groupStart; }));
     auto deskIds = ids(desk);
     CHECK(std::find(deskIds.begin(), deskIds.end(), 24) == deskIds.end());
     CHECK(std::find(deskIds.begin(), deskIds.end(), 25) == deskIds.end());
@@ -5146,17 +5146,12 @@ static void testVisibleSettingsRows() {
     auto game = ui::visibleGameSettingsRows(pc, false);
     CHECK((ids(game) == std::vector<int>{0, 4, 15, 14, 18, 5, 7, 11, 9}));
     CHECK((groups(game) == std::vector<bool>{false, true, false, false, false, true, false, false, false}));
-    // How far down the autoplay tests walk to each row (autoplay.cpp's downsTo).
-    CHECK(ui::settingsRowPosition(ps5, 24) == 6);
-    CHECK(ui::settingsRowPosition(ps5, 25) == 7);
-    CHECK(ui::settingsRowPosition(ps5, 27) == 3 && ui::settingsRowPosition(ps5, 1) == 8 && ui::settingsRowPosition(ps5, 3) == 20);
-    CHECK(ui::settingsRowPosition(ps5, 16) == 26);
-    CHECK(ui::settingsRowPosition(ps5, 5) == 24 && ui::settingsRowPosition(ps5, 6) == 25);
-    CHECK(ui::settingsRowPosition(ps5, 12) == 19 && ui::settingsRowPosition(ps5, 14) == 18);
-    CHECK(ui::settingsRowPosition(ps5, 22) == 27);
-    CHECK(ui::settingsRowPosition(ps5, 7) == 29 && ui::settingsRowPosition(ps5, 19) == 28 && ui::settingsRowPosition(ps5, 2) == 1);
-    CHECK(ui::settingsRowPosition(ps5, 21) == 23);
-    CHECK(ui::settingsRowPosition(pc, 5) == 15 && ui::settingsRowPosition(pc, 6) == -1 && ui::settingsRowPosition(pc, 4) == -1);
+    for (const auto& caps : {ps5, pc, win}) {
+        auto ordered = ids(ui::visibleSettingsRows(caps));
+        for (size_t index = 0; index < ordered.size(); ++index)
+            CHECK(ui::settingsRowPosition(caps, ordered[index]) == int(index));
+        CHECK(ui::settingsRowPosition(caps, 29) == -1);
+    }
 }
 
 // The controller's glyphs by pad kind (ui/pad_glyphs.h).
@@ -7720,9 +7715,7 @@ static void testDesktopMouseNav() {
 
     // 8. In Settings, clicking a dropdown setting opens the dropdown
     {
-        // Language row (row 0) starts at kSettingsListTop, currently 258.
-        // The header above it is not a selectable setting.
-        const float languageY = 272.0f;  // Settings visual row 0: top 258 + 14
+        const float languageY = 326.0f; // first row of the Horizon section
         auto evClick = uiApp.onMouseDown(200.0f, languageY, 1);
         // First right click closes the dropdown
         auto evClose = uiApp.onMouseDown(200.0f, languageY, 3);
