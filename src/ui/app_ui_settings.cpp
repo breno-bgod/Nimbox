@@ -1259,12 +1259,10 @@ void AppUi::handleGameSettings(const NavInput& in, UiEvent& ev) {
 }
 
 void AppUi::drawSettings(Canvas& c) {
-    c.gradientH({0, 0, kW, kH}, withAlpha(kBg, 245), rgba(27, 31, 38, 235));
+    c.gradientH({0, 0, kW, kH}, rgba(9, 13, 21, 186), rgba(9, 13, 21, 150));
     const Color accent = nimbox_theme::palette(settings_.nimboxTheme).accent;
     // Back button next to Settings title for touch navigation
     Rect backBtn{kMargin, 94, 52, 52};
-    c.fillRect(backBtn, rgba(39, 64, 67, 180), 16);
-    c.strokeRect(backBtn, rgba(157, 189, 191, 95), 1, 16);
     float bx = backBtn.x + backBtn.w / 2.0f, by = backBtn.y + backBtn.h / 2.0f;
     c.line(bx + 4.0f, by - 9.0f, bx - 4.0f, by, 3.0f, kWhite);
     c.line(bx - 4.0f, by, bx + 4.0f, by + 9.0f, 3.0f, kWhite);
@@ -1300,28 +1298,24 @@ void AppUi::drawSettings(Canvas& c) {
     for (int i = 0; i < kSectionCount; ++i) {
         const Rect tab = settingsSectionRect(i);
         const bool active = i == section;
-        if (active) c.fillRect(tab, withAlpha(accent, 26), 14);
-        c.fillRect({tab.x + 18, tab.y + tab.h - 3, tab.w - 36, 2},
-                   active ? accent : preview31::kGlassLine);
-        fonts_.semibold.draw(c, sections[i], tab.x + 22, tab.y + 14, 25, active ? kWhite : kGray);
+        if (active) {
+            c.fillRect(tab, withAlpha(kWhite, 24), 5);
+            c.fillRect({tab.x, tab.y + 10, 3, tab.h - 20}, accent, 1);
+        }
+        fonts_.semibold.draw(c, sections[i], tab.x + 22, tab.y + 14, 25, active ? kWhite : rgba(221, 224, 229));
     }
     Rect rows[kSettingRows];  // by row id
     int y = kListTop - static_cast<int>(std::lround(settingsScrollY_));
-    c.setClip({kMargin - 8, kClipTop, kRowW + 16, kSettingsListBottom - kClipTop});
+    c.setClip({kSettingsRowX - 8, kClipTop, kRowW + 16, kSettingsListBottom - kClipTop});
     for (const auto& item : settingsPage(caps_, settingsRow_)) {
         const int i = item.row;
-        Rect r{kMargin, y, kRowW, kRowH};
+        Rect r{kSettingsRowX, y, kRowW, kRowH};
         rows[i] = r;
         bool focused = i == settingsRow_;
         int ty = fonts_.semibold.centeredY(r.y, r.h, kRowPx);
 
         if (i == 23) {
-            // Restore factory defaults button: red background
-            Color redBg = focused ? rgba(137, 48, 58, 240) : rgba(76, 35, 44, 158);
-            c.fillRect({r.x + 5, r.y + 1, r.w - 10, r.h - 2}, redBg, 10);
-            c.strokeRect({r.x + 5, r.y + 1, r.w - 10, r.h - 2},
-                         focused ? rgba(251, 137, 147, 220) : rgba(208, 106, 117, 60),
-                         focused ? 2 : 1, 10);
+            if (focused) c.fillRect(r, rgba(151, 65, 69, 105), 5);
 
             // Progress fill animation when holding Cross/accept
             if (focused && resetSettingsHoldStart_ > 0) {
@@ -1336,44 +1330,19 @@ void AppUi::drawSettings(Canvas& c) {
             int textX = r.x + (r.w - textW) / 2;
             fonts_.bold.draw(c, labels[i], textX, ty, kRowPx, kWhite);
         } else {
-            // Only the focused row becomes an illuminated card; resting
-            // rows share a subtle category surface instead of flat blocks.
-            c.fillRect({r.x + 5, r.y + 1, r.w - 10, r.h - 2},
-                       focused ? withAlpha(preview31::kSelect, 44) : rgba(255, 255, 255, 5), 10);
             if (focused) {
-                c.gradientH({r.x + 11, r.y + 4, 220, r.h - 8},
-                            withAlpha(preview31::kAccent, 38), withAlpha(preview31::kAccent, 0));
-                c.fillRect({r.x + 6, r.y + 5, 4, r.h - 10}, preview31::kAccent, 2);
-                c.strokeRect({r.x + 5, r.y + 1, r.w - 10, r.h - 2},
-                             dropdownOpen_ ? rgba(195, 218, 236, 108) : withAlpha(preview31::kSelect, 157),
-                             dropdownOpen_ ? 1 : 2, 10);
-            } // Resting rows have no spreadsheet-like divider lines.
+                c.fillRect(r, withAlpha(kWhite, 29), 5);
+                c.strokeRect(r, withAlpha(kWhite, 87), 1, 5);
+            } else {
+                c.fillRect({r.x + 18, r.y + r.h, r.w - 36, 1}, withAlpha(kWhite, 26));
+            }
             fonts_.semibold.draw(c, labels[i], r.x + 32, ty, kRowPx,
                                  focused ? kWhite : preview31::kText);
             float cx = static_cast<float>(r.x + r.w - 40), cy = static_cast<float>(r.y + r.h / 2);
             const bool isSubmenuRow = (i == 3 || i == 4 || i == 12 || i == 14 || i == 15);
             if (isSubmenuRow) {
-                const int pillW = focused ? 42 : 24;
-                const int pillH = 22;
-                const int pillX = r.x + r.w - 16 - pillW;
-                const int pillY = r.y + (r.h - pillH) / 2;
-                c.fillRect({pillX, pillY, pillW, pillH},
-                           focused ? rgba(24, 28, 32) : rgba(255, 255, 255, 22), 6);
-                c.strokeRect({pillX, pillY, pillW, pillH},
-                             focused ? rgba(22, 163, 74) : rgba(255, 255, 255, 55), 1, 6);
-                if (focused) {
-                    if (g_keyboardHints) {
-                        fonts_.bold.draw(c, "OK", pillX + 4, fonts_.bold.centeredY(pillY, pillH, 10), 10, rgba(74, 222, 128));
-                    } else {
-                        drawFaceButton(c, fonts_.bold, circleConfirms_ ? kIconCircle : kIconCross,
-                                       static_cast<float>(pillX + 12), static_cast<float>(pillY + pillH / 2), 7.5f);
-                    }
-                }
-                const float acx = static_cast<float>(pillX + pillW - 11);
-                const float acy = static_cast<float>(pillY + pillH / 2);
-                const Color arrowCol = focused ? rgba(74, 222, 128) : rgba(215, 215, 215);
-                c.line(acx - 2.0f, acy - 4.0f, acx + 2.5f, acy, 2.0f, arrowCol);
-                c.line(acx + 2.5f, acy, acx - 2.0f, acy + 4.0f, 2.0f, arrowCol);
+                c.line(cx - 3, cy - 6, cx + 3, cy, 2, kWhite);
+                c.line(cx + 3, cy, cx - 3, cy + 6, 2, kWhite);
             } else if (i != 7 && i != 17 && i != 18 && i != 19 && i != 25) {
                 c.line(cx - 8, cy - 3, cx, cy + 4, 2.5f, focused ? kWhite : kGray);
                 c.line(cx, cy + 4, cx + 8, cy - 3, 2.5f, focused ? kWhite : kGray);
@@ -1424,28 +1393,21 @@ void AppUi::drawSettings(Canvas& c) {
         y += kRowH + kGap;
     }
     c.resetClip();
-    if (section == 0) {
-        const auto& theme = nimbox_theme::palette(settings_.nimboxTheme);
-        const Rect preview{kMargin, 548, kRowW, 338};
-        c.gradientH(preview, theme.low, theme.mid);
-        const GameTile* tile = focusedTile();
-        if (tile && !tile->heroUrl.empty()) {
-            if (auto art = images_.get(tile->heroUrl, 600, 338))
-                c.drawImage(*art, preview.x + preview.w - 600, preview.y);
-        }
-        c.gradientH(preview, withAlpha(kBg, 237), withAlpha(kBg, 0));
-        c.fillRect({preview.x + 38, preview.y + 203, 54, 4}, theme.accent, 2);
-        fonts_.regular.draw(c, "Horizon", preview.x + 38, preview.y + 228, 22, kGray);
-        fonts_.bold.draw(c, theme.name, preview.x + 36, preview.y + 263, 45, kWhite);
-    }
+    fonts_.regular.draw(c, tr(Str::WebControlTitle), kSettingsRemoteLink.x + 22,
+                        kSettingsRemoteLink.y + 14, 24, kWhite);
+    const float arrowX = kSettingsRemoteLink.x + kSettingsRemoteLink.w - 24;
+    const float arrowY = kSettingsRemoteLink.y + 29;
+    c.line(arrowX - 6, arrowY + 4, arrowX + 4, arrowY - 6, 2, kWhite);
+    c.line(arrowX - 4, arrowY - 6, arrowX + 4, arrowY - 6, 2, kWhite);
+    c.line(arrowX + 4, arrowY - 6, arrowX + 4, arrowY + 2, 2, kWhite);
     const int viewport = kSettingsListBottom - kSettingsListTop;
     const int total = settingsTotalHeight(caps_, settingsRow_);
     if (total > viewport) {
         const int height = viewport * viewport / total;
         const float fraction = std::clamp(settingsScrollY_ / (total - viewport), 0.0f, 1.0f);
         const int top = kSettingsListTop + static_cast<int>((viewport - height) * fraction);
-        c.fillRect({1242, kSettingsListTop, 4, viewport}, preview31::kGlassLine, 2);
-        c.fillRect({1242, top, 4, height}, preview31::kMuted, 2);
+        c.fillRect({kSettingsRowX + kRowW + 10, kSettingsListTop, 4, viewport}, preview31::kGlassLine, 2);
+        c.fillRect({kSettingsRowX + kRowW + 10, top, 4, height}, preview31::kMuted, 2);
     }
     static constexpr Str kSettingDescs[28] = {
         Str::SettingDescLanguage,
@@ -1499,36 +1461,11 @@ void AppUi::drawSettings(Canvas& c) {
             : settingsRow_ == 34
             ? "Seleciona a saida do chat de voz: automatico ou TV e headset."
             : tr(kSettingDescs[settingsRow_]);
-        c.fillRect({1280, 295, 1, 605}, preview31::kGlassLine);
-        fonts_.semibold.draw(c, sections[section], 1328, 309, 21, accent);
-        const auto title = fonts_.bold.wrap(labels[settingsRow_], 40, 474, 2);
-        int detailY = 359;
-        for (const auto& line : title) {
-            fonts_.bold.draw(c, line, 1328, detailY, 40, kWhite);
-            detailY += 50;
+        int yDesc = 868;
+        for (const auto& line : fonts_.regular.wrap(desc, 22, kRowW - 42, 3)) {
+            fonts_.regular.draw(c, line, kSettingsRowX + 18, yDesc, 22, preview31::kText);
+            yDesc += 29;
         }
-        for (const auto& line : fonts_.regular.wrap(desc, 24, 476, 5)) {
-            fonts_.regular.draw(c, line, 1328, detailY + 20, 24, kGray);
-            detailY += 34;
-        }
-    }
-    if (tester_ == Tester::None && !pickerOpen_) {
-        Rect remotePanel{1310, 656, 523, 250};
-        c.fillRect({remotePanel.x + 3, remotePanel.y + 7, remotePanel.w,
-                    remotePanel.h}, rgba(0, 5, 13, 75), 16);
-        c.fillRect(remotePanel, withAlpha(kBg, 241), 16);
-        c.strokeRect(remotePanel, rgba(118, 181, 205, 75), 1, 16);
-        c.fillRect({remotePanel.x + 1, remotePanel.y + 25, 3, 61},
-                   preview31::kAccent, 2);
-        fonts_.bold.draw(c, tr(Str::WebControlTitle), 1330, 672, 21, kWhite);
-        std::string qrUrl = !webUrl_.empty() ? webUrl_ :
-                            "http://" + platform::localIPv4() + ":8080";
-        drawQr(c, qrUrl, 1517, 713, 142, qrcodegen_Ecc_LOW);
-        fonts_.semibold.draw(c, tr(Str::SettingsQrPointerHint), 1530, 849,
-                             17, rgba(192, 218, 244));
-        fonts_.regular.draw(c, tr(Str::SettingsQrConnect), 1530, 754, 17, rgba(194, 220, 211));
-        const std::string urlText = fonts_.semibold.fit(qrUrl, 16, 272);
-        fonts_.semibold.draw(c, urlText, 1530, 787, 16, rgba(181, 224, 193));
     }
 
     if (s_gyroCalModalOpen) {

@@ -1397,7 +1397,7 @@ static void testNimboPlayFrostedSettingsAndQr() {
     back.back = true;
     app.handle(back);
     CHECK(app.screen() == ui::Screen::Settings);
-    app.onMouseDown(1420.0f, 775.0f, 1); // QR is a touch/click target
+    app.onMouseDown(240.0f, 760.0f, 1); // QR is a touch/click target
     CHECK(app.screen() == ui::Screen::Settings);
     app.onMouseDown(1170.0f, 460.0f, 1); // close expanded QR
     CHECK(app.screen() == ui::Screen::Settings);
@@ -7715,13 +7715,13 @@ static void testDesktopMouseNav() {
 
     // 8. In Settings, clicking a dropdown setting opens the dropdown
     {
-        const float languageY = 326.0f; // first row of the Horizon section
-        auto evClick = uiApp.onMouseDown(200.0f, languageY, 1);
+        const float languageY = 270.0f; // first row of the Horizon section
+        auto evClick = uiApp.onMouseDown(740.0f, languageY, 1);
         // First right click closes the dropdown
-        auto evClose = uiApp.onMouseDown(200.0f, languageY, 3);
+        auto evClose = uiApp.onMouseDown(740.0f, languageY, 3);
         CHECK(uiApp.screen() == ui::Screen::Settings);
         // Second right click exits back to Home
-        auto evBack = uiApp.onMouseDown(200.0f, languageY, 3);
+        auto evBack = uiApp.onMouseDown(740.0f, languageY, 3);
         CHECK(uiApp.screen() == ui::Screen::Home);
     }
 }

@@ -229,14 +229,14 @@ int desktopSelftest(const std::string& dir) {
     {
         auto before = ui.settings();
         const auto original = shot.rgb;
-        ui.onMouseDown(410, 392, 1); // Horizon theme row
-        ui.onMouseDown(800, 432 + 8 + 3 * 62 + 26, 1); // Emerald dropdown option
+        ui.onMouseDown(720, 333, 1); // Horizon theme row
+        ui.onMouseDown(1320, 596, 1); // Emerald dropdown option
         auto next = ui.settings();
         check(next.nimboxTheme == 3 && next.region == before.region &&
               next.maxBitrateMbps == before.maxBitrateMbps &&
               next.padMap == before.padMap, "Horizon theme changes appearance only");
         check(ui::settingsRowPosition(caps, 29) < 0, "Horizon hides legacy floor reflection");
-        ui.onMouseDown(410, 455, 1); // movement preference
+        ui.onMouseDown(720, 401, 1); // movement preference
         check(ui.settings().nimboxReducedMotion, "Reduced motion can be selected by touch");
         ui.render(canvas, platform::nowMs());
         drawCanvas(canvas);
@@ -252,7 +252,7 @@ int desktopSelftest(const std::string& dir) {
     ui.setCaps(caps);
     // The same with an Xbox pad's glyphs (A / B, Menu, View...).
     {
-        ui.onMouseDown(520, 207, 1);
+        ui.onMouseDown(245, 343, 1);
         check(ui.settingsFocus() == 1, "Playback tab opens streaming options");
         ui.render(canvas, platform::nowMs());
         drawCanvas(canvas);

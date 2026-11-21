@@ -323,7 +323,7 @@ UiEvent AppUi::onMouseMove(float x, float y) {
         int curY = kSettingsListTop - static_cast<int>(std::lround(settingsScrollY_));
         for (const auto& [i, groupStart] : settingsPage(caps_, settingsRow_)) {
             if (groupStart) curY += kSettingsGroupGap;
-            if (x >= kMargin && x < kMargin + kSettingsRowW && y >= curY && y < curY + kSettingsRowH &&
+            if (x >= kSettingsRowX && x < kSettingsRowX + kSettingsRowW && y >= curY && y < curY + kSettingsRowH &&
                 y >= kSettingsClipTop && y < kSettingsListBottom) {
                 if (settingsRow_ != i) {
                     settingsRow_ = i;
@@ -1050,8 +1050,7 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
             return ev;
         }
         // The QR has its own large, opaque view for small portable screens.
-        if (!dropdownOpen_ && x >= 1320 && x <= 1535 &&
-            y >= 702 && y <= 903) {
+        if (!dropdownOpen_ && nimbox_theme::contains(kSettingsRemoteLink, x, y)) {
             settingsQrExpanded_ = true;
             dirty_ = true;
             return ev;
@@ -1071,7 +1070,7 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
             constexpr int kItemH = 62, kVisible = 8, kListW = 640;
             int n = static_cast<int>(options.size());
             int visible = std::min(n, kVisible);
-            Rect panel{kMargin + kSettingsRowW - kListW, 184, kListW, visible * kItemH + 16};
+            Rect panel{kSettingsRowX + kSettingsRowW - kListW, 184, kListW, visible * kItemH + 16};
             int curY = kSettingsListTop - static_cast<int>(std::lround(settingsScrollY_));
             for (const auto& [i, groupStart] : settingsPage(caps_, settingsRow_)) {
                 if (groupStart) curY += kSettingsGroupGap;
@@ -1111,7 +1110,7 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
         int curY = kSettingsListTop - static_cast<int>(std::lround(settingsScrollY_));
         for (const auto& [i, groupStart] : settingsPage(caps_, settingsRow_)) {
             if (groupStart) curY += kSettingsGroupGap;
-            if (x >= kMargin && x < kMargin + kSettingsRowW && y >= curY && y < curY + kSettingsRowH &&
+            if (x >= kSettingsRowX && x < kSettingsRowX + kSettingsRowW && y >= curY && y < curY + kSettingsRowH &&
                 y >= kSettingsClipTop && y < kSettingsListBottom) {
                 settingsRow_ = i;
                 if (i == 14) {
@@ -1303,7 +1302,7 @@ UiEvent AppUi::onTouch(const app::shell::TouchEvent& ev) {
                 achScroll_ = std::max(0, achScroll_ - static_cast<int>(dy));
                 dirty_ = true;
             } else if (screen_ == Screen::Settings && !dropdownOpen_ && tester_ == Tester::None && !pickerOpen_ && !trophyDisclaimerOpen_) {
-                if (ev.x < 1270) {
+                if (ev.x >= kSettingsRowX && ev.x < kSettingsRowX + kSettingsRowW) {
                     float maxScroll = settingsMaxScroll(caps_, settingsRow_);
                     settingsScrollY_ = std::clamp(settingsScrollY_ - dy, 0.0f, maxScroll);
                     dirty_ = true;

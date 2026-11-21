@@ -159,8 +159,10 @@ void AppUi::drawTopBar(Canvas& c, bool overArt) {
     // Dedicated Settings touch button, perfectly centered between avatar and screen right edge
     constexpr int kBtnSz = 52;
     Rect settingsBtn{kAvatarRight + (120 - kBtnSz) / 2, 46, kBtnSz, kBtnSz};
-    c.fillRect(settingsBtn, rgba(255, 255, 255, 18), 26);
-    c.strokeRect(settingsBtn, rgba(255, 255, 255, 45), 1, 26);
+    if (!overArt) {
+        c.fillRect(settingsBtn, rgba(255, 255, 255, 18), 26);
+        c.strokeRect(settingsBtn, rgba(255, 255, 255, 45), 1, 26);
+    }
     float scx = settingsBtn.x + 26.0f, scy = settingsBtn.y + 26.0f;
     for (int a = 0; a < 6; ++a) {
         float angle = a * (3.14159265f / 3.0f);
@@ -169,6 +171,12 @@ void AppUi::drawTopBar(Canvas& c, bool overArt) {
     }
     c.strokeCircle(scx, scy, 9.5f, 3.5f, kWhite);
     c.fillCircle(scx, scy, 4.0f, rgba(20, 20, 20));
+    if (overArt) {
+        const auto name = fonts_.semibold.fit(gamertag_, kGamertagPx, 280);
+        fonts_.semibold.draw(c, name, x - 16 - fonts_.semibold.measure(name, kGamertagPx),
+                             fonts_.semibold.centeredY(46, 52, kGamertagPx), kGamertagPx, kWhite);
+        return;
+    }
     if (!gamertag_.empty()) {
         // The name; under it the gamerscore (its badge and the number, the
         // thousands grouped as the language writes them) and the Game Pass
@@ -489,7 +497,7 @@ void AppUi::drawSignIn(Canvas& c, uint64_t nowMs) {
 }
 
 void AppUi::drawTabs(Canvas& c) {
-    // Centred pills in the top bar, between "L1" and "R1".
+    // Make the full tab clickable while drawing only its label and active underline.
     const char* labels[3] = {tr(Str::TabGamePass), tr(Str::YourGames), tr(Str::TabConsoles)};
     constexpr int kPx = 22, kPad = 26, kGap = 12, kH = 44, kY = 50;
     int widths[3], total = 0;
@@ -501,7 +509,6 @@ void AppUi::drawTabs(Canvas& c) {
     auto shoulder = [&](const char* name, int cx) {
         if (!input::hasGamepad() && !g_keyboardHints) return;
         Rect r{cx - 22, kY + 8, 44, 28};
-        c.fillRect(r, rgba(255, 255, 255, 40), 8);
         fonts_.bold.draw(c, name, cx - fonts_.bold.measure(name, 16) / 2, fonts_.bold.centeredY(r.y, r.h, 16), 16, kGray);
     };
     shoulder(g_keyboardHints ? "Q" : buttonName(g_glyphStyle, PadButton::L1), x - 40);
@@ -509,12 +516,11 @@ void AppUi::drawTabs(Canvas& c) {
         bool on = static_cast<int>(tab_) == i;
         Rect r{x, kY, widths[i], kH};
         if (on) {
-            c.fillRect(r, withAlpha(preview31::kText, 18), 12);
             c.fillRect({r.x + kPad, r.y + r.h - 3, r.w - 2 * kPad, 3},
-                       preview31::kAccent, 1);
+                       kWhite, 1);
         }
         fonts_.semibold.draw(c, labels[i], x + kPad, fonts_.semibold.centeredY(kY, kH, kPx),
-                             kPx, on ? preview31::kText : kGray);
+                             kPx, on ? kWhite : rgba(223, 226, 233));
         x += widths[i] + kGap;
     }
     shoulder(g_keyboardHints ? "E" : buttonName(g_glyphStyle, PadButton::R1), x - kGap + 40);
@@ -1103,8 +1109,6 @@ void AppUi::drawNimboxHorizon(Canvas& c, uint64_t nowMs) {
         26, rgba(12, 35, 51));
 
     if (canPlay) {
-        c.fillRect(horizon::kDetailsButton, withAlpha(kPanel, 205), 16);
-        c.strokeRect(horizon::kDetailsButton, withAlpha(preview31::kText, 120), 2, 16);
         fonts_.semibold.draw(c, tr(Str::OpenDetails), horizon::kDetailsButton.x + 37,
             fonts_.semibold.centeredY(horizon::kDetailsButton.y, horizon::kDetailsButton.h, 26),
             26, primary);
@@ -1969,6 +1973,33 @@ void AppUi::drawAchievementsModal(Canvas& c, uint64_t nowMs) {
     drawHints(c, {{kIconCircle, tr(Str::Back)}});
 }
 
+// Apply a separable binomial blur to the small snapshot before scaling it back up.
+static Image frostSettingsBackdrop(const Image& capture) {
+    Image small = coverResize(capture, 240, 135);
+    Image pass = small;
+    constexpr int weights[] = {1, 6, 15, 20, 15, 6, 1};
+    for (int axis = 0; axis < 2; ++axis) {
+        for (int y = 0; y < small.h; ++y) {
+            for (int x = 0; x < small.w; ++x) {
+                int red = 0, green = 0, blue = 0;
+                for (int offset = -3; offset <= 3; ++offset) {
+                    const int sx = axis == 0 ? std::clamp(x + offset, 0, small.w - 1) : x;
+                    const int sy = axis == 1 ? std::clamp(y + offset, 0, small.h - 1) : y;
+                    const uint32_t pixel = small.px[sy * small.w + sx];
+                    const int weight = weights[offset + 3];
+                    red += (pixel & 255) * weight;
+                    green += ((pixel >> 8) & 255) * weight;
+                    blue += ((pixel >> 16) & 255) * weight;
+                }
+                pass.px[y * small.w + x] = 0xff000000u | ((red + 32) / 64) |
+                    (((green + 32) / 64) << 8) | (((blue + 32) / 64) << 16);
+            }
+        }
+        small.px.swap(pass.px);
+    }
+    return coverResize(small, kW, kH);
+}
+
 void AppUi::render(Canvas& c, uint64_t nowMs) {
     std::lock_guard<std::mutex> lock(mutex_);
     hintRects_.clear();
@@ -2006,7 +2037,7 @@ void AppUi::render(Canvas& c, uint64_t nowMs) {
         case Screen::Error: drawError(c); break;
         case Screen::Settings: {
             // One-shot software frost: render the screen that opened Settings,
-            // downsample then enlarge it. No per-frame 1080p blur cost and no
+            // and filter its snapshot. No per-frame 1080p blur cost and no
             // GPU/MediaCodec dependency on Android, desktop or PS5.
             if (!settingsBackdropReady_) {
                 Canvas base(kW, kH, rgba(4, 12, 23));
@@ -2021,8 +2052,7 @@ void AppUi::render(Canvas& c, uint64_t nowMs) {
                 capture.h = kH;
                 capture.opaque = true;
                 capture.px.assign(base.data(), base.data() + static_cast<size_t>(kW) * kH);
-                const Image reduced = coverResize(capture, 320, 180);
-                settingsFrostedBackdrop_ = coverResize(reduced, kW, kH);
+                settingsFrostedBackdrop_ = frostSettingsBackdrop(capture);
                 settingsBackdropReady_ = true;
             }
             if (settingsBackdropReady_) c.drawImage(settingsFrostedBackdrop_, 0, 0);

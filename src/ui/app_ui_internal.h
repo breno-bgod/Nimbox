@@ -92,7 +92,7 @@ inline int settingsSection(int row) {
             if (kSettingsOrder[index] == row) return section;
     return 0;
 }
-inline Rect settingsSectionRect(int section) { return {96 + 342 * section, 178, 325, 60}; }
+inline Rect settingsSectionRect(int section) { return {kMargin, 245 + 70 * section, 376, 60}; }
 inline std::vector<SettingsRowPos> settingsPage(const UiCaps& caps, int row) {
     auto rows = visibleSettingsRows(caps);
     const int section = settingsSection(row);
@@ -113,9 +113,11 @@ constexpr int kKeysPerColumn = input::kKeyActions / 2;
 constexpr const char* kReleasesPage = "https://github.com/breno-bgod/Nimbox/releases";
 constexpr const char* kNimboxSupportPage = "https://github.com/breno-bgod/Nimbox";
 
-constexpr int kSettingsRowW = 1140, kSettingsRowH = 58, kSettingsGap = 7;
+constexpr Rect kSettingsRemoteLink{kMargin, 732, 376, 62};
+constexpr int kSettingsRowX = 538;
+constexpr int kSettingsRowW = 1264, kSettingsRowH = 58, kSettingsGap = 7;
 constexpr int kSettingsGroupGap = 0, kSettingsRowPx = 25;
-constexpr int kSettingsListTop = 302, kSettingsClipTop = 295, kSettingsListBottom = 922;
+constexpr int kSettingsListTop = 245, kSettingsClipTop = 239, kSettingsListBottom = 839;
 
 inline int settingsTotalHeight(const UiCaps& caps, int row) {
     return int(settingsPage(caps, row).size()) * (kSettingsRowH + kSettingsGap);
