@@ -1424,6 +1424,20 @@ void AppUi::drawSettings(Canvas& c) {
         y += kRowH + kGap;
     }
     c.resetClip();
+    if (section == 0) {
+        const auto& theme = nimbox_theme::palette(settings_.nimboxTheme);
+        const Rect preview{kMargin, 548, kRowW, 338};
+        c.gradientH(preview, theme.low, theme.mid);
+        const GameTile* tile = focusedTile();
+        if (tile && !tile->heroUrl.empty()) {
+            if (auto art = images_.get(tile->heroUrl, 600, 338))
+                c.drawImage(*art, preview.x + preview.w - 600, preview.y);
+        }
+        c.gradientH(preview, withAlpha(kBg, 237), withAlpha(kBg, 0));
+        c.fillRect({preview.x + 38, preview.y + 203, 54, 4}, theme.accent, 2);
+        fonts_.regular.draw(c, "Horizon", preview.x + 38, preview.y + 228, 22, kGray);
+        fonts_.bold.draw(c, theme.name, preview.x + 36, preview.y + 263, 45, kWhite);
+    }
     const int viewport = kSettingsListBottom - kSettingsListTop;
     const int total = settingsTotalHeight(caps_, settingsRow_);
     if (total > viewport) {

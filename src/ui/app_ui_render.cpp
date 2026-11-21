@@ -1218,8 +1218,10 @@ void AppUi::drawProfilePanel(Canvas& c) {
 #else
     constexpr int avatar = 52;
 #endif
-    if (auto image = images_.get(gamerpicUrl_, avatar, avatar)) {
-        c.drawImage(*image, x + 52 - avatar / 2, cy - avatar / 2, 255, -1);
+    auto image = images_.get(gamerpicUrl_, 94, 94);
+    if (!image) image = images_.get(gamerpicUrl_, avatar, avatar);
+    if (image) {
+        c.drawImage(*image, x + 52 - image->w / 2, cy - image->h / 2, 255, -1);
     } else {
         c.fillCircle(x + 52, cy - 9, 12, accent);
         c.fillRect({x + 29, cy + 8, 46, 19}, accent, 9);
@@ -2025,6 +2027,7 @@ void AppUi::render(Canvas& c, uint64_t nowMs) {
             }
             if (settingsBackdropReady_) c.drawImage(settingsFrostedBackdrop_, 0, 0);
             else drawBackground(c);
+            hintRects_.clear();
             drawSettings(c);
             if (settingsQrExpanded_) drawSettingsQrOverlay(c);
             break;

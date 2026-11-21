@@ -237,7 +237,6 @@ int desktopSelftest(const std::string& dir) {
               next.padMap == before.padMap, "Horizon theme changes appearance only");
         check(ui::settingsRowPosition(caps, 29) < 0, "Horizon hides legacy floor reflection");
         ui.onMouseDown(410, 455, 1); // movement preference
-        ui.onMouseDown(800, 498 + 8 + 62 + 26, 1);
         check(ui.settings().nimboxReducedMotion, "Reduced motion can be selected by touch");
         ui.render(canvas, platform::nowMs());
         drawCanvas(canvas);
