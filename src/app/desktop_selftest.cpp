@@ -495,6 +495,9 @@ int desktopSelftest(const std::string& dir) {
             auto read = ui.takeChatRequest(100);
             check(read.peer == friendOnline.xuid && read.text.empty() && read.session, "Open the selected friend's conversation");
             ui.finishChatRequest(read,true,{{"12345","Example reply","2026-01-01"}},100);
+            ui.render(canvas,platform::nowMs());
+            drawCanvas(canvas);
+            check(screenshot(dir,"6m-horizon-chat.png",shot) && varied(shot), "Native chat capture");
             ui.typeText("Hello");
             ui.onMouseDown(1480,749,1);
             auto send = ui.takeChatRequest(110);

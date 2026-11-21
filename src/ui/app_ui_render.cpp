@@ -362,7 +362,7 @@ bool AppUi::drawHero(Canvas& c, uint64_t nowMs, const std::string& url, bool det
     auto current = heroUrl_.empty() ? nullptr : images_.get(heroUrl_, kW, kH, fullScreen);
     if (current) {
         if (!heroShownAt_) heroShownAt_ = nowMs;
-        uint64_t age = nowMs - heroShownAt_;
+        uint64_t age = nimboxReducedMotion_ ? kHeroFadeMs : nowMs - heroShownAt_;
         // Arrived at once (cached): cross-fade from the previous art. Arrived
         // later: fade in from the plain background.
         bool crossFade = heroShownAt_ - heroSince_ < 150 && !prevHeroUrl_.empty();
@@ -400,12 +400,7 @@ void AppUi::drawSplash(Canvas& c, uint64_t nowMs) {
 }
 
 void AppUi::drawSignIn(Canvas& c, uint64_t nowMs) {
-    drawBackground(c);
-    c.gradientH({0, 80, kW, 920}, withAlpha(kBg, 115), rgba(95, 69, 49, 75));
-    preview31::glassPanel(c, {139, 110, 890, 850}, 22);
-    preview31::glassPanel(c, {1160, 190, 660, 690}, 22);
-    c.gradientV({1160, 190, 660, 690}, withAlpha(preview31::kAccent, 14),
-                rgba(5, 21, 38, 24));
+    drawCollectionBackdrop(c, nowMs, focusedTile());
     const int left = 180;
     drawInternalBrand(c, left - 12, 113, 208, 113);
     fonts_.bold.draw(c, tr(Str::SignInTitle), left, 260, 72, kWhite);
@@ -421,7 +416,6 @@ void AppUi::drawSignIn(Canvas& c, uint64_t nowMs) {
     int letters = static_cast<int>(code_.size());
     int cell = 82;
     Rect panel{left, 600, std::max(400, letters * cell + 64), 150};
-    c.fillRect(panel, kPanel, 18);
     int x = panel.x + 32;
     for (char ch : code_) {
         std::string s(1, ch);
@@ -724,8 +718,6 @@ void AppUi::drawGrid(Canvas& c, const std::vector<GameTile>& tiles, int x0, int 
         if (!name.empty()) fonts_.semibold.draw(c, name[0], x, y + kCard + 12, 20, focused ? kWhite : kGray);
     }
     c.clearClip();
-    c.fillRect({0, 0, kW, clipTop}, kBg);
-    c.gradientV({0, clipTop, kW, 12}, kBg, withAlpha(kBg, 0));
 }
 
 void AppUi::drawCollectionBackdrop(Canvas& c, uint64_t nowMs, const GameTile* game) {
@@ -734,8 +726,8 @@ void AppUi::drawCollectionBackdrop(Canvas& c, uint64_t nowMs, const GameTile* ga
         if (auto cover = images_.get(game->tileUrl, kH, kH))
             c.drawImage(*cover, kW-kH, 0);
     }
-    c.gradientH({0,0,kW,kH}, rgba(5,10,17,192), rgba(5,10,17,15));
-    c.gradientV({0,0,kW,kH}, rgba(5,10,17,32), rgba(5,10,17,160));
+    // drawHero already supplies the left and lower scrims used on Home.
+    c.gradientV({0,0,kW,kH}, rgba(5,10,17,18), rgba(5,10,17,91));
 }
 
 void AppUi::drawLibrary(Canvas& c, uint64_t nowMs) {
@@ -812,8 +804,7 @@ void AppUi::drawLibrary(Canvas& c, uint64_t nowMs) {
         c.line(right - 14, 188, right - 9, 193, 2, kWhite);
         c.line(right - 9, 193, right - 4, 188, 2, kWhite);
     }
-    c.gradientV({0, kH - 190, kW, 110}, withAlpha(kBg, 0), withAlpha(kBg, 245));
-    c.fillRect({0, kH - 80, kW, 80}, withAlpha(kBg, 245));
+    c.gradientV({0, kH - 190, kW, 190}, withAlpha(kBg, 0), withAlpha(kBg, 204));
     bool focusHidden = focus && hidden_.count(focus->productId);
     drawHints(c, {{kIconCross, tr(Str::Select)},
                   {kIconSquare, tr(focusHidden ? Str::Unhide : Str::Hide)},
@@ -1278,8 +1269,7 @@ void AppUi::drawProfilePanel(Canvas& c) {
     drawProfileActions(c, x, right);
     // Hide base-screen touch targets while this native modal has focus.
     hintRects_.clear();
-    c.gradientV({0, kH - 120, kW, 40}, rgba(8, 13, 21, 0), rgba(8, 13, 21));
-    c.fillRect({0, kH - 80, kW, 80}, rgba(8, 13, 21));
+    c.gradientV({0, kH - 150, kW, 150}, rgba(8,13,21,0), rgba(8,13,21,174));
     drawHints(c, {{kIconCircle, tr(Str::Back)}});
 }
 
@@ -1522,9 +1512,7 @@ void AppUi::drawDetails(Canvas& c, uint64_t nowMs) {
 }
 
 void AppUi::drawLaunching(Canvas& c, uint64_t nowMs) {
-    c.clear(kBg);
-    if (auto hero = images_.get(launching_.heroUrl, kW, kH)) c.drawImage(*hero, 0, 0);
-    c.fillRect({0, 0, kW, kH}, rgba(0, 0, 0, 175));
+    drawCollectionBackdrop(c,nowMs,&launching_);
     drawSpinner(c, kW / 2.0f, 420, 40, nowMs);
     drawCentered(c, fonts_.bold, launching_.name, 500, 48, kWhite);
     drawCentered(c, fonts_.semibold, tr(Str::GettingReady), 576, 30, kGray);
@@ -1568,14 +1556,13 @@ void AppUi::drawLaunching(Canvas& c, uint64_t nowMs) {
 }
 
 void AppUi::drawError(Canvas& c) {
-    drawBackground(c);
+    drawCollectionBackdrop(c,lastRender_,errorGame_.productId.empty() ? focusedTile() : &errorGame_);
     int panelW = errorUrl_.empty() ? 1040 : 1300;
     int maxTextW = errorUrl_.empty() ? (panelW - 112) : (panelW - 460);
     auto lines = fonts_.regular.wrap(error_, 26, maxTextW, 8);
     int h = 132 + static_cast<int>(lines.size()) * 38 + 56;
     if (!errorUrl_.empty() && h < 460) h = 460;
     Rect panel{(kW - panelW) / 2, (kH - h) / 2 - 40, panelW, h};
-    c.fillRect(panel, kPanel, 24);
     fonts_.bold.draw(c, tr(Str::ErrorTitle), panel.x + 56, panel.y + 52, 44, kWhite);
     int y = panel.y + 132;
     for (const auto& line : lines) {
@@ -1868,13 +1855,14 @@ void AppUi::drawUpdateNotesModal(Canvas& c) {
 }
 
 void AppUi::drawAchievementsModal(Canvas& c, uint64_t nowMs) {
-    Rect panel = drawModal(c, 1180, 720, tr(Str::Achievements));
+    drawCollectionBackdrop(c,nowMs,&detail_);
+    const Rect panel{(kW-1180)/2, (kH-720)/2, 1180, 720};
+    fonts_.bold.draw(c,tr(Str::Achievements),panel.x+56,panel.y+31,48,kWhite);
 
     auto it = achievements_.find(detail_.xboxTitleId);
     if (it == achievements_.end()) {
         drawSpinner(c, static_cast<float>(panel.x + panel.w / 2), static_cast<float>(panel.y + panel.h / 2), 24.0f, nowMs);
         animating_ = true;
-        c.fillRect({0, kH - 80, kW, 80}, kBg);
         drawHints(c, {{kIconCircle, tr(Str::Back)}});
         return;
     }
@@ -1884,7 +1872,6 @@ void AppUi::drawAchievementsModal(Canvas& c, uint64_t nowMs) {
         std::string emptyStr = tr(Str::NoAchievements);
         int tw = fonts_.regular.measure(emptyStr, 28);
         fonts_.regular.draw(c, emptyStr, panel.x + (panel.w - tw) / 2, panel.y + panel.h / 2, 28, kDim);
-        c.fillRect({0, kH - 80, kW, 80}, kBg);
         drawHints(c, {{kIconCircle, tr(Str::Back)}});
         return;
     }
@@ -1915,7 +1902,6 @@ void AppUi::drawAchievementsModal(Canvas& c, uint64_t nowMs) {
     for (int i = startIdx; i < total && i < startIdx + kVisibleCount; ++i) {
         const auto& item = ach.items[i];
         Rect r{panel.x + 56, y, panel.w - 112, kRowH};
-        c.fillRect(r, rgba(255, 255, 255, 14), 14);
 
         float cx = static_cast<float>(r.x + 36), cy = static_cast<float>(r.y + r.h / 2);
         if (item.unlocked) {
@@ -1962,7 +1948,6 @@ void AppUi::drawAchievementsModal(Canvas& c, uint64_t nowMs) {
         c.fillRect({trackX, thumbY, 4, thumbH}, rgba(255, 255, 255, 120), 2);
     }
 
-    c.fillRect({0, kH - 80, kW, 80}, kBg);
     drawHints(c, {{kIconCircle, tr(Str::Back)}});
 }
 

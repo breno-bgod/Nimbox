@@ -292,7 +292,16 @@ UiEvent AppUi::onMouseMove(float x, float y) {
     if (screen_ == Screen::Streaming || screen_ == Screen::Splash) {
         return ev;
     }
-    if (screen_ == Screen::Home && !searching_ && (!directory_.empty() || (onCatalogShelf() && !profileOpen_)) && !quitPrompt_ && !updatePrompt_) return ev;
+    if (screen_ == Screen::Home && !searching_ && (!directory_.empty() || (onCatalogShelf() && !profileOpen_)) && !quitPrompt_ && !updatePrompt_) {
+        auto& page = activeDirectory();
+        if (page.kind == Directory::Friends) {
+            for (int i=0; i<int(page.labels.size()); ++i) {
+                Rect r = directoryCell(page,i);
+                if (r.w && horizon::contains(r,x,y)) { page.focus = i; break; }
+            }
+        }
+        return ev;
+    }
     if (screen_ == Screen::Home && quitPrompt_) {
         constexpr int kButtonW = 300, kButtonH = 72, kPanelW = 2 * kButtonW + 24 + 112, kPanelH = 250;
         Rect panel{(kW - kPanelW) / 2, (kH - kPanelH) / 2 - 30, kPanelW, kPanelH};
@@ -1313,6 +1322,7 @@ UiEvent AppUi::onTouch(const app::shell::TouchEvent& ev) {
             touchTracker_.startY = touchTracker_.lastY = ev.y;
             touchTracker_.startTimeMs = touchTracker_.lastTimeMs = now;
             touchTracker_.isDragging = false;
+            touchTracker_.crossedShelf = false;
             touchTracker_.velocityX = touchTracker_.velocityY = 0.0f;
         }
         return uiEv;
@@ -1320,6 +1330,10 @@ UiEvent AppUi::onTouch(const app::shell::TouchEvent& ev) {
 
     if (!touchTracker_.active || touchTracker_.fingerId != ev.fingerId) return uiEv;
 
+    if (touchTracker_.crossedShelf) {
+        if (ev.kind == app::shell::TouchEvent::Kind::Up) touchTracker_.active = false;
+        return uiEv;
+    }
     if (ev.kind == app::shell::TouchEvent::Kind::Motion) {
         float dx = ev.x - touchTracker_.lastX;
         float dy = ev.y - touchTracker_.lastY;
@@ -1343,7 +1357,9 @@ UiEvent AppUi::onTouch(const app::shell::TouchEvent& ev) {
                     NavInput nav;
                     if (genre) nav.scrollCards = distance > 0 ? -1 : 1;
                     else nav.scrollRows = distance > 0 ? -1 : 1;
+                    const int previousShelf = focusRow_;
                     handleDirectory(nav, uiEv);
+                    touchTracker_.crossedShelf = previousShelf != focusRow_;
                     touchTracker_.startX = ev.x;
                     touchTracker_.startY = ev.y;
                 }

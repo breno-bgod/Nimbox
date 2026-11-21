@@ -950,6 +950,7 @@ private:
         uint64_t startTimeMs = 0;
         uint64_t lastTimeMs = 0;
         bool isDragging = false;
+        bool crossedShelf = false;
         float velocityY = 0.0f;
         float velocityX = 0.0f;
     };

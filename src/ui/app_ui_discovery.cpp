@@ -336,6 +336,12 @@ Rect AppUi::directoryCell(const DirectoryPage& page, int index) const {
 }
 
 namespace {
+void drawFriendAvatar(Canvas& c, Rect r) {
+    const int cx = r.x+r.w/2, cy = r.y+r.h/2;
+    c.fillCircle(cx,cy,r.w/2,rgba(54,68,83));
+    c.fillCircle(cx,cy-r.h/10,r.w/8,kWhite);
+    c.strokeArc(cx,cy+r.h/4,r.w/5,float(r.w)/19,3.14f,3.14f,kWhite);
+}
 constexpr Rect kChatAction{1060, 610, 350, 76};
 constexpr char kChatKeys[] = "abcdefghijklmnopqrstuvwxyz0123456789 .?!";
 Rect chatKeyRect(int key) {
@@ -410,26 +416,31 @@ void AppUi::pressChatKey(int key) {
 
 void AppUi::drawChat(Canvas& c, const std::string& name) {
     fonts_.semibold.draw(c,tr(Str::ChatMessages),120,235,29,kWhite);
-    int y = 303;
     const int end = int(chat_.lines.size())-chat_.historyOffset;
-    for (int i = std::max(0,end-4); i < end; ++i) {
+    int bottom = 855;
+    c.setClip({120,300,860,557});
+    for (int i=end-1; i>=0 && bottom>300; --i) {
         const auto& msg = chat_.lines[i];
-        fonts_.semibold.draw(c, msg.sender == chat_.peer ? name : tr(Str::ChatSelf),120,y,20,kWhite);
-        y += 35;
-        for (const auto& line : fonts_.regular.wrap(msg.text,24,820,3)) {
-            fonts_.regular.draw(c,line,120,y,24,kWhite);
-            y += 31;
+        auto lines = fonts_.regular.wrap(msg.text,24,820,16);
+        bottom -= 53 + int(lines.size())*31;
+        fonts_.semibold.draw(c,msg.sender == chat_.peer ? name : tr(Str::ChatSelf),120,bottom,20,kWhite);
+        int lineY = bottom+35;
+        for (const auto& line : lines) {
+            fonts_.regular.draw(c,line,120,lineY,24,kWhite);
+            lineY += 31;
         }
-        y += 18;
     }
+    c.clearClip();
+    int y = end ? 870 : 303;
     if (chat_.readFailed || !end) {
         const Str status = chat_.readFailed ? Str::ChatUnavailable : chat_.loaded ? Str::ChatEmpty : Str::ChatLoading;
         fonts_.regular.draw(c,tr(status),120,y,24,kGray);
     }
     fonts_.semibold.draw(c,tr(Str::ChatCompose),1050,235,29,kWhite);
     y = 300;
-    for (const auto& line : fonts_.regular.wrap(chat_.draft,23,665,3)) {
-        fonts_.regular.draw(c,line,1050,y,23,kWhite); y += 30;
+    const auto draftLines = fonts_.regular.wrap(chat_.draft,23,665,16);
+    for (int i=std::max(0,int(draftLines.size())-3); i<int(draftLines.size()); ++i) {
+        fonts_.regular.draw(c,draftLines[i],1050,y,23,kWhite); y += 30;
     }
     for (int i=0;i<42;++i) {
         Rect r = chatKeyRect(i);
@@ -439,6 +450,10 @@ void AppUi::drawChat(Canvas& c, const std::string& name) {
                             i == 36 ? "_" : std::string(1,kChatKeys[i]);
         fonts_.semibold.draw(c,label,r.x+(r.w-fonts_.semibold.measure(label,24))/2,
                              fonts_.semibold.centeredY(r.y,r.h,24),24,focus ? kBg : kWhite);
+    }
+    if (chat_.sendQueued || chat_.sending) {
+        drawSpinner(c,1748,752,14,lastRender_);
+        animating_ = true;
     }
     if (chat_.sendFailed) {
         y = 810;
@@ -517,6 +532,9 @@ bool AppUi::directoryPointer(float x, float y, int button, UiEvent& ev) {
     }
     if (button != 1) return true;
     if (p.kind == Directory::Chat) {
+        for (const auto& [icon,r] : hintRects_) {
+            if (icon == kIconCircle && horizon::contains(r,x,y)) { backDirectory(); return true; }
+        }
         for (int i=0;i<42;++i) if (horizon::contains(chatKeyRect(i),x,y)) {
             chat_.key = i; pressChatKey(i); break;
         }
@@ -668,6 +686,7 @@ void AppUi::drawDirectory(Canvas& c) {
             if (p.kind == Directory::Friends && i < int(friends_.size())) {
                 const auto& who = friends_[i];
                 if (auto avatar = images_.get(who.gamerpicUrl, 52, 52)) c.drawImage(*avatar,x,r.y+15,255,-1);
+                else drawFriendAvatar(c,{x,r.y+15,52,52});
                 x += 72;
                 c.fillCircle(x-25,r.y+56,6,who.presenceState == "Online" ? rgba(139,232,174) : kGray);
             }
@@ -678,6 +697,7 @@ void AppUi::drawDirectory(Canvas& c) {
     if (p.kind == Directory::Friends && p.focus < int(friends_.size())) {
         const auto& who = friends_[p.focus];
         if (auto pic = images_.get(who.gamerpicUrl,128,128)) c.drawImage(*pic,1060,248,255,-1);
+        else drawFriendAvatar(c,{1060,248,128,128});
         fonts_.bold.draw(c,fonts_.bold.fit(who.gamertag,49,715),1060,410,49,kWhite);
         fonts_.semibold.draw(c,presenceLabel(who.presenceState),1060,481,24,kWhite);
         int y = 525;
