@@ -252,6 +252,16 @@ int desktopSelftest(const std::string& dir) {
     ui.setCaps(caps);
     // The same with an Xbox pad's glyphs (A / B, Menu, View...).
     {
+        ui.onMouseDown(520, 207, 1);
+        check(ui.settingsFocus() == 1, "Playback tab opens streaming options");
+        ui.render(canvas, platform::nowMs());
+        drawCanvas(canvas);
+        check(screenshot(dir, "2h-settings-playback.png", shot), "Playback page capture");
+        ui.handle(ui::NavInput{.r1 = true});
+        check(ui.settingsFocus() == 14, "Shoulder navigation opens Controls");
+        ui.render(canvas, platform::nowMs());
+        drawCanvas(canvas);
+        check(screenshot(dir, "2i-settings-controls.png", shot), "Controls page capture");
         const std::vector<uint8_t> ps = shot.rgb;
         ui::g_glyphStyle = ui::glyphStyleFor(input::PadKind::Xbox);
         ui.invalidate();
