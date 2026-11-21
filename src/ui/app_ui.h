@@ -558,7 +558,7 @@ private:
     // The game's backdrop; false (and nothing drawn) until its image is
     // there: never another game's art in the meantime.
     bool drawHero(Canvas& c, uint64_t nowMs, const std::string& url, bool details, bool fullScreen = false);
-    void drawTopBar(Canvas& c);
+    void drawTopBar(Canvas& c, bool overArt = false);
     void drawLogo(Canvas& c, float cx, float cy, float r);
     void drawGamerscoreBadge(Canvas& c, float cx, float cy, float r);
     void drawCloudTime(Canvas& c, int x, int y);
@@ -701,6 +701,9 @@ private:
     Anim rowY_;
     // Horizon-only Game Pass carousel, with reduced-motion accessibility.
     Anim nimboxSlide_;
+    int drawnCollection_ = -1, outgoingCollection_ = -1;
+    uint64_t collectionChangedAt_ = 0;
+    int collectionOffsetY_ = 0;
     horizon::BoundaryGate horizonBoundary_{};
     bool nimboxReducedMotion_ = false;
     bool profileOpen_ = false;  // UI-only: never changes account or streaming state

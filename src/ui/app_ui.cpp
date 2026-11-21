@@ -8,7 +8,8 @@
 namespace xc::ui {
 
 std::vector<SettingsRowPos> visibleSettingsRows(const UiCaps& caps) {
-    return filterRows(kSettingsOrder, kSettingsGroupStart, [&](int row) {
+    constexpr bool starts[kSettingsCount] = {};
+    return filterRows(kSettingsOrder, starts, [&](int row) {
 #if defined(__ANDROID__)
         // Android has an H.264 MediaCodec backend and an FFmpeg software fallback.
         // Keep the native decoder preference visible, as in the remote Web UI.
@@ -245,6 +246,8 @@ void AppUi::setRowsLocked(std::vector<GameRow> rows) {
     focusCol_.assign(rows_.size(), 0);
     rowScroll_.assign(rows_.size(), Anim{});
     focusRow_ = 0;
+    drawnCollection_ = outgoingCollection_ = -1;
+    collectionOffsetY_ = 0;
     horizonBoundary_.reset(); // catalog refresh invalidates the edge intent
     nimboxSlide_.value = nimboxSlide_.target = 0.0f;
     for (size_t r = 0; r < rows_.size(); ++r) {

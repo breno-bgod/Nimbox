@@ -606,4 +606,11 @@ constexpr Column kEnglish = {
     "QR code is unavailable in this session.",  // SettingsQrUnavailable
     "R3 / TAP  -  ENLARGE QR",  // SettingsQrPointerHint
     "L2  Settings",  // SettingsDetailsShortcut
+    "Details",
+    "Playback",
+    "Controls",
+    "Account & network",
+    "System",
+    "Membership",
+    "Gamerscore",
 };

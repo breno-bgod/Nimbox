@@ -606,4 +606,11 @@ constexpr Column kSpanish = {
     "El código QR no está disponible en esta sesión.",  // SettingsQrUnavailable
     "R3 / TOCAR  -  AMPLIAR QR",  // SettingsQrPointerHint
     "L2  Configuración",  // SettingsDetailsShortcut
+    "Detalles",
+    "Reproducción",
+    "Controles",
+    "Cuenta y red",
+    "Sistema",
+    "Suscripción",
+    "Gamerscore",
 };

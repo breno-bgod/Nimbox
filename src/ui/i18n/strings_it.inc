@@ -606,4 +606,11 @@ constexpr Column kItalian = {
     "Codice QR non disponibile in questa sessione.",  // SettingsQrUnavailable
     "R3 / TOCCA  -  INGRANDISCI QR",  // SettingsQrPointerHint
     "L2  Impostazioni",  // SettingsDetailsShortcut
+    "Dettagli",
+    "Riproduzione",
+    "Comandi",
+    "Account e rete",
+    "Sistema",
+    "Abbonamento",
+    "Gamerscore",
 };

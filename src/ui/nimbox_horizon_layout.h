@@ -12,19 +12,19 @@ namespace xc::ui::horizon {
 constexpr int kCenterX = 960, kPitch = 218, kSideItems = 3;
 constexpr int kSelectedSide = 244, kNeighborSide = 176, kTileCenterY = 746;
 // Shared between Canvas rendering and native pointer hit testing.
-constexpr Rect kPlayButton{104, 500, 248, 66};
-constexpr Rect kDetailsButton{370, 500, 245, 66};
+constexpr Rect kPlayButton{104, 432, 204, 62};
+constexpr Rect kDetailsButton{325, 432, 205, 62};
 // Avatar hit box is separate from the Settings gear at x=1834..1886.
 constexpr Rect kProfileAvatarTap{1744, 30, 65, 84};
-constexpr Rect kProfilePanel{510, 218, 900, 640};
-constexpr Rect kProfileClose{1332, 244, 48, 48};
-inline Rect tileRect(float offset) {
+constexpr Rect kProfilePanel{1176, 136, 640, 792};
+constexpr Rect kProfileClose{1736, 160, 48, 48};
+inline Rect tileRect(float offset, int displacementY = 0) {
     if (!std::isfinite(offset)) offset = 0.0f;
     offset = std::clamp(offset, -5.0f, 5.0f);
     const float scale = std::clamp(1.0f - std::fabs(offset), 0.0f, 1.0f);
     const int side = int(std::lround(kNeighborSide + (kSelectedSide - kNeighborSide) * scale));
     const int cx = kCenterX + int(std::lround(offset * kPitch));
-    return {cx - side / 2, kTileCenterY - side / 2, side, side};
+    return {cx - side / 2, kTileCenterY - side / 2 + displacementY, side, side};
 }
 // Only one visual collection exists. These utilities are intentionally
 // independent of the removed physical 3D case geometry and its renderer.

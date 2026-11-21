@@ -229,15 +229,16 @@ int desktopSelftest(const std::string& dir) {
     {
         auto before = ui.settings();
         const auto original = shot.rgb;
-        ui.onMouseDown(1682.0f, 385.0f, 1); // Emerald, row 2 / col 2
+        ui.onMouseDown(410, 392, 1); // Horizon theme row
+        ui.onMouseDown(800, 432 + 8 + 3 * 62 + 26, 1); // Emerald dropdown option
         auto next = ui.settings();
         check(next.nimboxTheme == 3 && next.region == before.region &&
               next.maxBitrateMbps == before.maxBitrateMbps &&
-              next.padMap == before.padMap, "Emerald theme changes appearance only");
-        ui.onMouseDown(1690.0f, 550.0f, 1); // floor reflection
-        check(ui.settings().nimboxReflection > 50, "Reflection slider responds to touch");
-        ui.onMouseDown(1660.0f, 604.0f, 1); // reduced motion
-        check(ui.settings().nimboxReducedMotion, "Reduced motion toggle responds to touch");
+              next.padMap == before.padMap, "Horizon theme changes appearance only");
+        check(ui::settingsRowPosition(caps, 29) < 0, "Horizon hides legacy floor reflection");
+        ui.onMouseDown(410, 455, 1); // movement preference
+        ui.onMouseDown(800, 498 + 8 + 62 + 26, 1);
+        check(ui.settings().nimboxReducedMotion, "Reduced motion can be selected by touch");
         ui.render(canvas, platform::nowMs());
         drawCanvas(canvas);
         check(screenshot(dir, "2f-settings-emerald.png", shot) && varied(shot) &&
@@ -400,7 +401,10 @@ int desktopSelftest(const std::string& dir) {
         for (int i = 0; i < 5; ++i)
             selectedSettings.titlePlaytime["cv-test-" + std::to_string(i)] = 1800u + 600u * i;
         ui.setSettings(selectedSettings);
-        ui.setRows({showcase});
+        auto discovery = showcase;
+        discovery.title = "Discovery";
+        std::reverse(discovery.tiles.begin(), discovery.tiles.end());
+        ui.setRows({showcase, discovery});
         ui.showHome();
         ui.render(canvas, platform::nowMs());
         drawCanvas(canvas);
@@ -408,6 +412,26 @@ int desktopSelftest(const std::string& dir) {
                   screenshot(dir, "6-nimbox-horizon-home.png", shot) && varied(shot),
               "Horizon is the only Game Pass home (6-nimbox-horizon-home.png)");
 
+        ui::NavInput nextCollection;
+        nextCollection.down = true;
+        ui.handle(nextCollection);
+        const uint64_t start = platform::nowMs();
+        ui.render(canvas, start);
+        ui.render(canvas, start + 140);
+        drawCanvas(canvas);
+        check(screenshot(dir, "6g-collection-change.png", shot), "Capture collection transition midpoint");
+        const auto midpoint = shot.rgb;
+        ui.render(canvas, start + 300);
+        drawCanvas(canvas);
+        check(screenshot(dir, "6h-next-collection.png", shot) && midpoint != shot.rgb,
+              "Collection transition settles on the new shelf");
+        ui::NavInput previousCollection;
+        previousCollection.up = true;
+        ui.handle(previousCollection);
+        ui.setRows({showcase});
+        ui.render(canvas, platform::nowMs());
+        drawCanvas(canvas);
+        screenshot(dir, "6-nimbox-horizon-home.png", shot);
         const auto originalPalette = shot.rgb;
         ui::SettingsChoice cinemaSettings = selectedSettings;
         cinemaSettings.nimboxTheme = 4;
@@ -424,6 +448,8 @@ int desktopSelftest(const std::string& dir) {
         oldModeShortcut.r3 = true;
         ui.handle(oldModeShortcut);
         ui.render(canvas, platform::nowMs());
+        drawCanvas(canvas);
+        check(screenshot(dir, "6f-profile.png", shot) && varied(shot), "Profile drawer capture");
         check(ui.screen() == ui::Screen::Home,
               "R3 does not restore Colecao Viva or classic collection");
 

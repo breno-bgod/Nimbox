@@ -615,6 +615,13 @@ enum class Str {
     SettingsQrUnavailable,
     SettingsQrPointerHint,
     SettingsDetailsShortcut,
+    OpenDetails,
+    SettingsPlayback,
+    SettingsControls,
+    SettingsAccount,
+    SettingsSystem,
+    Membership,
+    GamerscoreLabel,
     Count
 };
 

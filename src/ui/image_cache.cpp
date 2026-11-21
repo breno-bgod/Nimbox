@@ -120,9 +120,10 @@ void ImageCache::stop() {
     }
 }
 
-std::shared_ptr<const Image> ImageCache::get(const std::string& url, int w, int h) {
+std::shared_ptr<const Image> ImageCache::get(const std::string& url, int w, int h, bool fitInside) {
     if (url.empty() || w <= 0 || h <= 0) return nullptr;
     std::string key = url + "#" + std::to_string(w) + "x" + std::to_string(h);
+    if (fitInside) key += "/fit";
     std::lock_guard<std::mutex> lock(mutex_);
     Entry& e = entries_[key];
     e.lastUse = ++clock_;
@@ -135,7 +136,7 @@ std::shared_ptr<const Image> ImageCache::get(const std::string& url, int w, int 
             if (dit != entries_.end()) dit->second.loading = false;
         }
         e.loading = true;
-        jobs_.push_front({key, url, w, h});
+        jobs_.push_front({key, url, w, h, fitInside});
         cv_.notify_one();
     }
     return e.image;
@@ -243,6 +244,11 @@ void ImageCache::loop() {
             }
         }
         if (r.ok() && decoded.w > 0) {
+            if (job.fitInside) {
+                const double scale = std::min(double(job.w) / decoded.w, double(job.h) / decoded.h);
+                job.w = std::max(1, int(decoded.w * scale + 0.5));
+                job.h = std::max(1, int(decoded.h * scale + 0.5));
+            }
             result = std::make_shared<Image>(decoded.w == job.w && decoded.h == job.h
                                                  ? std::move(decoded)
                                                  : coverResize(decoded, job.w, job.h));

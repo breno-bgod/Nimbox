@@ -606,4 +606,11 @@ constexpr Column kGerman = {
     "QR-Code in dieser Sitzung nicht verfügbar.",  // SettingsQrUnavailable
     "R3 / TIPPEN  -  QR VERGRÖSSERN",  // SettingsQrPointerHint
     "L2  Einstellungen",  // SettingsDetailsShortcut
+    "Details",
+    "Wiedergabe",
+    "Steuerung",
+    "Konto und Netzwerk",
+    "System",
+    "Abonnement",
+    "Gamerscore",
 };

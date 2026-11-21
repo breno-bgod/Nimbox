@@ -75,30 +75,30 @@ enum Icon { kIconCross, kIconCircle, kIconOptions, kIconTriangle, kIconTouchpad,
 // position (0 = 1080p, 1 = 720p, 2 = Best Auto, 3 = 1440p QHD).
 // Preserve the existing persisted values: only append the explicit QHD tier.
 constexpr int kResolutionOrder[4] = {1, 0, 3, 2};
-// Settings' rows on screen, alike ones together (the row ids stay what
-// settingsRow_ and the helpers use): language, sign-in country, and sign-in check; the
-// stream (resolution, a desktop's display mode, 120 Hz, bitrate, region, network test);
-// the controller, keyboard and queue-ready alert; support and updates last. A group starts at each
-// kSettingsGroupStart.
-// All native Settings expose the same shared quality controls as Web Control.
-// Row IDs 0..30 are stable; 31..34 add globally persisted visual/audio options.
-// IDs and row ordering are intentionally separate so existing gameplay/profile
-// mappings and network settings are not changed.
-constexpr int kSettingsCount = 35;
-constexpr int kSettingsOrder[kSettingsCount] = {
-    0, 2, 8, 27, 17, 18, 24, 25,
-    1, 20, 31, 32, 33, 13, 9, 26, 10, 11, 34,
-    14, 12, 3, 15, 4, 21, 5, 6, 16, 22,
-    19, 7, 23,
-    nimbox_theme::kAppearanceFirst, nimbox_theme::kAppearanceReflection, nimbox_theme::kAppearanceMotion
+// Stable row IDs are stored independently of the Horizon section order.
+constexpr int kSettingsOrder[] = {
+    0, 28, 30,
+    1, 20, 26, 10, 31, 32, 33, 13, 9, 11, 34,
+    14, 3, 4, 15, 12, 5, 6, 21,
+    2, 8, 27, 17, 18,
+    16, 22, 24, 25, 7, 19, 23
 };
-constexpr bool kSettingsGroupStart[kSettingsCount] = {
-    false, false, false, false, false, false, false, false,
-    true, false, false, false, false, false, false, false, false, false, false,
-    true, false, false, false, false, false, false, false, false, false,
-    true, false, true,
-    true, false, false
-};
+constexpr int kSettingsCount = sizeof(kSettingsOrder) / sizeof(kSettingsOrder[0]);
+constexpr int kSectionStarts[] = {0, 3, 14, 22, 27, kSettingsCount};
+constexpr int kSectionCount = 5;
+inline int settingsSection(int row) {
+    for (int section = 0; section < kSectionCount; ++section)
+        for (int index = kSectionStarts[section]; index < kSectionStarts[section + 1]; ++index)
+            if (kSettingsOrder[index] == row) return section;
+    return 0;
+}
+inline Rect settingsSectionRect(int section) { return {96 + 342 * section, 178, 325, 60}; }
+inline std::vector<SettingsRowPos> settingsPage(const UiCaps& caps, int row) {
+    auto rows = visibleSettingsRows(caps);
+    const int section = settingsSection(row);
+    std::erase_if(rows, [section](const SettingsRowPos& item) { return settingsSection(item.row) != section; });
+    return rows;
+}
 // The game settings' rows on screen (ids: 0 profile, 1 upscaler, 2
 // sharpness, 3 block smoothing, 4 resolution, 5 dead zone, 6 triggers, 7
 // confirm, 8 120 Hz, 9 keyboard keys, 10 back to the default, 11 controller
@@ -113,30 +113,15 @@ constexpr int kKeysPerColumn = input::kKeyActions / 2;
 constexpr const char* kReleasesPage = "https://github.com/breno-bgod/Nimbox/releases";
 constexpr const char* kNimboxSupportPage = "https://github.com/breno-bgod/Nimbox";
 
-#if defined(__ANDROID__)
-constexpr int kSettingsRowW = 1140, kSettingsRowH = 46, kSettingsGap = 4, kSettingsGroupGap = 42, kSettingsRowPx = 24;
-constexpr int kSettingsListTop = 258, kSettingsClipTop = 250;
-#else
-constexpr int kSettingsRowW = 1140, kSettingsRowH = 35, kSettingsGap = 3, kSettingsGroupGap = 38, kSettingsRowPx = 21;
-constexpr int kSettingsListTop = 258, kSettingsClipTop = 250;
-#endif
+constexpr int kSettingsRowW = 1140, kSettingsRowH = 58, kSettingsGap = 7;
+constexpr int kSettingsGroupGap = 0, kSettingsRowPx = 25;
+constexpr int kSettingsListTop = 302, kSettingsClipTop = 295, kSettingsListBottom = 922;
 
-// The Settings list must end INSIDE its left glass panel. The remaining
-// space is reserved for the focused option's explanatory text.
-constexpr int kSettingsListBottom = 852;
-
-inline int settingsTotalHeight(const UiCaps& caps) {
-    int totalH = 0;
-    for (const auto& [i, groupStart] : visibleSettingsRows(caps)) {
-        if (groupStart) totalH += kSettingsGroupGap;
-        totalH += kSettingsRowH + kSettingsGap;
-    }
-    return totalH;
+inline int settingsTotalHeight(const UiCaps& caps, int row) {
+    return int(settingsPage(caps, row).size()) * (kSettingsRowH + kSettingsGap);
 }
-
-inline float settingsMaxScroll(const UiCaps& caps) {
-    const float viewportH = static_cast<float>(kSettingsListBottom - kSettingsListTop);
-    return std::max(0.0f, static_cast<float>(settingsTotalHeight(caps)) - viewportH);
+inline float settingsMaxScroll(const UiCaps& caps, int row) {
+    return float(std::max(0, settingsTotalHeight(caps, row) - (kSettingsListBottom - kSettingsListTop)));
 }
 
 // The rows of `order` that `shown` keeps. A group starts on screen where the

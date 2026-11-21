@@ -606,4 +606,11 @@ constexpr Column kFrench = {
     "Code QR indisponible dans cette session.",  // SettingsQrUnavailable
     "R3 / TOUCHER  -  AGRANDIR QR",  // SettingsQrPointerHint
     "L2  Paramètres",  // SettingsDetailsShortcut
+    "Détails",
+    "Lecture",
+    "Commandes",
+    "Compte et réseau",
+    "Système",
+    "Abonnement",
+    "Gamerscore",
 };

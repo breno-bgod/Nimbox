@@ -321,7 +321,7 @@ UiEvent AppUi::onMouseMove(float x, float y) {
             return ev;
         }
         int curY = kSettingsListTop - static_cast<int>(std::lround(settingsScrollY_));
-        for (const auto& [i, groupStart] : visibleSettingsRows(caps_)) {
+        for (const auto& [i, groupStart] : settingsPage(caps_, settingsRow_)) {
             if (groupStart) curY += kSettingsGroupGap;
             if (x >= kMargin && x < kMargin + kSettingsRowW && y >= curY && y < curY + kSettingsRowH &&
                 y >= kSettingsClipTop && y < kSettingsListBottom) {
@@ -863,12 +863,12 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
                     }
                     return ev;
                 }
-                if (horizon::contains(horizon::kDetailsButton, x, y)) {
+                if (isEffectivePlayableLocked(*tile) && horizon::contains(horizon::kDetailsButton, x, y)) {
                     openDetails(*tile);
                     return ev;
                 }
             }
-            if (!rows_.empty()) {
+            if (!rows_.empty() && y >= 610 && y < 892) {
                 const int rowIndex = std::clamp(focusRow_, 0, int(rows_.size()) - 1);
                 const auto& tiles = rows_[size_t(rowIndex)].tiles;
                 const int count = int(tiles.size());
@@ -880,7 +880,7 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
                     const int offset = *it;
                     const int index = horizon::indexForOffset(selected, count, offset);
                     if (index < 0 || !horizon::contains(horizon::tileRect(
-                            float(offset) + nimboxSlide_.value / 1000.0f), x, y))
+                            float(offset) + nimboxSlide_.value / 1000.0f, collectionOffsetY_), x, y))
                         continue;
                     if (offset == 0) {
                         openDetails(tiles[size_t(index)]);
@@ -1056,35 +1056,13 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
             dirty_ = true;
             return ev;
         }
-        // Appearance tiles belong exclusively to Settings. Clicking them
-        // persists a VISUAL preference; stream/login/controller values never
-        // change. The regular settings rows remain accessible by controller.
         if (!dropdownOpen_) {
-            for (int i = 0; i < nimbox_theme::kThemeCount; ++i) {
-                if (!nimbox_theme::contains(nimbox_theme::kThemeCards[i], x, y)) continue;
-                settings_.nimboxTheme = i;
+            for (int section = 0; section < kSectionCount; ++section) {
+                if (!nimbox_theme::contains(settingsSectionRect(section), x, y)) continue;
+                settingsRow_ = kSettingsOrder[kSectionStarts[section]];
+                settingsScrollY_ = 0;
+                resetSettingsHoldStart_ = 0;
                 dirty_ = true;
-                ev.action = Action::SettingsChanged;
-                ev.settings = settings_;
-                return ev;
-            }
-            const Rect reflectZone{nimbox_theme::kReflectionTrack.x,
-                                   nimbox_theme::kReflectionTrack.y - 18,
-                                   nimbox_theme::kReflectionTrack.w, 48};
-            if (nimbox_theme::contains(reflectZone, x, y)) {
-                settings_.nimboxReflection = nimbox_theme::reflectionFromX(x);
-                dirty_ = true;
-                ev.action = Action::SettingsChanged;
-                ev.settings = settings_;
-                return ev;
-            }
-            if (nimbox_theme::contains(nimbox_theme::kReducedMotionButton, x, y)) {
-                nimboxReducedMotion_ = !nimboxReducedMotion_;
-                settings_.nimboxReducedMotion = nimboxReducedMotion_;
-                if (nimboxReducedMotion_) nimboxSlide_.value = nimboxSlide_.target;
-                dirty_ = true;
-                ev.action = Action::SettingsChanged;
-                ev.settings = settings_;
                 return ev;
             }
         }
@@ -1095,7 +1073,7 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
             int visible = std::min(n, kVisible);
             Rect panel{kMargin + kSettingsRowW - kListW, 184, kListW, visible * kItemH + 16};
             int curY = kSettingsListTop - static_cast<int>(std::lround(settingsScrollY_));
-            for (const auto& [i, groupStart] : visibleSettingsRows(caps_)) {
+            for (const auto& [i, groupStart] : settingsPage(caps_, settingsRow_)) {
                 if (groupStart) curY += kSettingsGroupGap;
                 if (i == settingsRow_) {
                     panel.y = curY + kSettingsRowH + 8;
@@ -1131,7 +1109,7 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
             }
         }
         int curY = kSettingsListTop - static_cast<int>(std::lround(settingsScrollY_));
-        for (const auto& [i, groupStart] : visibleSettingsRows(caps_)) {
+        for (const auto& [i, groupStart] : settingsPage(caps_, settingsRow_)) {
             if (groupStart) curY += kSettingsGroupGap;
             if (x >= kMargin && x < kMargin + kSettingsRowW && y >= curY && y < curY + kSettingsRowH &&
                 y >= kSettingsClipTop && y < kSettingsListBottom) {
@@ -1254,7 +1232,7 @@ UiEvent AppUi::onMouseWheel(float dx, float dy) {
         achScroll_ = std::max(0, achScroll_ - static_cast<int>(dy * 3));
         dirty_ = true;
     } else if (screen_ == Screen::Settings && !dropdownOpen_ && tester_ == Tester::None && !pickerOpen_ && !trophyDisclaimerOpen_) {
-        float maxScroll = settingsMaxScroll(caps_);
+        float maxScroll = settingsMaxScroll(caps_, settingsRow_);
         settingsScrollY_ = std::clamp(settingsScrollY_ - dy * 120.0f, 0.0f, maxScroll);
         dirty_ = true;
     }
@@ -1325,22 +1303,14 @@ UiEvent AppUi::onTouch(const app::shell::TouchEvent& ev) {
                 achScroll_ = std::max(0, achScroll_ - static_cast<int>(dy));
                 dirty_ = true;
             } else if (screen_ == Screen::Settings && !dropdownOpen_ && tester_ == Tester::None && !pickerOpen_ && !trophyDisclaimerOpen_) {
-                const Rect reflectZone{nimbox_theme::kReflectionTrack.x,
-                                       nimbox_theme::kReflectionTrack.y - 22,
-                                       nimbox_theme::kReflectionTrack.w, 55};
-                if (nimbox_theme::contains(reflectZone, ev.x, ev.y)) {
-                    settings_.nimboxReflection = nimbox_theme::reflectionFromX(ev.x);
-                    dirty_ = true;
-                    uiEv.action = Action::SettingsChanged;
-                    uiEv.settings = settings_;
-                } else if (ev.x < 1270) {
-                    float maxScroll = settingsMaxScroll(caps_);
+                if (ev.x < 1270) {
+                    float maxScroll = settingsMaxScroll(caps_, settingsRow_);
                     settingsScrollY_ = std::clamp(settingsScrollY_ - dy, 0.0f, maxScroll);
                     dirty_ = true;
 
                 // Finger drag moves highlight cursor with the finger/scroll
                 int curY = kSettingsListTop - static_cast<int>(std::lround(settingsScrollY_));
-                auto rows = visibleSettingsRows(caps_);
+                auto rows = settingsPage(caps_, settingsRow_);
                 for (const auto& [i, groupStart] : rows) {
                     if (groupStart) curY += kSettingsGroupGap;
                     if (ev.y >= curY && ev.y < curY + kSettingsRowH) {
@@ -1413,7 +1383,7 @@ UiEvent AppUi::onTouch(const app::shell::TouchEvent& ev) {
                         dirty_ = true;
                     }
                 } else if (screen_ == Screen::Settings && !dropdownOpen_ && tester_ == Tester::None && !pickerOpen_ && !trophyDisclaimerOpen_) {
-                    float maxScroll = settingsMaxScroll(caps_);
+                    float maxScroll = settingsMaxScroll(caps_, settingsRow_);
                     settingsScrollY_ = std::clamp(settingsScrollY_ - flingDelta, 0.0f, maxScroll);
                     dirty_ = true;
                 }
@@ -1437,7 +1407,7 @@ UiEvent AppUi::onTouch(const app::shell::TouchEvent& ev) {
                     dirty_ = true;
                 }
             } else if (screen_ == Screen::Settings && !dropdownOpen_ && tester_ == Tester::None && !pickerOpen_ && !trophyDisclaimerOpen_) {
-                auto rows = visibleSettingsRows(caps_);
+                auto rows = settingsPage(caps_, settingsRow_);
                 int curY = kSettingsListTop - static_cast<int>(std::lround(settingsScrollY_));
                 int focusedY = -1;
                 int firstVisibleRow = -1;
@@ -1749,6 +1719,15 @@ UiEvent AppUi::handleLocked(const NavInput& in) {
                 break;
             }
             if (auto rows = visibleSettingsRows(caps_); true) {  // the rows on screen, in their order
+                const int section = settingsSection(settingsRow_);
+                if (in.l1 || in.r1) {
+                    const int next = (section + (in.r1 ? 1 : kSectionCount - 1)) % kSectionCount;
+                    settingsRow_ = kSettingsOrder[kSectionStarts[next]];
+                    settingsScrollY_ = 0;
+                    resetSettingsHoldStart_ = 0;
+                    dirty_ = true;
+                    break;
+                }
                 int pos = posOf(rows, settingsRow_);
                 if (in.down && pos + 1 < static_cast<int>(rows.size())) {
                     settingsRow_ = rows[static_cast<size_t>(pos + 1)].row;
@@ -1759,6 +1738,8 @@ UiEvent AppUi::handleLocked(const NavInput& in) {
                     resetSettingsHoldStart_ = 0;
                     dirty_ = true;
                 }
+                if (settingsSection(settingsRow_) != section) settingsScrollY_ = 0;
+                rows = settingsPage(caps_, settingsRow_);
                 // Keep view scrolled so settingsRow_ is comfortably visible
                 int unscaledY = kSettingsListTop;
                 int focusedY = -1;
@@ -1771,7 +1752,7 @@ UiEvent AppUi::handleLocked(const NavInput& in) {
                     unscaledY += kSettingsRowH + kSettingsGap;
                 }
                 if (focusedY >= 0) {
-                    float maxScroll = settingsMaxScroll(caps_);
+                    float maxScroll = settingsMaxScroll(caps_, settingsRow_);
                     float rowScreenY = static_cast<float>(focusedY) - settingsScrollY_;
                     if (rowScreenY < static_cast<float>(kSettingsClipTop + 10)) {
                         settingsScrollY_ = std::clamp(static_cast<float>(focusedY - (kSettingsClipTop + 10)), 0.0f, maxScroll);
