@@ -426,7 +426,11 @@ int desktopSelftest(const std::string& dir) {
             all.isGrid = true;
             all.tiles[0].categories = {"Strategy"};
             for (size_t i = 1; i < all.tiles.size(); ++i) all.tiles[i].categories = {"Adventure"};
-            ui.setRows({showcase, all});
+            auto ubi = showcase;
+            ubi.title = "Ubisoft+ Classics";
+            ubi.catalogId = xcloud::sigl::kUbisoftClassics;
+            ubi.tiles = {all.tiles.back()};
+            ui.setRows({showcase, all, ubi});
             ui::NavInput down, accept, back, up;
             down.down = accept.accept = back.back = up.up = true;
             ui.handle(down);
@@ -455,6 +459,14 @@ int desktopSelftest(const std::string& dir) {
             check(ui.screen() == ui::Screen::Details && ui.detailTile().productId == all.tiles[0].productId,
                   "A genre opens its own filtered grid");
             ui.handle(back);
+            ui.handle(back);
+            ui.handle(back);
+            ui.handle(back);
+            ui.onMouseDown(620, 460, 1);
+            ui.onMouseDown(220, 640, 1);  // Ubisoft+ Classics
+            ui.handle(accept);
+            check(ui.screen() == ui::Screen::Details && ui.detailTile().productId == all.tiles.back().productId,
+                  "Ubisoft+ Classics uses titles from its own catalog feed");
             ui.handle(back);
             ui.handle(back);
             ui.handle(back);

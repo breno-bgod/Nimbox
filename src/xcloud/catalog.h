@@ -67,6 +67,7 @@ bool planIncludes(uint8_t plan, uint8_t gamePlan, bool freeInStore = false);
 namespace sigl {
 constexpr const char* kRecentlyAdded = "06323672-b8c8-43cc-b0de-32d5a9834749";
 constexpr const char* kMostPopular = "6a589fa0-d493-472b-8e20-3813699d7056";
+constexpr const char* kUbisoftClassics = "66ec875c-a391-44f5-9a54-a28bd6f976ce";
 constexpr const char* kLeavingSoon = "31ff2361-2772-4622-849b-f4f1abb4ad1b";
 constexpr const char* kAllGames = "af206485-e87d-4624-9007-cb7f6d0cc42e";
 // "Stream free-to-play games": no Game Pass needed, but each must be on the

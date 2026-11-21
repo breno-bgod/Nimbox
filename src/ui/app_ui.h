@@ -711,7 +711,7 @@ private:
     int collectionOffsetY_ = 0;
     horizon::BoundaryGate horizonBoundary_{};
     bool nimboxReducedMotion_ = false;
-    enum class Directory { Explore, Genres, GenreGames, All, Featured, Pass, Keyboard, Own, Shelf,
+    enum class Directory { Explore, Genres, GenreGames, All, Featured, Pass, Keyboard, Own, Ubisoft, Shelf,
                            Friends, Notices, Awards, Link, SignOut };
     struct DirectoryPage {
         Directory kind = Directory::Explore;

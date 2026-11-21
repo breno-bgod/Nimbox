@@ -62,7 +62,7 @@ void AppUi::fillDirectory(DirectoryPage& page) {
         page.labels = {tr(Str::BrowseAll), tr(Str::BrowseGenres), tr(Str::BrowseFeatured),
                        tr(Str::BrowsePass), tr(Str::FilterMouseKeyboard), tr(Str::BrowseOwn), "Ubisoft+ Classics"};
         for (const auto& row : rows_)
-            if (!row.isGrid && row.title != tr(Str::HiddenSection)) page.labels.push_back(row.title);
+            if (!row.isGrid && row.catalogId != xcloud::sigl::kUbisoftClassics && row.title != tr(Str::HiddenSection)) page.labels.push_back(row.title);
     } else if (kind == Directory::Friends) {
         for (const auto& f : friends_) page.labels.push_back(f.gamertag);
     } else if (kind == Directory::Notices) {
@@ -92,6 +92,8 @@ void AppUi::fillDirectory(DirectoryPage& page) {
         };
         if (kind == Directory::Shelf) {
             for (const auto& row : rows_) if (row.title == page.title) { append(row.tiles); break; }
+        } else if (kind == Directory::Ubisoft) {
+            for (const auto& row : rows_) if (row.catalogId == xcloud::sigl::kUbisoftClassics) { append(row.tiles); break; }
         } else if (kind == Directory::Own) {
             append(owned_);
             append(purchasable_);
@@ -139,7 +141,7 @@ void AppUi::activateProfile(UiEvent& ev) {
 
 void AppUi::activateDirectory(UiEvent& ev) {
     const auto& p = directory_.back();
-    if (p.kind == Directory::Link) {
+    if ((p.kind == Directory::Link || (p.kind == Directory::Ubisoft && p.games.empty()))) {
         if (caps_.openUrl) { ev.action = Action::OpenUrl; ev.url = p.url; }
         return;
     }
@@ -156,7 +158,7 @@ void AppUi::activateDirectory(UiEvent& ev) {
         const Directory kinds[] = {Directory::All, Directory::Genres, Directory::Featured, Directory::Pass,
                                    Directory::Keyboard, Directory::Own};
         if (p.focus < 6) openDirectory(kinds[p.focus], label);
-        else if (p.focus == 6) openDirectory(Directory::Link, label,
+        else if (p.focus == 6) openDirectory(Directory::Ubisoft, label,
             std::string("https://www.xbox.com/") + gameLocale() + "/xbox-game-pass/games#ubisoftclassics");
         else openDirectory(Directory::Shelf, label);
     } else if (p.kind == Directory::SignOut) {
@@ -217,7 +219,7 @@ bool AppUi::directoryPointer(float x, float y, int button, UiEvent& ev) {
         handleDirectory(search, ev);
         return true;
     }
-    if (p.kind == Directory::Link && horizon::contains({740, 685, 440, 74}, x, y)) {
+    if ((p.kind == Directory::Link || (p.kind == Directory::Ubisoft && p.games.empty())) && horizon::contains({740, 685, 440, 74}, x, y)) {
         activateDirectory(ev);
         return true;
     }
@@ -275,7 +277,7 @@ void AppUi::drawDirectory(Canvas& c) {
         fonts_.regular.draw(c, gamesCount(count), 186, 168, 23, kGray);
         fonts_.semibold.draw(c, tr(Str::TabSearch), horizon::kBrowseSearch.x + 22, 115, 24, kWhite);
     }
-    if (p.kind == Directory::Link) {
+    if ((p.kind == Directory::Link || (p.kind == Directory::Ubisoft && p.games.empty()))) {
         drawQr(c, p.url, 1130, 278, 340);
         if (caps_.openUrl) {
             c.fillRect({740, 685, 440, 74}, withAlpha(kWhite, 30), 12);

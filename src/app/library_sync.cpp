@@ -86,7 +86,8 @@ size_t Library::syncDelta(xcloud::GssvClient& gssv, const Changed& changed, std:
         {xcloud::sigl::kRecentlyAdded, 40},
         {xcloud::sigl::kMostPopular, 40},
         {xcloud::sigl::kFreeToPlay, 40},
-        {xcloud::sigl::kLeavingSoon, 40}
+        {xcloud::sigl::kLeavingSoon, 40},
+        {xcloud::sigl::kUbisoftClassics, 0}
     };
 
     struct FetchedShelf {
@@ -183,45 +184,23 @@ size_t Library::syncDelta(xcloud::GssvClient& gssv, const Changed& changed, std:
     // Refresh shelf rows in layout_
     for (const auto& fs : fetchedShelves) {
         if (!fs.ok) continue;
-        bool found = false;
-        for (auto& row : layout_) {
-            if (row.isGrid || row.recent) continue;
-            if ((!row.siglId.empty() && row.siglId == fs.siglId) ||
-                (row.siglId.empty() && row.title == fs.list.title)) {
-                row.siglId = fs.siglId;
-                if (row.title.empty() && !fs.list.title.empty()) row.title = fs.list.title;
-                row.items.clear();
-                for (const auto& pid : fs.list.productIds) {
-                    std::string tid = cloudTitleOf_.count(pid) ? cloudTitleOf_[pid] : "";
-                    row.items.emplace_back(pid, tid);
-                }
-                found = true;
-                break;
-            }
+        auto row = std::find_if(layout_.begin(), layout_.end(), [&](const RowIds& r) {
+            return !r.recent && !r.isGrid && (r.siglId == fs.siglId ||
+                   (r.siglId.empty() && !fs.list.title.empty() && r.title == fs.list.title));
+        });
+        if (row == layout_.end()) {
+            if (fs.list.productIds.empty()) continue;
+            auto grid = std::find_if(layout_.begin(), layout_.end(), [](const RowIds& r) { return r.isGrid; });
+            row = layout_.insert(grid, RowIds{});
         }
-        if (!found) {
-            size_t shelfIdx = 0;
-            if (fs.siglId == xcloud::sigl::kRecentlyAdded) shelfIdx = 0;
-            else if (fs.siglId == xcloud::sigl::kMostPopular) shelfIdx = 1;
-            else if (fs.siglId == xcloud::sigl::kFreeToPlay) shelfIdx = 2;
-            else if (fs.siglId == xcloud::sigl::kLeavingSoon) shelfIdx = 3;
-
-            size_t curShelf = 0;
-            for (auto& row : layout_) {
-                if (row.isGrid || row.recent) continue;
-                if (curShelf == shelfIdx) {
-                    row.siglId = fs.siglId;
-                    if (row.title.empty() && !fs.list.title.empty()) row.title = fs.list.title;
-                    row.items.clear();
-                    for (const auto& pid : fs.list.productIds) {
-                        std::string tid = cloudTitleOf_.count(pid) ? cloudTitleOf_[pid] : "";
-                        row.items.emplace_back(pid, tid);
-                    }
-                    found = true;
-                    break;
-                }
-                ++curShelf;
-            }
+        row->siglId = fs.siglId;
+        row->badges = fs.siglId != xcloud::sigl::kFreeToPlay;
+        if (!fs.list.title.empty()) row->title = fs.list.title;
+        if (fs.siglId == xcloud::sigl::kUbisoftClassics && row->title.empty()) row->title = "Ubisoft+ Classics";
+        row->items.clear();
+        for (const auto& pid : fs.list.productIds) {
+            auto tid = cloudTitleOf_.find(pid);
+            row->items.emplace_back(pid, tid == cloudTitleOf_.end() ? "" : tid->second);
         }
     }
 
@@ -351,6 +330,7 @@ bool Library::load(xcloud::GssvClient& gssv, const std::string& language, const 
                               {xcloud::sigl::kMostPopular, 40},
                               {xcloud::sigl::kFreeToPlay, 40},
                               {xcloud::sigl::kLeavingSoon, 40},
+                              {xcloud::sigl::kUbisoftClassics, 0},
                               {xcloud::sigl::kAllGames, 0}};
     uint8_t myPlan = xcloud::planTier(subscription_);
     for (const auto& spec : lists) {
@@ -411,6 +391,7 @@ bool Library::load(xcloud::GssvClient& gssv, const std::string& language, const 
             XC_LOGW("%s", e.c_str());
             lastErr = e;
         }
+        if (std::string_view(spec.sigl) == xcloud::sigl::kUbisoftClassics && list.title.empty()) list.title = "Ubisoft+ Classics";
         RowIds r{list.title, !freeToPlay, isAllGames, {}};
         r.siglId = spec.sigl;
         for (const auto& id : list.productIds) r.items.emplace_back(id, std::string());
