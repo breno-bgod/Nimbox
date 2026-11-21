@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 #include "ui/app_ui_internal.h"
+#include "ui/nimbox_horizon_layout.h"
 #include "ui/stream_menu.h"
 #include "input/gyro.h"
 #include "input/controller_backend.h"
@@ -623,7 +624,7 @@ std::vector<std::string> AppUi::settingOptions(int row) const {
     if (row == 0) {
         for (int i = 0; i < static_cast<int>(Language::Count); ++i) out.push_back(languageName(static_cast<Language>(i)));
     } else if (row == nimbox_theme::kAppearanceFirst) {
-        for (const auto& theme : nimbox_theme::kPalettes) out.push_back(theme.name);
+        out = {tr(Str::LayoutCarousel), tr(Str::LayoutSpotlight)};
     } else if (row == nimbox_theme::kAppearanceReflection) {
         for (int v = 0; v <= 100; v += 10) out.push_back(std::to_string(v) + " %");
     } else if (row == nimbox_theme::kAppearanceMotion) {
@@ -722,7 +723,7 @@ std::vector<std::string> AppUi::settingOptions(int row) const {
 int AppUi::settingSelected(int row) const {
     // Caller holds mutex_.
     if (row == 0) return settings_.language;
-    if (row == nimbox_theme::kAppearanceFirst) return std::clamp(settings_.nimboxTheme, 0, 4);
+    if (row == nimbox_theme::kAppearanceFirst) return settings_.horizonShowcase ? 1 : 0;
     if (row == nimbox_theme::kAppearanceReflection) return nimbox_theme::clampReflection(settings_.nimboxReflection) / 10;
     if (row == nimbox_theme::kAppearanceMotion) return settings_.nimboxReducedMotion ? 1 : 0;
     if (row == 1) {
@@ -786,7 +787,8 @@ int AppUi::settingSelected(int row) const {
 void AppUi::applySetting(int row, int index) {
     // Caller holds mutex_.
     if (row == nimbox_theme::kAppearanceFirst) {
-        settings_.nimboxTheme = std::clamp(index, 0, nimbox_theme::kThemeCount - 1);
+        settings_.horizonShowcase = index == 1;
+        settingsBackdropReady_ = false;
     } else if (row == nimbox_theme::kAppearanceReflection) {
         settings_.nimboxReflection = nimbox_theme::clampReflection(index * 10);
     } else if (row == nimbox_theme::kAppearanceMotion) {
@@ -1287,7 +1289,7 @@ void AppUi::drawSettings(Canvas& c) {
 #endif
                                         tr(Str::ResetSettings), tr(Str::SyncTrophies),  tr(Str::RemoveTrophies),
                                         tr(Str::FpsLimit), tr(Str::StoreCountry),
-                                        "Ambiente visual", "Reflexo do piso", "Movimento reduzido",
+                                        tr(Str::HomeLayout), "Reflexo do piso", "Movimento reduzido",
                                         "Upscaler de imagem", "Suavização (Deband)",
                                         "Nitidez CAS", "Saída do chat de voz"};
     constexpr int kRowW = kSettingsRowW, kRowH = kSettingsRowH, kGap = kSettingsGap, kRowPx = kSettingsRowPx;
@@ -1400,6 +1402,23 @@ void AppUi::drawSettings(Canvas& c) {
     c.line(arrowX - 6, arrowY + 4, arrowX + 4, arrowY - 6, 2, kWhite);
     c.line(arrowX - 4, arrowY - 6, arrowX + 4, arrowY - 6, 2, kWhite);
     c.line(arrowX + 4, arrowY - 6, arrowX + 4, arrowY + 2, 2, kWhite);
+    if (settingsRow_ == nimbox_theme::kAppearanceFirst) {
+        const bool showcase = dropdownOpen_ ? dropdownIndex_ == 1 : settings_.horizonShowcase;
+        constexpr Rect preview{kSettingsRowX + 20, 518, kW / 4, kH / 4};
+        auto mini = [&](Rect r) {
+            return Rect{preview.x + r.x / 4, preview.y + r.y / 4, r.w / 4, r.h / 4};
+        };
+        c.fillRect(preview, rgba(10, 18, 29, 208), 8);
+        c.strokeRect(preview, withAlpha(kWhite, 65), 1, 8);
+        c.fillRect(mini({104, 248, 720, 34}), withAlpha(kWhite, 150), 2);
+        c.fillRect(mini(horizon::kPlayButton), withAlpha(kWhite, 155), 3);
+        if (showcase) c.fillRect(mini(horizon::kShowcaseCover), accent, 4);
+        for (int offset = -3; offset <= 3; ++offset) {
+            const Rect card = mini(horizon::homeCoverRect(float(offset), 0, showcase));
+            c.fillRect(card, offset == 0 ? accent : rgba(87, 107, 129), 3);
+            if (offset == 0) c.strokeRect(card, kWhite, 1, 3);
+        }
+    }
     const int viewport = kSettingsListBottom - kSettingsListTop;
     const int total = settingsTotalHeight(caps_, settingsRow_);
     if (total > viewport) {
@@ -1441,7 +1460,7 @@ void AppUi::drawSettings(Canvas& c) {
     };
     if (settingsRow_ >= 0 && settingsRow_ < kSettingRows) {
         const char* desc = settingsRow_ == nimbox_theme::kAppearanceFirst
-            ? "Define a atmosfera e a cor de destaque das coleções."
+            ? tr(Str::HomeLayoutHint)
             : settingsRow_ == nimbox_theme::kAppearanceReflection
             ? "Intensidade dos reflexos no piso da colecao."
             : settingsRow_ == nimbox_theme::kAppearanceMotion

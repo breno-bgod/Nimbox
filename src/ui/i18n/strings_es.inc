@@ -613,4 +613,8 @@ constexpr Column kSpanish = {
     "Sistema",
     "Suscripción",
     "Gamerscore",
+    "Diseño de inicio",
+    "Carrusel",
+    "Escaparate",
+    "Elige un carrusel centrado o una portada destacada con una fila de miniaturas.",
 };

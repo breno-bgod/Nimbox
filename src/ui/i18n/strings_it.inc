@@ -613,4 +613,8 @@ constexpr Column kItalian = {
     "Sistema",
     "Abbonamento",
     "Gamerscore",
+    "Layout della Home",
+    "Carosello",
+    "Vetrina",
+    "Scegli un carosello centrale o una copertina in evidenza con una fila di miniature.",
 };

@@ -299,7 +299,7 @@ UiEvent AppUi::onMouseMove(float x, float y) {
     if (screen_ == Screen::Home && !searching_ && !reportOpen_ && !updatePrompt_ && !quitPrompt_) {
         // Horizon uses explicit clickable covers, not the classic grid hover.
         if (tab_ == Tab::GamePass) return ev;
-        if (tab_ == Tab::Library && y >= 150 && y < kH - 80) {
+        if (tab_ == Tab::Library && y >= kLibraryTop - 10 && y < kH - 80) {
             constexpr int kGridW = kLibraryCols * kCardPitch - kCardGap;
             const int left = (kW - kGridW) / 2;
             const LibraryLayout& L = libraryLayout();
@@ -863,7 +863,8 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
                     }
                     return ev;
                 }
-                if (isEffectivePlayableLocked(*tile) && horizon::contains(horizon::kDetailsButton, x, y)) {
+                if ((isEffectivePlayableLocked(*tile) && horizon::contains(horizon::kDetailsButton, x, y)) ||
+                    (settings_.horizonShowcase && horizon::contains(horizon::kShowcaseCover, x, y))) {
                     openDetails(*tile);
                     return ev;
                 }
@@ -879,8 +880,8 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
                 for (auto it = order.rbegin(); it != order.rend(); ++it) {
                     const int offset = *it;
                     const int index = horizon::indexForOffset(selected, count, offset);
-                    if (index < 0 || !horizon::contains(horizon::tileRect(
-                            float(offset) + nimboxSlide_.value / 1000.0f, collectionOffsetY_), x, y))
+                    if (index < 0 || !horizon::contains(horizon::homeCoverRect(
+                            float(offset) + nimboxSlide_.value / 1000.0f, collectionOffsetY_, settings_.horizonShowcase), x, y))
                         continue;
                     if (offset == 0) {
                         openDetails(tiles[size_t(index)]);
@@ -899,7 +900,7 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
             return ev; // Never tap a hidden classic control.
         }
         if (tab_ == Tab::Library) {
-            if (y >= 150 && y < kH - 80) {
+            if (y >= kLibraryTop - 10 && y < kH - 80) {
                 constexpr int kGridW = kLibraryCols * kCardPitch - kCardGap;
                 const int left = (kW - kGridW) / 2;
                 const LibraryLayout& L = libraryLayout();
@@ -915,9 +916,7 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
                     }
                 }
             }
-            constexpr int kAvatar = 52;
-            int right = kW - kMargin - kAvatar - 16;
-            if (x >= right - 200 && x <= right && y >= 110 && y <= 145) {
+            if (horizon::contains(kLibrarySortTarget, x, y)) {
                 librarySort_ = static_cast<LibrarySort>((static_cast<int>(librarySort_) + 1) %
                                                        static_cast<int>(LibrarySort::Count));
                 rebuild(true);
@@ -1174,7 +1173,7 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
                     return ev;
                 } else {
                     auto opts = settingOptions(i);
-                    if (opts.size() > 2) {
+                    if (opts.size() > 2 || i == nimbox_theme::kAppearanceFirst) {
                         dropdownOpen_ = true;
                         dropdownIndex_ = settingSelected(i);
                         dropdownTop_ = std::max(0, dropdownIndex_ - 4);

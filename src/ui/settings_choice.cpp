@@ -13,6 +13,7 @@ SettingsChoice choiceFromSettings(const app::Settings& s) {
     c.language = static_cast<int>(languageFromCode(s.language));
     c.resolution = s.resolution == "720p" ? 1 : s.resolution == "1440p" ? 3 : s.resolution == "best" ? 2 : 0;
     c.region = s.region;
+    c.horizonShowcase = s.horizonShowcase;
     c.nimboxTheme = std::clamp(s.nimboxTheme, 0, 4);
     c.nimboxReflection = std::clamp(s.nimboxReflection, 0, 100);
     c.nimboxReducedMotion = s.nimboxReducedMotion;
@@ -61,6 +62,7 @@ void applyChoice(const SettingsChoice& c, app::Settings& s) {
     s.language = languageCode(static_cast<Language>(c.language));
     s.resolution = c.resolution == 1 ? "720p" : c.resolution == 3 ? "1440p" : c.resolution == 2 ? "best" : "1080p";
     s.region = c.region;
+    s.horizonShowcase = c.horizonShowcase;
     s.nimboxTheme = std::clamp(c.nimboxTheme, 0, 4);
     s.nimboxReflection = std::clamp(c.nimboxReflection, 0, 100);
     s.nimboxReducedMotion = c.nimboxReducedMotion;

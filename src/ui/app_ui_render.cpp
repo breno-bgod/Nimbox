@@ -699,9 +699,9 @@ void AppUi::drawCard(Canvas& c, const GameTile& t, int x, int y, bool focused, b
     if (focused) {
         // A legible focus marker on gamepad, mouse and touch.
         c.strokeRect({x - 8, y - 8, kCard + 16, kCard + 16},
-                     rgba(29, 176, 212, 95), 8, 17);
+                     withAlpha(kWhite, 52), 7, 17);
         c.strokeRect({x - 6, y - 6, kCard + 12, kCard + 12},
-                     rgba(121, 230, 246), 3, 16);
+                     kWhite, 3, 16);
     }
 }
 
@@ -727,14 +727,21 @@ void AppUi::drawGrid(Canvas& c, const std::vector<GameTile>& tiles, int x0, int 
     c.gradientV({0, clipTop, kW, 12}, kBg, withAlpha(kBg, 0));
 }
 
+void AppUi::drawCollectionBackdrop(Canvas& c, uint64_t nowMs, const GameTile* game) {
+    c.gradientV({0, 0, kW, kH}, rgba(38, 54, 72), rgba(8, 15, 26));
+    if (game && !game->heroUrl.empty()) drawHero(c, nowMs, game->heroUrl, true, true);
+    c.gradientV({0, 0, kW, kH}, rgba(6, 12, 20, 106), rgba(6, 12, 20, 221));
+}
+
 void AppUi::drawLibrary(Canvas& c, uint64_t nowMs) {
-    drawBackground(c);
+    const GameTile* focus = libraryTile(gridFocus_);
+    drawCollectionBackdrop(c, nowMs, focus && !focus->heroUrl.empty() ? focus : focusedTile());
     constexpr int kGridW = kLibraryCols * kCardPitch - kCardGap;
     const int left = (kW - kGridW) / 2;
     const int clipTop = kLibraryTop - 10;
     const LibraryLayout& L = libraryLayout();
     int offset = static_cast<int>(std::lround(gridScroll_.value));
-    c.setClip({0, clipTop, kW, kH - clipTop});
+    c.setClip({0, clipTop, kW, kH - 80 - clipTop});
     // Each section has its heading in the grid: a title, the count, a line
     // of explanation (the games to buy have a bag).
     auto heading = [&](int section, const char* title, size_t count, const char* line, bool bag) {
@@ -742,7 +749,7 @@ void AppUi::drawLibrary(Canvas& c, uint64_t nowMs) {
         if (hy < clipTop - kSectionHeaderH || hy > kH) return;
         int x = left;
         if (bag) {
-            drawBag(c, left + 14, hy + 30, kGreen);
+            drawBag(c, left + 14, hy + 30, kWhite);
             x += 40;
         }
         fonts_.bold.draw(c, title, x, hy + 8, 34, kWhite);
@@ -750,7 +757,6 @@ void AppUi::drawLibrary(Canvas& c, uint64_t nowMs) {
         fonts_.semibold.draw(c, gamesCount(count), x + w + 20, hy + 20, 22, kDim);
         if (line) fonts_.regular.draw(c, line, x, hy + 52, 22, kGray);
     };
-    if (!owned_.empty()) heading(0, tr(Str::YourGames), owned_.size(), nullptr, false);
     if (!purchasable_.empty()) heading(1, tr(Str::AvailableToBuy), purchasable_.size(), tr(Str::BuyToPlay), true);
     if (!hiddenTiles_.empty()) heading(2, tr(Str::HiddenSection), hiddenTiles_.size(), tr(Str::HiddenHint), false);
     int minRowY = clipTop - kLibraryTop + offset - kCard - 40;
@@ -770,14 +776,14 @@ void AppUi::drawLibrary(Canvas& c, uint64_t nowMs) {
         if (!name.empty()) fonts_.semibold.draw(c, name[0], x, y + kCard + 12, 20, focused ? kWhite : kGray);
     }
     c.clearClip();
-    c.fillRect({0, 0, kW, clipTop}, kBg);
-    c.gradientH({0, 122, kW, clipTop - 122}, preview31::kStudioLow, kBg);
-    c.gradientV({0, clipTop, kW, 12}, kBg, withAlpha(kBg, 0));
-    drawTopBar(c);
+    drawTopBar(c, true);
     drawTabs(c);
-    // Preview 3.x library hierarchy. Keep the existing owned/purchasable/
-    // hidden sections, sort selector, hitboxes and catalog data.
-    fonts_.bold.draw(c, tr(Str::YourGames), left, 155, 48, preview31::kText);
+    const char* title = tr(Str::YourGames);
+    fonts_.bold.draw(c, title, left, 157, 52, kWhite);
+    if (ownedKnown_) {
+        fonts_.semibold.draw(c, gamesCount(owned_.size()),
+                             left + fonts_.bold.measure(title, 52) + 24, 184, 22, kGray);
+    }
     if (owned_.empty() && purchasable_.empty() && hiddenTiles_.empty()) {
         if (!ownedKnown_) {
             drawSpinner(c, kW / 2.0f, 470, 26, nowMs);
@@ -788,20 +794,21 @@ void AppUi::drawLibrary(Canvas& c, uint64_t nowMs) {
         }
     }
     {
-        drawLoadingBar(c, left, 112, 420, nowMs);
+        drawLoadingBar(c, left, kLibraryTop - 24, 420, nowMs);
         // The order (the whole tab's), right-aligned under the tabs, with its button.
         Str sortName = librarySort_ == LibrarySort::AZ        ? Str::SortAZ
                        : librarySort_ == LibrarySort::Console ? Str::SortConsole
                                                               : Str::SortRecent;
         std::string label = trf(Str::SortLabel, tr(sortName));
-        int w = fonts_.semibold.measure(label, 22);
-        constexpr int kAvatar = 52;
-        int right = kW - kMargin - kAvatar - 16;
-        fonts_.semibold.draw(c, label, right - w, fonts_.semibold.centeredY(112, 28, 22), 22, kGray);
+        label = fonts_.semibold.fit(label, 22, kLibrarySortTarget.w - 24);
+        const int right = kLibrarySortTarget.x + kLibrarySortTarget.w;
+        fonts_.semibold.draw(c, label, right - 24 - fonts_.semibold.measure(label, 22),
+                             fonts_.semibold.centeredY(kLibrarySortTarget.y, kLibrarySortTarget.h, 22), 22, kWhite);
+        c.line(right - 14, 188, right - 9, 193, 2, kWhite);
+        c.line(right - 9, 193, right - 4, 188, 2, kWhite);
     }
     c.gradientV({0, kH - 190, kW, 110}, withAlpha(kBg, 0), withAlpha(kBg, 245));
     c.fillRect({0, kH - 80, kW, 80}, withAlpha(kBg, 245));
-    const GameTile* focus = libraryTile(gridFocus_);
     bool focusHidden = focus && hidden_.count(focus->productId);
     drawHints(c, {{kIconCross, tr(Str::Select)},
                   {kIconSquare, tr(focusHidden ? Str::Unhide : Str::Hide)},
@@ -952,16 +959,13 @@ void AppUi::drawSearch(Canvas& c, uint64_t nowMs) {
 }
 
 void AppUi::drawConsoles(Canvas& c, uint64_t nowMs) {
-    drawBackground(c);
-    drawTopBar(c);
+    drawCollectionBackdrop(c, nowMs, focusedTile());
+    drawTopBar(c, true);
     drawTabs(c);
-    {
-        constexpr int kGridW = kLibraryCols * kCardPitch - kCardGap;
-        const int left = (kW - kGridW) / 2;
-        drawLoadingBar(c, left, 112, 420, nowMs);
-    }
-    fonts_.bold.draw(c, tr(Str::TabConsoles), kMargin, 170, 52, kWhite);
-    fonts_.regular.draw(c, tr(Str::ConsolesHint), kMargin, 240, 26, kGray);
+    constexpr int left = (kW - (kLibraryCols * kCardPitch - kCardGap)) / 2;
+    drawLoadingBar(c, left, 296, 420, nowMs);
+    fonts_.bold.draw(c, tr(Str::TabConsoles), left, 157, 52, kWhite);
+    fonts_.regular.draw(c, tr(Str::ConsolesHint), left, 241, 25, kGray);
     if (consoles_.empty()) {
         if (!consolesKnown_) {
             drawSpinner(c, kW / 2.0f, 520, 26, nowMs);
@@ -971,25 +975,28 @@ void AppUi::drawConsoles(Canvas& c, uint64_t nowMs) {
         } else {
             // How a console shows up: three numbered steps, and Microsoft's
             // help on the phone.
-            fonts_.bold.draw(c, tr(Str::NoConsoles), kMargin, 340, 40, kWhite);
-            int y = 420;
+            fonts_.bold.draw(c, tr(Str::NoConsoles), left, 355, 36, kWhite);
+            int y = 445;
             const Str steps[] = {Str::ConsoleStep1, Str::ConsoleStep2, Str::ConsoleStep3};
             for (int i = 0; i < 3; ++i) {
-                c.fillCircle(static_cast<float>(kMargin + 22), static_cast<float>(y + 20), 22, kGreen);
-                std::string num = std::to_string(i + 1);
-                fonts_.bold.draw(c, num, kMargin + 22 - fonts_.bold.measure(num, 24) / 2,
-                                 fonts_.bold.centeredY(y - 2, 44, 24), 24, kWhite);
-                for (const auto& line : fonts_.regular.wrap(tr(steps[i]), 28, 980, 2)) {
-                    fonts_.regular.draw(c, line, kMargin + 70, y + 2, 28, kGray);
-                    y += 40;
+                const std::string number = "0" + std::to_string(i + 1);
+                fonts_.semibold.draw(c, number, left, y + 3, 23, rgba(182, 206, 221));
+                for (const auto& line : fonts_.regular.wrap(tr(steps[i]), 26, 910, 3)) {
+                    fonts_.regular.draw(c, line, left + 64, y, 26, kWhite);
+                    y += 36;
                 }
-                y += 34;
+                if (i < 2) c.fillRect({left + 64, y + 17, 910, 1}, withAlpha(kWhite, 46));
+                y += 43;
             }
             Rect box = drawQr(c, "https://support.xbox.com/help/games-apps/game-setup-and-play/how-to-use-remote-play",
-                              kW - kMargin, 330, 340);
+                              kW - left - 56, 401, 260);
             if (box.w > 0) {
-                int w = fonts_.semibold.measure(tr(Str::ScanForHelp), 24);
-                fonts_.semibold.draw(c, tr(Str::ScanForHelp), box.x + (box.w - w) / 2, box.y + box.h + 22, 24, kWhite);
+                int captionY = box.y + box.h + 22;
+                for (const auto& line : fonts_.semibold.wrap(tr(Str::ScanForHelp), 22, 380, 2)) {
+                    fonts_.semibold.draw(c, line, box.x + (box.w - fonts_.semibold.measure(line, 22)) / 2,
+                                         captionY, 22, kWhite);
+                    captionY += 30;
+                }
             }
             drawHints(c, {{kIconCross, tr(Str::SearchAgain)},
                           {kIconOptions, tr(Str::Settings)},
@@ -1007,7 +1014,8 @@ void AppUi::drawConsoles(Canvas& c, uint64_t nowMs) {
         const int x = card.x, kTop = card.y, kCardW = card.w;
         bool focused = static_cast<int>(i) == consoleFocus_;
         if (focused) c.strokeRect({card.x - 7, card.y - 7, card.w + 14, card.h + 14}, kWhite, 4, 22);
-        preview31::glassPanel(c, card, 16);
+        c.fillRect(card, focused ? rgba(25, 40, 55, 221) : rgba(17, 28, 40, 177), 16);
+        c.strokeRect(card, withAlpha(kWhite, focused ? 112 : 45), 1, 16);
         c.fillRect({x + 24, kTop + 222, kCardW - 48, 1}, preview31::kGlassLine);
         // The console: a Series X stands as a tower, the others lie flat.
         bool tower = con.type == "XboxSeriesX";
@@ -1087,6 +1095,22 @@ void AppUi::drawNimboxHorizon(Canvas& c, uint64_t nowMs) {
     }
     const int selected = std::clamp(focusCol_[size_t(rowIndex)], 0, count - 1);
 
+    if (settings_.horizonShowcase) {
+        const Rect cover = horizon::kShowcaseCover;
+        c.fillRect({cover.x + 4, cover.y + 8, cover.w, cover.h}, rgba(0, 0, 0, 96), 18);
+        c.fillRect(cover, kPanel, 16);
+        if (auto art = images_.get(focus->tileUrl, cover.w, cover.h)) {
+            c.drawImage(*art, cover.x, cover.y, 255, 16);
+        } else {
+            const auto lines = fonts_.semibold.wrap(focus->name, 28, cover.w - 48, 3);
+            int y = cover.y + 30;
+            for (const auto& line : lines) {
+                fonts_.semibold.draw(c, line, cover.x + 24, y, 28, kWhite);
+                y += 38;
+            }
+        }
+        c.strokeRect(cover, withAlpha(kWhite, 104), 1, 16);
+    }
     const std::string collection = row.title.empty() ? tr(Str::TabGamePass) : row.title;
     fonts_.bold.draw(c, fonts_.bold.fit(focus->name, 78, 1120), 100, 249, 78, preview31::kText);
     std::string meta = focus->publisher;
@@ -1139,7 +1163,7 @@ void AppUi::drawNimboxHorizon(Canvas& c, uint64_t nowMs) {
         for (int offset : order) {
             const int index = choice + offset;
             const GameTile& tile = shelf.tiles[size_t(index)];
-            const Rect card = horizon::tileRect(float(offset) + slide, shift);
+            const Rect card = horizon::homeCoverRect(float(offset) + slide, shift, settings_.horizonShowcase);
             const bool center = offset == 0;
             if (center) c.fillRect({card.x - 10, card.y - 10, card.w + 20, card.h + 20},
                                    withAlpha(preview31::kAccent, 42), 22);

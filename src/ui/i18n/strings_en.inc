@@ -613,4 +613,8 @@ constexpr Column kEnglish = {
     "System",
     "Membership",
     "Gamerscore",
+    "Home layout",
+    "Carousel",
+    "Spotlight",
+    "Choose a centred carousel or a large featured cover with a strip of thumbnails.",
 };

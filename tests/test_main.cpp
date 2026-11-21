@@ -441,7 +441,7 @@ static void testSettingsMigration() {
     };
     auto old = loadFrom(R"({"deband":1,"upscaler":0})");
     CHECK(old.deband == 3 && old.upscaler == 2);
-    CHECK(old.nimboxTheme == 0 && old.nimboxReflection == 44 && !old.nimboxReducedMotion);
+    CHECK(!old.horizonShowcase && old.nimboxTheme == 0 && old.nimboxReflection == 44 && !old.nimboxReducedMotion);
     auto chosen = loadFrom(R"({"deband":2,"upscaler":1})");
     CHECK(chosen.deband == 2 && chosen.upscaler == 1);
     auto current = loadFrom(R"({"deband":1,"upscaler":0,"settingsVersion":2})");
@@ -462,6 +462,7 @@ static void testSettingsMigration() {
     xc::app::Settings custom;
     custom.lightBarMode = 1;
     custom.lightBarColour = xc::ui::rgba(0x12, 0x34, 0x56);
+    custom.horizonShowcase = true;
     custom.nimboxTheme = 3;
     custom.nimboxReflection = 67;
     custom.nimboxReducedMotion = true;
@@ -470,7 +471,7 @@ static void testSettingsMigration() {
     CHECK(xc::platform::readFile(path, text) && text.find("\"#123456\"") != std::string::npos);
     xc::app::Settings back;
     CHECK(back.load(path) && back.lightBarMode == 1 && back.lightBarColour == xc::ui::rgba(0x12, 0x34, 0x56));
-    CHECK(back.nimboxTheme == 3 && back.nimboxReflection == 67 && back.nimboxReducedMotion);
+    CHECK(back.horizonShowcase && back.nimboxTheme == 3 && back.nimboxReflection == 67 && back.nimboxReducedMotion);
     CHECK(loadFrom(R"({"nimboxTheme":99,"nimboxReflection":-15})").nimboxTheme == 4);
     CHECK(loadFrom(R"({"nimboxTheme":-2,"nimboxReflection":188})").nimboxReflection == 100);
     std::remove(path.c_str());
@@ -486,6 +487,7 @@ static void testSettingsChoiceRoundTrip() {
     s.language = "pt-BR";
     s.resolution = "720p";
     s.region = "Brazil South";
+    s.horizonShowcase = true;
     s.nimboxTheme = 4;
     s.nimboxReflection = 73;
     s.nimboxReducedMotion = true;
@@ -517,7 +519,7 @@ static void testSettingsChoiceRoundTrip() {
     CHECK(c.resolution == 1 && c.triggerProfile == 2 && c.lightBarColour == 0xFF112233u && !c.fullscreen);
     CHECK(c.videoDecoder == 1);
     CHECK(c.fpsLimit == 60);
-    CHECK(c.nimboxTheme == 4 && c.nimboxReflection == 73 && c.nimboxReducedMotion);
+    CHECK(c.horizonShowcase && c.nimboxTheme == 4 && c.nimboxReflection == 73 && c.nimboxReducedMotion);
     CHECK(!c.queueReadyAlert && c.titlePlaytime.at("game1") == 3600);
 
     xc::app::Settings back;  // defaults, then what the screen carries
@@ -528,7 +530,7 @@ static void testSettingsChoiceRoundTrip() {
     CHECK(back.language == s.language);
     CHECK(back.resolution == s.resolution);
     CHECK(back.region == s.region && back.loginCountry == s.loginCountry);
-    CHECK(back.nimboxTheme == 4 && back.nimboxReflection == 73 && back.nimboxReducedMotion);
+    CHECK(back.horizonShowcase && back.nimboxTheme == 4 && back.nimboxReflection == 73 && back.nimboxReducedMotion);
     CHECK(back.deadzoneLeft == s.deadzoneLeft && back.deadzoneRight == s.deadzoneRight);
     CHECK(back.triggerStrength == s.triggerStrength && back.triggerHz == s.triggerHz &&
           back.triggerResistance == s.triggerResistance && back.triggerPulses == s.triggerPulses &&

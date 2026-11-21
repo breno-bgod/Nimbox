@@ -613,4 +613,8 @@ constexpr Column kPortugueseBR = {
     "Sistema",
     "Assinatura",
     "Gamerscore",
+    "Layout da Home",
+    "Carrossel",
+    "Vitrine",
+    "Escolha um carrossel centralizado ou uma capa em destaque com uma faixa de miniaturas.",
 };

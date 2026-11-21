@@ -1581,7 +1581,7 @@ const AppUi::LibraryLayout& AppUi::libraryLayout() const {
         if (list.empty()) continue;
         if (row > 0) y += 30;
         L.headerY[section] = y;
-        y += kSectionHeaderH;
+        if (section != 0) y += kSectionHeaderH;
         for (size_t i = 0; i < list.size(); ++i, ++index) {
             int col = static_cast<int>(i) % L.cols;
             if (col == 0) {

@@ -155,7 +155,8 @@ constexpr int kResultCols = 4;
 // Keeps the focused grid row on screen: scrolls once it passes the second row.
 inline float gridTarget(int focus, int cols) { return static_cast<float>(std::max(0, focus / cols - 1) * kGridPitchY); }
 constexpr int kGridTop = 236;       // y of the first card row (search results)
-constexpr int kLibraryTop = 236;    // below Preview 3.x library title; shared by draw + existing hit tests
+constexpr Rect kLibrarySortTarget{1296, 156, 444, 68};
+constexpr int kLibraryTop = 274;    // below Preview 3.x library title; shared by draw + existing hit tests
 constexpr int kResultsX = 760;
 constexpr int kSectionHeaderH = 96;  // "Available to buy" heading in the grid
 constexpr size_t kMaxResults = 60;

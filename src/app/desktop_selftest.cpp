@@ -224,24 +224,21 @@ int desktopSelftest(const std::string& dir) {
     ui.handle(exitZoom);
     check(ui.screen() == ui::Screen::Settings, "Closing the QR stays inside Settings");
 
-    // Appearance controls are real: clicking a swatch persists a visual theme
-    // without changing stream bitrate, region, controller or Play.
+    // The native layout selector changes Home layout without affecting playback.
     {
         auto before = ui.settings();
-        const auto original = shot.rgb;
-        ui.onMouseDown(720, 333, 1); // Horizon theme row
-        ui.onMouseDown(1320, 596, 1); // Emerald dropdown option
+        ui.onMouseDown(720, 333, 1); // Home layout
+        ui.onMouseDown(1320, 472, 1); // Spotlight
         auto next = ui.settings();
-        check(next.nimboxTheme == 3 && next.region == before.region &&
+        check(next.horizonShowcase && next.nimboxTheme == before.nimboxTheme && next.region == before.region &&
               next.maxBitrateMbps == before.maxBitrateMbps &&
-              next.padMap == before.padMap, "Horizon theme changes appearance only");
+              next.padMap == before.padMap, "Spotlight changes layout only");
         check(ui::settingsRowPosition(caps, 29) < 0, "Horizon hides legacy floor reflection");
-        ui.onMouseDown(720, 401, 1); // movement preference
-        check(ui.settings().nimboxReducedMotion, "Reduced motion can be selected by touch");
         ui.render(canvas, platform::nowMs());
         drawCanvas(canvas);
-        check(screenshot(dir, "2f-settings-emerald.png", shot) && varied(shot) &&
-              shot.rgb != original, "Settings environment swatches change native pixels");
+        check(screenshot(dir, "2f-settings-layout.png", shot) && varied(shot), "Layout preview");
+        ui.onMouseDown(720, 401, 1); // movement preference
+        check(ui.settings().nimboxReducedMotion, "Reduced motion can be selected by touch");
         ui.setSettings(before);
     }
     // The PS5's Settings, every row shown (the console's own capabilities).
@@ -441,16 +438,18 @@ int desktopSelftest(const std::string& dir) {
         ui.render(canvas, platform::nowMs());
         drawCanvas(canvas);
         screenshot(dir, "6-nimbox-horizon-home.png", shot);
-        const auto originalPalette = shot.rgb;
-        ui::SettingsChoice cinemaSettings = selectedSettings;
-        cinemaSettings.nimboxTheme = 4;
-        cinemaSettings.nimboxReflection = 0;
-        ui.setSettings(cinemaSettings);
+        const size_t coverPixel = 210u * canvas.width() + 1420u;
+        const auto originalBackdrop = canvas.data()[coverPixel];
+        auto spotlight = selectedSettings;
+        spotlight.horizonShowcase = true;
+        ui.setSettings(spotlight);
         ui.render(canvas, platform::nowMs());
         drawCanvas(canvas);
-        check(screenshot(dir, "6c-horizon-cinema-home.png", shot) && varied(shot) &&
-                  shot.rgb != originalPalette,
-              "Cinema Dark changes Horizon background");
+        check(screenshot(dir, "6c-horizon-spotlight.png", shot) && varied(shot) &&
+              canvas.data()[coverPixel] != originalBackdrop, "Spotlight draws the featured cover");
+        ui.onMouseDown(1440, 264, 1);
+        check(ui.screen() == ui::Screen::Details, "Spotlight cover opens the selected game");
+        ui.showHome();
         ui.setSettings(selectedSettings);
 
         ui::NavInput oldModeShortcut;
@@ -499,6 +498,31 @@ int desktopSelftest(const std::string& dir) {
             check(screenshot(dir, "6d-ps5-showcase-awards-focused.png", shot) && varied(shot),
                   "PS5 Showcase controller focus on Achievements");
         }
+
+        ui.showHome();
+        ui.setOwned(showcase.tiles, {}, true);
+        ui::NavInput nextTab;
+        nextTab.r1 = true;
+        ui.handle(nextTab);
+        ui.render(canvas, platform::nowMs());
+        drawCanvas(canvas);
+        check(screenshot(dir, "7-library.png", shot) && varied(shot), "Owned library capture");
+        check(ui.onMouseDown(1650, 189, 1).action == ui::Action::PrefsChanged, "Visible library sort target");
+        ui.onMouseDown(260, 344, 1);
+        check(ui.screen() == ui::Screen::Details, "First library cover opens details");
+        ui.showHome();
+        ui.setConsoles({}, true);
+        check(ui.handle(nextTab).action == ui::Action::ConsolesShown, "Consoles tab opens");
+        ui.render(canvas, platform::nowMs());
+        drawCanvas(canvas);
+        check(screenshot(dir, "8-consoles-empty.png", shot) && varied(shot), "Console setup and QR");
+        ui.setConsoles({{"test-console", "Xbox de teste", "XboxSeriesX", "ConnectedStandby"}}, true);
+        ui.render(canvas, platform::nowMs());
+        drawCanvas(canvas);
+        check(screenshot(dir, "8b-consoles.png", shot) && varied(shot), "Paired console capture");
+        const auto connect = ui.onMouseDown(350, 480, 1);
+        check(connect.action == ui::Action::Play && connect.game.titleId == "test-console",
+              "Paired console starts the correct remote session");
 
         ui.setRows({});
         ui.setSettings(savedSettings);

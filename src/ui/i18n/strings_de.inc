@@ -613,4 +613,8 @@ constexpr Column kGerman = {
     "System",
     "Abonnement",
     "Gamerscore",
+    "Layout der Startseite",
+    "Karussell",
+    "Schaufenster",
+    "Wähle ein zentriertes Karussell oder ein großes Cover mit einer Reihe von Miniaturen.",
 };

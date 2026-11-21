@@ -622,6 +622,10 @@ enum class Str {
     SettingsSystem,
     Membership,
     GamerscoreLabel,
+    HomeLayout,
+    LayoutCarousel,
+    LayoutSpotlight,
+    HomeLayoutHint,
     Count
 };
 

@@ -26,6 +26,13 @@ inline Rect tileRect(float offset, int displacementY = 0) {
     const int cx = kCenterX + int(std::lround(offset * kPitch));
     return {cx - side / 2, kTileCenterY - side / 2 + displacementY, side, side};
 }
+constexpr Rect kShowcaseCover{1384, 154, 340, 340};
+inline Rect homeCoverRect(float offset, int shift, bool showcase) {
+    if (!showcase) return tileRect(offset, shift);
+    constexpr int side = 152, pitch = 207;
+    const int x = kCenterX + static_cast<int>(std::lround(offset * pitch)) - side / 2;
+    return {x, kTileCenterY - side / 2 + shift, side, side};
+}
 // Only one visual collection exists. These utilities are intentionally
 // independent of the removed physical 3D case geometry and its renderer.
 // The carousel must communicate real collection boundaries. No duplicate

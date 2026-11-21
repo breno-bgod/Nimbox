@@ -127,6 +127,7 @@ struct SettingsChoice {
     int language = static_cast<int>(Language::PortugueseBR); // ui::Language
     int resolution = 0;    // 0 = 1080p, 1 = 720p, 2 = Best Auto, 3 = explicit 1440p QHD
     std::string region;    // gssv region name; empty = automatic
+    bool horizonShowcase = false;
     int nimboxTheme = 0;          // visual-only studio theme
     int nimboxReflection = 44;    // local virtual floor reflection (0..100)
     bool nimboxReducedMotion = false; // visual animation preference
@@ -575,6 +576,7 @@ private:
     void drawSettingsQrOverlay(Canvas& c);
     void drawTabs(Canvas& c);
     void drawConsoles(Canvas& c, uint64_t nowMs);
+    void drawCollectionBackdrop(Canvas& c, uint64_t nowMs, const GameTile* game);
     void drawLibrary(Canvas& c, uint64_t nowMs);
     void drawSearch(Canvas& c, uint64_t nowMs);
     void drawCard(Canvas& c, const GameTile& t, int x, int y, bool focused, bool gamePassBadge);

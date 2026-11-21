@@ -613,4 +613,8 @@ constexpr Column kFrench = {
     "Système",
     "Abonnement",
     "Gamerscore",
+    "Disposition de l’accueil",
+    "Carrousel",
+    "Vitrine",
+    "Choisissez un carrousel centré ou une grande jaquette avec une rangée de miniatures.",
 };
