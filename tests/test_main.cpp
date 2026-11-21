@@ -441,7 +441,7 @@ static void testSettingsMigration() {
     };
     auto old = loadFrom(R"({"deband":1,"upscaler":0})");
     CHECK(old.deband == 3 && old.upscaler == 2);
-    CHECK(old.nimboxTheme == 0 && old.nimboxReflection == 44 && !old.nimboxReducedMotion);
+    CHECK(!old.horizonShowcase && old.nimboxTheme == 0 && old.nimboxReflection == 44 && !old.nimboxReducedMotion);
     auto chosen = loadFrom(R"({"deband":2,"upscaler":1})");
     CHECK(chosen.deband == 2 && chosen.upscaler == 1);
     auto current = loadFrom(R"({"deband":1,"upscaler":0,"settingsVersion":2})");
@@ -462,6 +462,7 @@ static void testSettingsMigration() {
     xc::app::Settings custom;
     custom.lightBarMode = 1;
     custom.lightBarColour = xc::ui::rgba(0x12, 0x34, 0x56);
+    custom.horizonShowcase = true;
     custom.nimboxTheme = 3;
     custom.nimboxReflection = 67;
     custom.nimboxReducedMotion = true;
@@ -470,7 +471,7 @@ static void testSettingsMigration() {
     CHECK(xc::platform::readFile(path, text) && text.find("\"#123456\"") != std::string::npos);
     xc::app::Settings back;
     CHECK(back.load(path) && back.lightBarMode == 1 && back.lightBarColour == xc::ui::rgba(0x12, 0x34, 0x56));
-    CHECK(back.nimboxTheme == 3 && back.nimboxReflection == 67 && back.nimboxReducedMotion);
+    CHECK(back.horizonShowcase && back.nimboxTheme == 3 && back.nimboxReflection == 67 && back.nimboxReducedMotion);
     CHECK(loadFrom(R"({"nimboxTheme":99,"nimboxReflection":-15})").nimboxTheme == 4);
     CHECK(loadFrom(R"({"nimboxTheme":-2,"nimboxReflection":188})").nimboxReflection == 100);
     std::remove(path.c_str());
@@ -486,6 +487,7 @@ static void testSettingsChoiceRoundTrip() {
     s.language = "pt-BR";
     s.resolution = "720p";
     s.region = "Brazil South";
+    s.horizonShowcase = true;
     s.nimboxTheme = 4;
     s.nimboxReflection = 73;
     s.nimboxReducedMotion = true;
@@ -517,7 +519,7 @@ static void testSettingsChoiceRoundTrip() {
     CHECK(c.resolution == 1 && c.triggerProfile == 2 && c.lightBarColour == 0xFF112233u && !c.fullscreen);
     CHECK(c.videoDecoder == 1);
     CHECK(c.fpsLimit == 60);
-    CHECK(c.nimboxTheme == 4 && c.nimboxReflection == 73 && c.nimboxReducedMotion);
+    CHECK(c.horizonShowcase && c.nimboxTheme == 4 && c.nimboxReflection == 73 && c.nimboxReducedMotion);
     CHECK(!c.queueReadyAlert && c.titlePlaytime.at("game1") == 3600);
 
     xc::app::Settings back;  // defaults, then what the screen carries
@@ -528,7 +530,7 @@ static void testSettingsChoiceRoundTrip() {
     CHECK(back.language == s.language);
     CHECK(back.resolution == s.resolution);
     CHECK(back.region == s.region && back.loginCountry == s.loginCountry);
-    CHECK(back.nimboxTheme == 4 && back.nimboxReflection == 73 && back.nimboxReducedMotion);
+    CHECK(back.horizonShowcase && back.nimboxTheme == 4 && back.nimboxReflection == 73 && back.nimboxReducedMotion);
     CHECK(back.deadzoneLeft == s.deadzoneLeft && back.deadzoneRight == s.deadzoneRight);
     CHECK(back.triggerStrength == s.triggerStrength && back.triggerHz == s.triggerHz &&
           back.triggerResistance == s.triggerResistance && back.triggerPulses == s.triggerPulses &&
@@ -1397,7 +1399,7 @@ static void testNimboPlayFrostedSettingsAndQr() {
     back.back = true;
     app.handle(back);
     CHECK(app.screen() == ui::Screen::Settings);
-    app.onMouseDown(1420.0f, 775.0f, 1); // QR is a touch/click target
+    app.onMouseDown(240.0f, 760.0f, 1); // QR is a touch/click target
     CHECK(app.screen() == ui::Screen::Settings);
     app.onMouseDown(1170.0f, 460.0f, 1); // close expanded QR
     CHECK(app.screen() == ui::Screen::Settings);
@@ -1434,9 +1436,20 @@ static void testNimboxDefaultCarouselNavigation() {
     }
     app.setRows({row});
     app.showHome();
-    ui::NavInput removedModeShortcut;
-    removedModeShortcut.r3 = true;
-    app.handle(removedModeShortcut);
+    // R3 now opens the native profile; it must trap carousel input until closed.
+    ui::NavInput profileKey;
+    profileKey.r3 = true;
+    app.handle(profileKey);
+    CHECK(app.profileOpen());
+    ui::NavInput lockedLeft;
+    lockedLeft.left = true;
+    lockedLeft.nowMs = 900;
+    app.handle(lockedLeft);
+    CHECK(app.focusDescription() == "Game Pass row 0 card 0");
+    ui::NavInput closeProfile;
+    closeProfile.back = true;
+    app.handle(closeProfile);
+    CHECK(!app.profileOpen());
 
     // Horizon is finite: first left push keeps the first item selected.
     ui::NavInput left;
@@ -5056,21 +5069,21 @@ static void testVisibleSettingsRows() {
     };
     const ui::UiCaps ps5;
     auto all = ui::visibleSettingsRows(ps5);
-    CHECK((ids(all) == std::vector<int>{0, 2, 8, 27, 17, 18, 24, 25, 1, 20, 31, 32, 33, 9, 26, 10, 11, 34, 14, 12, 3, 15, 4, 21, 5, 6, 16, 22, 19, 7, 23, 28, 29, 30}));
-    CHECK((groups(all) == std::vector<bool>{false, false, false, false, false, false, false, false, true, false, false, false, false, false, false, false, false, false, true, false, false, false, false, false, false, false, false, false, true, false, true, true, false, false}));
+    CHECK((ids(all) == std::vector<int>{0, 28, 30, 1, 20, 26, 10, 31, 32, 33, 9, 11, 34, 14, 3, 4, 15, 12, 5, 6, 21, 2, 8, 27, 17, 18, 16, 22, 24, 25, 7, 19, 23}));
+    CHECK(std::none_of(all.begin(), all.end(), [](const SettingsRowPos& row) { return row.groupStart; }));
     ui::UiCaps pc;
     pc.lightBar = pc.triggerRumble = pc.adaptiveTriggers = pc.gyro = pc.touchpad = false;
     pc.upscalers = pc.sharpen = pc.deband = pc.highRefresh = pc.console = pc.selfUpdate = pc.trophies = false;
     pc.openUrl = true;
     auto desk = ui::visibleSettingsRows(pc);
-    CHECK((ids(desk) == std::vector<int>{0, 2, 8, 27, 17, 18, 1, 20, 26, 10, 11, 34, 14, 12, 3, 5, 16, 22, 19, 7, 23, 28, 29, 30}));
-    CHECK((groups(desk) == std::vector<bool>{false, false, false, false, false, false, true, false, false, false, false, false, true, false, false, false, false, false, true, false, true, true, false, false}));
+    CHECK((ids(desk) == std::vector<int>{0, 28, 30, 1, 20, 26, 10, 11, 34, 14, 3, 12, 5, 2, 8, 27, 17, 18, 16, 22, 7, 19, 23}));
+    CHECK(std::none_of(desk.begin(), desk.end(), [](const SettingsRowPos& row) { return row.groupStart; }));
     // The desktop app's window: Display mode after the resolution, in the stream's group.
     ui::UiCaps win = pc;
     win.desktopWindow = true;
     auto w = ui::visibleSettingsRows(win);
-    CHECK((ids(w) == std::vector<int>{0, 2, 8, 27, 17, 18, 1, 20, 13, 26, 10, 11, 34, 14, 12, 3, 5, 16, 22, 19, 7, 23, 28, 29, 30}));
-    CHECK((groups(w) == std::vector<bool>{false, false, false, false, false, false, true, false, false, false, false, false, false, true, false, false, false, false, false, true, false, true, true, false, false}));
+    CHECK((ids(w) == std::vector<int>{0, 28, 30, 1, 20, 26, 10, 13, 11, 34, 14, 3, 12, 5, 2, 8, 27, 17, 18, 16, 22, 7, 19, 23}));
+    CHECK(std::none_of(w.begin(), w.end(), [](const SettingsRowPos& row) { return row.groupStart; }));
     auto deskIds = ids(desk);
     CHECK(std::find(deskIds.begin(), deskIds.end(), 24) == deskIds.end());
     CHECK(std::find(deskIds.begin(), deskIds.end(), 25) == deskIds.end());
@@ -5135,17 +5148,12 @@ static void testVisibleSettingsRows() {
     auto game = ui::visibleGameSettingsRows(pc, false);
     CHECK((ids(game) == std::vector<int>{0, 4, 15, 14, 18, 5, 7, 11, 9}));
     CHECK((groups(game) == std::vector<bool>{false, true, false, false, false, true, false, false, false}));
-    // How far down the autoplay tests walk to each row (autoplay.cpp's downsTo).
-    CHECK(ui::settingsRowPosition(ps5, 24) == 6);
-    CHECK(ui::settingsRowPosition(ps5, 25) == 7);
-    CHECK(ui::settingsRowPosition(ps5, 27) == 3 && ui::settingsRowPosition(ps5, 1) == 8 && ui::settingsRowPosition(ps5, 3) == 20);
-    CHECK(ui::settingsRowPosition(ps5, 16) == 26);
-    CHECK(ui::settingsRowPosition(ps5, 5) == 24 && ui::settingsRowPosition(ps5, 6) == 25);
-    CHECK(ui::settingsRowPosition(ps5, 12) == 19 && ui::settingsRowPosition(ps5, 14) == 18);
-    CHECK(ui::settingsRowPosition(ps5, 22) == 27);
-    CHECK(ui::settingsRowPosition(ps5, 7) == 29 && ui::settingsRowPosition(ps5, 19) == 28 && ui::settingsRowPosition(ps5, 2) == 1);
-    CHECK(ui::settingsRowPosition(ps5, 21) == 23);
-    CHECK(ui::settingsRowPosition(pc, 5) == 15 && ui::settingsRowPosition(pc, 6) == -1 && ui::settingsRowPosition(pc, 4) == -1);
+    for (const auto& caps : {ps5, pc, win}) {
+        auto ordered = ids(ui::visibleSettingsRows(caps));
+        for (size_t index = 0; index < ordered.size(); ++index)
+            CHECK(ui::settingsRowPosition(caps, ordered[index]) == int(index));
+        CHECK(ui::settingsRowPosition(caps, 29) == -1);
+    }
 }
 
 // The controller's glyphs by pad kind (ui/pad_glyphs.h).
@@ -7692,23 +7700,30 @@ static void testDesktopMouseNav() {
         CHECK(evWheel.action == ui::Action::None);
     }
 
-    // 7. Avatar / profile click opens Settings screen
+    // 7. Avatar is a distinct, clickable profile; Settings remains on the gear.
     {
-        auto evClick = uiApp.onMouseDown(1920 - 96 - 20, 60.0f, 1);
+        auto evAvatar = uiApp.onMouseDown(1804.0f, 60.0f, 1);
+        CHECK(evAvatar.action == ui::Action::None);
+        CHECK(uiApp.screen() == ui::Screen::Home);
+        CHECK(uiApp.profileOpen());
+        ui::NavInput back;
+        back.back = true;
+        uiApp.handle(back);
+        CHECK(!uiApp.profileOpen());
+        auto evGear = uiApp.onMouseDown(1860.0f, 60.0f, 1);
+        CHECK(evGear.action == ui::Action::None);
         CHECK(uiApp.screen() == ui::Screen::Settings);
     }
 
     // 8. In Settings, clicking a dropdown setting opens the dropdown
     {
-        // Language row (row 0) starts at kSettingsListTop, currently 258.
-        // The header above it is not a selectable setting.
-        const float languageY = 272.0f;  // Settings visual row 0: top 258 + 14
-        auto evClick = uiApp.onMouseDown(200.0f, languageY, 1);
+        const float languageY = 270.0f; // first row of the Horizon section
+        auto evClick = uiApp.onMouseDown(740.0f, languageY, 1);
         // First right click closes the dropdown
-        auto evClose = uiApp.onMouseDown(200.0f, languageY, 3);
+        auto evClose = uiApp.onMouseDown(740.0f, languageY, 3);
         CHECK(uiApp.screen() == ui::Screen::Settings);
         // Second right click exits back to Home
-        auto evBack = uiApp.onMouseDown(200.0f, languageY, 3);
+        auto evBack = uiApp.onMouseDown(740.0f, languageY, 3);
         CHECK(uiApp.screen() == ui::Screen::Home);
     }
 }
@@ -11910,10 +11925,22 @@ static void testWorkerMobileM4Features() {
 
         // Touch drag in Settings
         ui.showHome();
-        // Tap settings touch button at Rect{kW - kMargin - 52, 46, 52, 52} -> (1772, 46)
-        app::shell::TouchEvent evSettingsTapDown{app::shell::TouchEvent::Kind::Down, 1, 1780.0f, 60.0f};
+        // The avatar opens the profile on touch, without opening Settings.
+        app::shell::TouchEvent avatarDown{app::shell::TouchEvent::Kind::Down, 1, 1780.0f, 60.0f};
+        ui.onTouch(avatarDown);
+        app::shell::TouchEvent avatarUp{app::shell::TouchEvent::Kind::Up, 1, 1780.0f, 60.0f};
+        ui.onTouch(avatarUp);
+        CHECK(ui.screen() == xc::ui::Screen::Home);
+        CHECK(ui.profileOpen());
+        xc::ui::NavInput closeProfile;
+        closeProfile.back = true;
+        ui.handle(closeProfile);
+        CHECK(!ui.profileOpen());
+
+        // The separate Settings gear stays available at x=1834..1886.
+        app::shell::TouchEvent evSettingsTapDown{app::shell::TouchEvent::Kind::Down, 2, 1860.0f, 60.0f};
         ui.onTouch(evSettingsTapDown);
-        app::shell::TouchEvent evSettingsTapUp{app::shell::TouchEvent::Kind::Up, 1, 1780.0f, 60.0f};
+        app::shell::TouchEvent evSettingsTapUp{app::shell::TouchEvent::Kind::Up, 2, 1860.0f, 60.0f};
         ui.onTouch(evSettingsTapUp);
         CHECK(ui.screen() == xc::ui::Screen::Settings);
 

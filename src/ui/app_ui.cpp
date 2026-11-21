@@ -8,7 +8,8 @@
 namespace xc::ui {
 
 std::vector<SettingsRowPos> visibleSettingsRows(const UiCaps& caps) {
-    return filterRows(kSettingsOrder, kSettingsGroupStart, [&](int row) {
+    constexpr bool starts[kSettingsCount] = {};
+    return filterRows(kSettingsOrder, starts, [&](int row) {
 #if defined(__ANDROID__)
         // Android has an H.264 MediaCodec backend and an FFmpeg software fallback.
         // Keep the native decoder preference visible, as in the remote Web UI.
@@ -167,6 +168,17 @@ bool AppUi::reportOpen() const {
 
 void AppUi::setProfile(const std::string& gamertag, const std::string& gamerpicUrl, const std::string& gamerscore) {
     std::lock_guard<std::mutex> lock(mutex_);
+    if (gamertag_ != gamertag || gamertag.empty()) {
+        directory_.clear();
+        shelfCatalog_ = {};
+        shelfCatalogDirty_ = true;
+        friends_.clear();
+        friendsLoaded_ = false;
+        ownPresence_.clear();
+        notices_.clear();
+        unreadNotices_ = profileOpen_ = directoryFromProfile_ = false;
+        profileFocus_ = 0;
+    }
     gamertag_ = gamertag;
     gamerpicUrl_ = gamerpicUrl;
     gamerscore_ = gamerscore;
@@ -245,6 +257,8 @@ void AppUi::setRowsLocked(std::vector<GameRow> rows) {
     focusCol_.assign(rows_.size(), 0);
     rowScroll_.assign(rows_.size(), Anim{});
     focusRow_ = 0;
+    drawnCollection_ = outgoingCollection_ = -1;
+    collectionOffsetY_ = 0;
     horizonBoundary_.reset(); // catalog refresh invalidates the edge intent
     nimboxSlide_.value = nimboxSlide_.target = 0.0f;
     for (size_t r = 0; r < rows_.size(); ++r) {
@@ -430,6 +444,8 @@ void AppUi::rebuild(bool keepPosition) {
         for (int i = 0; libraryTile(i); ++i)
             if (libraryTile(i)->productId == focused) gridFocus_ = i;
     }
+    shelfCatalogDirty_ = true;
+    if (!directory_.empty()) fillDirectory(directory_.back());
     if (searching_) runSearch(true);
     refreshDetail();
     dirty_ = true;
@@ -531,8 +547,10 @@ void AppUi::toggleHidden(const GameTile& tile, UiEvent& ev) {
     bool hide = !hidden_.count(tile.productId);
     if (hide) hidden_.insert(tile.productId);
     else hidden_.erase(tile.productId);
+    const std::string notice = tr(hide ? Str::HiddenToast : Str::UnhiddenToast);
+    rememberNotice(notice);
     if (!caps_.console) {
-        toast_ = tr(hide ? Str::HiddenToast : Str::UnhiddenToast);
+        toast_ = notice;
         toastUntil_ = 0;
     }
     rebuild(true);  // the cursor stays put; the next game takes the place
@@ -545,8 +563,10 @@ void AppUi::toggleFavorite(const GameTile& tile, UiEvent& ev) {
     bool fav = !favorites_.count(tile.productId);
     if (fav) favorites_.insert(tile.productId);
     else favorites_.erase(tile.productId);
+    const std::string notice = tr(fav ? Str::AddedToFavorites : Str::RemovedFromFavorites);
+    rememberNotice(notice);
     if (!caps_.console) {
-        toast_ = tr(fav ? Str::AddedToFavorites : Str::RemovedFromFavorites);
+        toast_ = notice;
         toastUntil_ = 0;
     }
     prefsEvent(ev);
@@ -584,8 +604,10 @@ void AppUi::toggleWishlist(const GameTile& tile, UiEvent& ev) {
     bool wish = !wishlist_.count(tile.productId);
     if (wish) wishlist_.insert(tile.productId);
     else wishlist_.erase(tile.productId);
+    const std::string notice = tr(wish ? Str::AddedToWishlist : Str::RemovedFromWishlist);
+    rememberNotice(notice);
     if (!caps_.console) {
-        toast_ = tr(wish ? Str::AddedToWishlist : Str::RemovedFromWishlist);
+        toast_ = notice;
         toastUntil_ = 0;
     }
     rebuild();
@@ -1009,6 +1031,7 @@ std::string AppUi::focusDescription() const {
 void AppUi::showTab(Tab t) {
     std::lock_guard<std::mutex> lock(mutex_);
     tab_ = t;
+    profileOpen_ = false;
     searching_ = false;
     dirty_ = true;
 }
@@ -1018,8 +1041,14 @@ Tab AppUi::tab() const {
     return tab_;
 }
 
+bool AppUi::profileOpen() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return profileOpen_;
+}
+
 void AppUi::openDetails(const GameTile& tile) {
     // Caller holds mutex_.
+    profileOpen_ = false;
     detail_ = tile;
     if (detail_.productId.empty() && !detail_.titleId.empty()) {
         for (const auto* list : {&gamePassPool_, &libraryPool_, &allOwned_, &allPurchasable_}) {
@@ -1140,6 +1169,7 @@ void AppUi::showHome(const std::string& toast) {
         syncHeroToRowsLocked(detail_.productId, detail_.titleId, detail_.heroUrl, detail_.description, detail_.publisher, detail_.categories);
     }
     screen_ = Screen::Home;
+    rememberNotice(toast);
     if (!caps_.console && !toast.empty()) {
         toast_ = toast;
         toastUntil_ = 0;  // set on first render
@@ -1150,6 +1180,7 @@ void AppUi::showHome(const std::string& toast) {
 void AppUi::showToast(const std::string& toast) {
     std::lock_guard<std::mutex> lock(mutex_);
     if (!toast.empty()) {
+        rememberNotice(toast);
         toast_ = toast;
         toastUntil_ = 0;
         dirty_ = true;
@@ -1571,7 +1602,7 @@ const AppUi::LibraryLayout& AppUi::libraryLayout() const {
         if (list.empty()) continue;
         if (row > 0) y += 30;
         L.headerY[section] = y;
-        y += kSectionHeaderH;
+        if (section != 0) y += kSectionHeaderH;
         for (size_t i = 0; i < list.size(); ++i, ++index) {
             int col = static_cast<int>(i) % L.cols;
             if (col == 0) {

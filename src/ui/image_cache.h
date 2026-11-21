@@ -41,7 +41,7 @@ public:
     void shrink();
 
     // The image scaled to w x h, or nullptr while it loads (or if it failed).
-    std::shared_ptr<const Image> get(const std::string& url, int w, int h);
+    std::shared_ptr<const Image> get(const std::string& url, int w, int h, bool fitInside = false);
 
 private:
     struct Entry {
@@ -56,6 +56,7 @@ private:
     struct Job {
         std::string key, url;
         int w, h;
+        bool fitInside;
     };
     void loop();
     void evict();

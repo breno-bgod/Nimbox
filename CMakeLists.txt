@@ -199,6 +199,7 @@ add_library(xcloud_ui STATIC
     src/ui/font.cpp
     src/ui/image_cache.cpp
     src/ui/app_ui.cpp
+    src/ui/app_ui_discovery.cpp
     src/ui/app_ui_search.cpp
     src/ui/app_ui_settings.cpp
     src/ui/app_ui_input.cpp

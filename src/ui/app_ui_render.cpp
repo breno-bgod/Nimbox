@@ -37,9 +37,8 @@ void AppUi::drawCentered(Canvas& c, const Font& f, const std::string& text, int 
 }
 
 void AppUi::drawBackground(Canvas& c) {
-    // Horizon: the same midnight-blue base in every native menu.
-    c.gradientV({0, 0, kW, kH}, rgba(15, 43, 65), kBg);
-    c.gradientH({0, 0, kW, 520}, rgba(26, 74, 98, 38), rgba(5, 21, 40, 0));
+    c.gradientV({0, 0, kW, kH}, preview31::kStudioLow, kBg);
+    c.gradientH({0, 0, kW, 520}, rgba(134, 98, 63, 30), withAlpha(kBg, 0));
 }
 
 void AppUi::drawLogo(Canvas& c, float cx, float cy, float r) {
@@ -111,13 +110,11 @@ void AppUi::drawCloudTime(Canvas& c, int x, int y) {
     if (const int fw = static_cast<int>(w * f + 0.5); fw > 0) c.fillRect({x, bar.y, std::max(fw, 4), bar.h}, col, 2);
 }
 
-void AppUi::drawTopBar(Canvas& c) {
-    // A frosted, dark header preserves the original touch and controller
-    // targets while making all native screens visually consistent.
-    c.fillRect({0, 0, kW, 122}, rgba(6, 16, 29, 228));
-    c.gradientV({0, 122, kW, 28}, rgba(6, 16, 29, 110), rgba(6, 16, 29, 0));
-    c.line(50.0f, 121.0f, static_cast<float>(kW - 50), 121.0f, 1.0f,
-           rgba(84, 199, 224, 85));
+void AppUi::drawTopBar(Canvas& c, bool overArt) {
+    if (!overArt) {
+        c.fillRect({0, 0, kW, 122}, withAlpha(kBg, 231));
+        c.line(50, 121, kW - 50, 121, 1, preview31::kGlassLine);
+    }
     const bool hasCloudTime = playtimeUnlimited_ || playtimeRemaining_ >= 0;
 #if defined(__ANDROID__)
     constexpr int kAvatar = 64;
@@ -142,7 +139,7 @@ void AppUi::drawTopBar(Canvas& c) {
     // NimboPlay's complete transparent wordmark is the primary header brand.
     // No extra text beside it: the lettering is already included in the image.
     drawInternalBrand(c, 91, 20, 184, 100);
-    if (hasCloudTime) drawCloudTime(c, 292, 59);
+    if (hasCloudTime && !overArt) drawCloudTime(c, 292, 59);
 
     // Avatar and centered Settings touch button
     constexpr int kAvatarRight = kW - 120;
@@ -153,12 +150,19 @@ void AppUi::drawTopBar(Canvas& c) {
     } else {
         c.fillCircle(x + kAvatar / 2.0f, 72, kAvatar / 2.0f, kPanel);
     }
+    // A deliberate, subtle affordance: the avatar is now a real action on Home.
+    if (screen_ == Screen::Home && !searching_) {
+        c.strokeCircle(x + kAvatar / 2.0f, 72.0f, kAvatar / 2.0f + 3.0f,
+                       2.0f, rgba(182, 225, 242, 145));
+    }
 
     // Dedicated Settings touch button, perfectly centered between avatar and screen right edge
     constexpr int kBtnSz = 52;
     Rect settingsBtn{kAvatarRight + (120 - kBtnSz) / 2, 46, kBtnSz, kBtnSz};
-    c.fillRect(settingsBtn, rgba(255, 255, 255, 18), 26);
-    c.strokeRect(settingsBtn, rgba(255, 255, 255, 45), 1, 26);
+    if (!overArt) {
+        c.fillRect(settingsBtn, rgba(255, 255, 255, 18), 26);
+        c.strokeRect(settingsBtn, rgba(255, 255, 255, 45), 1, 26);
+    }
     float scx = settingsBtn.x + 26.0f, scy = settingsBtn.y + 26.0f;
     for (int a = 0; a < 6; ++a) {
         float angle = a * (3.14159265f / 3.0f);
@@ -167,6 +171,13 @@ void AppUi::drawTopBar(Canvas& c) {
     }
     c.strokeCircle(scx, scy, 9.5f, 3.5f, kWhite);
     c.fillCircle(scx, scy, 4.0f, rgba(20, 20, 20));
+    if (overArt) {
+        drawSocialButtons(c);
+        const auto name = fonts_.semibold.fit(gamertag_, kGamertagPx, 250);
+        fonts_.semibold.draw(c, name, x - 16 - fonts_.semibold.measure(name, kGamertagPx),
+                             fonts_.semibold.centeredY(46, 52, kGamertagPx), kGamertagPx, kWhite);
+        return;
+    }
     if (!gamertag_.empty()) {
         // The name; under it the gamerscore (its badge and the number, the
         // thousands grouped as the language writes them) and the Game Pass
@@ -348,17 +359,17 @@ bool AppUi::drawHero(Canvas& c, uint64_t nowMs, const std::string& url, bool det
         heroSince_ = nowMs;
         heroShownAt_ = 0;
     }
-    auto current = heroUrl_.empty() ? nullptr : images_.get(heroUrl_, kW, kH);
+    auto current = heroUrl_.empty() ? nullptr : images_.get(heroUrl_, kW, kH, fullScreen);
     if (current) {
         if (!heroShownAt_) heroShownAt_ = nowMs;
         uint64_t age = nowMs - heroShownAt_;
         // Arrived at once (cached): cross-fade from the previous art. Arrived
         // later: fade in from the plain background.
         bool crossFade = heroShownAt_ - heroSince_ < 150 && !prevHeroUrl_.empty();
-        auto previous = crossFade && age < kHeroFadeMs ? images_.get(prevHeroUrl_, kW, kH) : nullptr;
-        if (previous) c.drawImage(*previous, 0, 0);
+        auto previous = crossFade && age < kHeroFadeMs ? images_.get(prevHeroUrl_, kW, kH, fullScreen) : nullptr;
+        if (previous) c.drawImage(*previous, (kW - previous->w) / 2, (kH - previous->h) / 2);
         uint8_t alpha = age >= kHeroFadeMs ? 255 : static_cast<uint8_t>(age * 255 / kHeroFadeMs);
-        c.drawImage(*current, 0, 0, alpha);
+        c.drawImage(*current, (kW - current->w) / 2, (kH - current->h) / 2, alpha);
         if (alpha < 255) animating_ = true;
     } else {
         prevHeroUrl_.clear();  // nothing on screen to fade from any more
@@ -390,15 +401,13 @@ void AppUi::drawSplash(Canvas& c, uint64_t nowMs) {
 
 void AppUi::drawSignIn(Canvas& c, uint64_t nowMs) {
     drawBackground(c);
-    c.gradientH({0, 80, kW, 920}, rgba(8, 27, 42, 115), rgba(13, 71, 85, 105));
+    c.gradientH({0, 80, kW, 920}, withAlpha(kBg, 115), rgba(95, 69, 49, 75));
     preview31::glassPanel(c, {139, 110, 890, 850}, 22);
     preview31::glassPanel(c, {1160, 190, 660, 690}, 22);
-    c.gradientV({1160, 190, 660, 690}, rgba(19, 76, 91, 34),
+    c.gradientV({1160, 190, 660, 690}, withAlpha(preview31::kAccent, 14),
                 rgba(5, 21, 38, 24));
     const int left = 180;
     drawInternalBrand(c, left - 12, 113, 208, 113);
-    fonts_.semibold.draw(c, "ACESSO", left, 232, 19,
-                         preview31::kAccent);
     fonts_.bold.draw(c, tr(Str::SignInTitle), left, 260, 72, kWhite);
     fonts_.regular.draw(c, tr(Str::SignInStep1), left, 400, 32, kGray);
     std::string shortUrl = codeUrl_;
@@ -489,7 +498,7 @@ void AppUi::drawSignIn(Canvas& c, uint64_t nowMs) {
 }
 
 void AppUi::drawTabs(Canvas& c) {
-    // Centred pills in the top bar, between "L1" and "R1".
+    // Make the full tab clickable while drawing only its label and active underline.
     const char* labels[3] = {tr(Str::TabGamePass), tr(Str::YourGames), tr(Str::TabConsoles)};
     constexpr int kPx = 22, kPad = 26, kGap = 12, kH = 44, kY = 50;
     int widths[3], total = 0;
@@ -501,7 +510,6 @@ void AppUi::drawTabs(Canvas& c) {
     auto shoulder = [&](const char* name, int cx) {
         if (!input::hasGamepad() && !g_keyboardHints) return;
         Rect r{cx - 22, kY + 8, 44, 28};
-        c.fillRect(r, rgba(255, 255, 255, 40), 8);
         fonts_.bold.draw(c, name, cx - fonts_.bold.measure(name, 16) / 2, fonts_.bold.centeredY(r.y, r.h, 16), 16, kGray);
     };
     shoulder(g_keyboardHints ? "Q" : buttonName(g_glyphStyle, PadButton::L1), x - 40);
@@ -509,15 +517,11 @@ void AppUi::drawTabs(Canvas& c) {
         bool on = static_cast<int>(tab_) == i;
         Rect r{x, kY, widths[i], kH};
         if (on) {
-            // The native tab remains the SAME target as before; only its
-            // appearance follows Preview 3.0's bright active navigation pill.
-            c.fillRect({r.x - 5, r.y - 5, r.w + 10, r.h + 10},
-                       rgba(82, 197, 222, 28), kH / 2);
-            c.fillRect(r, rgba(237, 250, 254), kH / 2);
-            c.strokeRect(r, rgba(194, 240, 246), 2, kH / 2);
+            c.fillRect({r.x + kPad, r.y + r.h - 3, r.w - 2 * kPad, 3},
+                       kWhite, 1);
         }
         fonts_.semibold.draw(c, labels[i], x + kPad, fonts_.semibold.centeredY(kY, kH, kPx),
-                             kPx, on ? rgba(12, 49, 66) : kGray);
+                             kPx, on ? kWhite : rgba(223, 226, 233));
         x += widths[i] + kGap;
     }
     shoulder(g_keyboardHints ? "E" : buttonName(g_glyphStyle, PadButton::R1), x - kGap + 40);
@@ -696,9 +700,9 @@ void AppUi::drawCard(Canvas& c, const GameTile& t, int x, int y, bool focused, b
     if (focused) {
         // A legible focus marker on gamepad, mouse and touch.
         c.strokeRect({x - 8, y - 8, kCard + 16, kCard + 16},
-                     rgba(29, 176, 212, 95), 8, 17);
+                     withAlpha(kWhite, 52), 7, 17);
         c.strokeRect({x - 6, y - 6, kCard + 12, kCard + 12},
-                     rgba(121, 230, 246), 3, 16);
+                     kWhite, 3, 16);
     }
 }
 
@@ -724,14 +728,21 @@ void AppUi::drawGrid(Canvas& c, const std::vector<GameTile>& tiles, int x0, int 
     c.gradientV({0, clipTop, kW, 12}, kBg, withAlpha(kBg, 0));
 }
 
+void AppUi::drawCollectionBackdrop(Canvas& c, uint64_t nowMs, const GameTile* game) {
+    c.gradientV({0, 0, kW, kH}, rgba(38, 54, 72), rgba(8, 15, 26));
+    if (game && !game->heroUrl.empty()) drawHero(c, nowMs, game->heroUrl, true, true);
+    c.gradientV({0, 0, kW, kH}, rgba(6, 12, 20, 106), rgba(6, 12, 20, 221));
+}
+
 void AppUi::drawLibrary(Canvas& c, uint64_t nowMs) {
-    drawBackground(c);
+    const GameTile* focus = libraryTile(gridFocus_);
+    drawCollectionBackdrop(c, nowMs, focus && !focus->heroUrl.empty() ? focus : focusedTile());
     constexpr int kGridW = kLibraryCols * kCardPitch - kCardGap;
     const int left = (kW - kGridW) / 2;
     const int clipTop = kLibraryTop - 10;
     const LibraryLayout& L = libraryLayout();
     int offset = static_cast<int>(std::lround(gridScroll_.value));
-    c.setClip({0, clipTop, kW, kH - clipTop});
+    c.setClip({0, clipTop, kW, kH - 80 - clipTop});
     // Each section has its heading in the grid: a title, the count, a line
     // of explanation (the games to buy have a bag).
     auto heading = [&](int section, const char* title, size_t count, const char* line, bool bag) {
@@ -739,7 +750,7 @@ void AppUi::drawLibrary(Canvas& c, uint64_t nowMs) {
         if (hy < clipTop - kSectionHeaderH || hy > kH) return;
         int x = left;
         if (bag) {
-            drawBag(c, left + 14, hy + 30, kGreen);
+            drawBag(c, left + 14, hy + 30, kWhite);
             x += 40;
         }
         fonts_.bold.draw(c, title, x, hy + 8, 34, kWhite);
@@ -747,7 +758,6 @@ void AppUi::drawLibrary(Canvas& c, uint64_t nowMs) {
         fonts_.semibold.draw(c, gamesCount(count), x + w + 20, hy + 20, 22, kDim);
         if (line) fonts_.regular.draw(c, line, x, hy + 52, 22, kGray);
     };
-    if (!owned_.empty()) heading(0, tr(Str::YourGames), owned_.size(), nullptr, false);
     if (!purchasable_.empty()) heading(1, tr(Str::AvailableToBuy), purchasable_.size(), tr(Str::BuyToPlay), true);
     if (!hiddenTiles_.empty()) heading(2, tr(Str::HiddenSection), hiddenTiles_.size(), tr(Str::HiddenHint), false);
     int minRowY = clipTop - kLibraryTop + offset - kCard - 40;
@@ -767,18 +777,14 @@ void AppUi::drawLibrary(Canvas& c, uint64_t nowMs) {
         if (!name.empty()) fonts_.semibold.draw(c, name[0], x, y + kCard + 12, 20, focused ? kWhite : kGray);
     }
     c.clearClip();
-    c.fillRect({0, 0, kW, clipTop}, kBg);
-    c.gradientH({0, 122, kW, clipTop - 122}, rgba(23, 68, 91), rgba(5, 19, 34));
-    c.gradientV({0, clipTop, kW, 12}, kBg, withAlpha(kBg, 0));
-    drawTopBar(c);
+    drawTopBar(c, true);
     drawTabs(c);
-    // Preview 3.x library hierarchy. Keep the existing owned/purchasable/
-    // hidden sections, sort selector, hitboxes and catalog data.
-    fonts_.semibold.draw(c, "BIBLIOTECA", kMargin, 141, 18,
-                         preview31::kAccent);
-    fonts_.bold.draw(c, "Seus jogos", kMargin, 171, 38, preview31::kText);
-    fonts_.regular.draw(c, "Colecao, organizacao e jogos disponiveis",
-                        kMargin, 216, 18, preview31::kMuted);
+    const char* title = tr(Str::YourGames);
+    fonts_.bold.draw(c, title, left, 157, 52, kWhite);
+    if (ownedKnown_) {
+        fonts_.semibold.draw(c, gamesCount(owned_.size()),
+                             left + fonts_.bold.measure(title, 52) + 24, 184, 22, kGray);
+    }
     if (owned_.empty() && purchasable_.empty() && hiddenTiles_.empty()) {
         if (!ownedKnown_) {
             drawSpinner(c, kW / 2.0f, 470, 26, nowMs);
@@ -789,20 +795,21 @@ void AppUi::drawLibrary(Canvas& c, uint64_t nowMs) {
         }
     }
     {
-        drawLoadingBar(c, left, 112, 420, nowMs);
+        drawLoadingBar(c, left, kLibraryTop - 24, 420, nowMs);
         // The order (the whole tab's), right-aligned under the tabs, with its button.
         Str sortName = librarySort_ == LibrarySort::AZ        ? Str::SortAZ
                        : librarySort_ == LibrarySort::Console ? Str::SortConsole
                                                               : Str::SortRecent;
         std::string label = trf(Str::SortLabel, tr(sortName));
-        int w = fonts_.semibold.measure(label, 22);
-        constexpr int kAvatar = 52;
-        int right = kW - kMargin - kAvatar - 16;
-        fonts_.semibold.draw(c, label, right - w, fonts_.semibold.centeredY(112, 28, 22), 22, kGray);
+        label = fonts_.semibold.fit(label, 22, kLibrarySortTarget.w - 24);
+        const int right = kLibrarySortTarget.x + kLibrarySortTarget.w;
+        fonts_.semibold.draw(c, label, right - 24 - fonts_.semibold.measure(label, 22),
+                             fonts_.semibold.centeredY(kLibrarySortTarget.y, kLibrarySortTarget.h, 22), 22, kWhite);
+        c.line(right - 14, 188, right - 9, 193, 2, kWhite);
+        c.line(right - 9, 193, right - 4, 188, 2, kWhite);
     }
     c.gradientV({0, kH - 190, kW, 110}, withAlpha(kBg, 0), withAlpha(kBg, 245));
     c.fillRect({0, kH - 80, kW, 80}, withAlpha(kBg, 245));
-    const GameTile* focus = libraryTile(gridFocus_);
     bool focusHidden = focus && hidden_.count(focus->productId);
     drawHints(c, {{kIconCross, tr(Str::Select)},
                   {kIconSquare, tr(focusHidden ? Str::Unhide : Str::Hide)},
@@ -953,16 +960,13 @@ void AppUi::drawSearch(Canvas& c, uint64_t nowMs) {
 }
 
 void AppUi::drawConsoles(Canvas& c, uint64_t nowMs) {
-    drawBackground(c);
-    drawTopBar(c);
+    drawCollectionBackdrop(c, nowMs, focusedTile());
+    drawTopBar(c, true);
     drawTabs(c);
-    {
-        constexpr int kGridW = kLibraryCols * kCardPitch - kCardGap;
-        const int left = (kW - kGridW) / 2;
-        drawLoadingBar(c, left, 112, 420, nowMs);
-    }
-    fonts_.bold.draw(c, tr(Str::TabConsoles), kMargin, 170, 52, kWhite);
-    fonts_.regular.draw(c, tr(Str::ConsolesHint), kMargin, 240, 26, kGray);
+    constexpr int left = (kW - (kLibraryCols * kCardPitch - kCardGap)) / 2;
+    drawLoadingBar(c, left, 296, 420, nowMs);
+    fonts_.bold.draw(c, tr(Str::TabConsoles), left, 157, 52, kWhite);
+    fonts_.regular.draw(c, tr(Str::ConsolesHint), left, 241, 25, kGray);
     if (consoles_.empty()) {
         if (!consolesKnown_) {
             drawSpinner(c, kW / 2.0f, 520, 26, nowMs);
@@ -972,26 +976,34 @@ void AppUi::drawConsoles(Canvas& c, uint64_t nowMs) {
         } else {
             // How a console shows up: three numbered steps, and Microsoft's
             // help on the phone.
-            fonts_.bold.draw(c, tr(Str::NoConsoles), kMargin, 340, 40, kWhite);
-            int y = 420;
+            fonts_.bold.draw(c, tr(Str::NoConsoles), left, 355, 36, kWhite);
+            int y = 445;
             const Str steps[] = {Str::ConsoleStep1, Str::ConsoleStep2, Str::ConsoleStep3};
             for (int i = 0; i < 3; ++i) {
-                c.fillCircle(static_cast<float>(kMargin + 22), static_cast<float>(y + 20), 22, kGreen);
-                std::string num = std::to_string(i + 1);
-                fonts_.bold.draw(c, num, kMargin + 22 - fonts_.bold.measure(num, 24) / 2,
-                                 fonts_.bold.centeredY(y - 2, 44, 24), 24, kWhite);
-                for (const auto& line : fonts_.regular.wrap(tr(steps[i]), 28, 980, 2)) {
-                    fonts_.regular.draw(c, line, kMargin + 70, y + 2, 28, kGray);
-                    y += 40;
+                const std::string number = "0" + std::to_string(i + 1);
+                fonts_.semibold.draw(c, number, left, y + 3, 23, rgba(182, 206, 221));
+                for (const auto& line : fonts_.regular.wrap(tr(steps[i]), 26, 910, 3)) {
+                    fonts_.regular.draw(c, line, left + 64, y, 26, kWhite);
+                    y += 36;
                 }
-                y += 34;
+                if (i < 2) c.fillRect({left + 64, y + 17, 910, 1}, withAlpha(kWhite, 46));
+                y += 43;
             }
             Rect box = drawQr(c, "https://support.xbox.com/help/games-apps/game-setup-and-play/how-to-use-remote-play",
-                              kW - kMargin, 330, 340);
+                              kW - left - 56, 401, 260);
             if (box.w > 0) {
-                int w = fonts_.semibold.measure(tr(Str::ScanForHelp), 24);
-                fonts_.semibold.draw(c, tr(Str::ScanForHelp), box.x + (box.w - w) / 2, box.y + box.h + 22, 24, kWhite);
+                int captionY = box.y + box.h + 22;
+                for (const auto& line : fonts_.semibold.wrap(tr(Str::ScanForHelp), 22, 380, 2)) {
+                    fonts_.semibold.draw(c, line, box.x + (box.w - fonts_.semibold.measure(line, 22)) / 2,
+                                         captionY, 22, kWhite);
+                    captionY += 30;
+                }
             }
+            const Rect search = kConsoleSearchTarget;
+            c.fillRect(search, withAlpha(kWhite, 230), 12);
+            const auto label = fonts_.semibold.fit(tr(Str::SearchAgain), 24, search.w - 36);
+            fonts_.semibold.draw(c, label, search.x + (search.w - fonts_.semibold.measure(label, 24)) / 2,
+                                 fonts_.semibold.centeredY(search.y, search.h, 24), 24, kBg);
             drawHints(c, {{kIconCross, tr(Str::SearchAgain)},
                           {kIconOptions, tr(Str::Settings)},
                           {kIconTouchpad, tr(Str::HoldSignOut)}});
@@ -1000,15 +1012,17 @@ void AppUi::drawConsoles(Canvas& c, uint64_t nowMs) {
         return;
     }
     // One card per console: a drawn Xbox, its name, model and state.
-    constexpr int kCardW = 480, kCardH = 380, kGap = 40, kTop = 320;
     for (size_t i = 0; i < consoles_.size(); ++i) {
         const ConsoleTile& con = consoles_[i];
-        int x = kMargin + static_cast<int>(i) * (kCardW + kGap);
-        if (x > kW) break;
+        const Rect card = consoleCardRect(static_cast<int>(i), consoleFocus_);
+        if (card.x + card.w <= 0) continue;
+        if (card.x >= kW) break;
+        const int x = card.x, kTop = card.y, kCardW = card.w;
         bool focused = static_cast<int>(i) == consoleFocus_;
-        Rect card{x, kTop, kCardW, kCardH};
         if (focused) c.strokeRect({card.x - 7, card.y - 7, card.w + 14, card.h + 14}, kWhite, 4, 22);
-        c.fillRect(card, kPanel, 16);
+        c.fillRect(card, focused ? rgba(25, 40, 55, 221) : rgba(17, 28, 40, 177), 16);
+        c.strokeRect(card, withAlpha(kWhite, focused ? 112 : 45), 1, 16);
+        c.fillRect({x + 24, kTop + 222, kCardW - 48, 1}, preview31::kGlassLine);
         // The console: a Series X stands as a tower, the others lie flat.
         bool tower = con.type == "XboxSeriesX";
         Rect box = tower ? Rect{x + kCardW / 2 - 55, kTop + 40, 110, 170} : Rect{x + kCardW / 2 - 120, kTop + 90, 240, 70};
@@ -1043,9 +1057,12 @@ void AppUi::drawConsoles(Canvas& c, uint64_t nowMs) {
 
 // Nimbox Horizon — console-first view. Reuses the existing catalog and image cache.
 void AppUi::drawNimboxHorizon(Canvas& c, uint64_t nowMs) {
+    // Premium PS5 presentation, entirely in the existing software Canvas.
+    // No HTML, GPU backend changes or streaming/input pipeline dependencies.
     const auto& env = nimbox_theme::palette(settings_.nimboxTheme);
-    const Color deep = rgba(7, 17, 29);
-    const Color soft = rgba(205, 229, 236);
+    const Color deep = kBg;
+    const Color soft = preview31::kMuted;
+    const Color accent = env.accent;
     c.clear(deep);
     const GameTile* focus = focusedTile();
     std::string hero = focus ? focus->heroUrl : std::string();
@@ -1055,107 +1072,217 @@ void AppUi::drawNimboxHorizon(Canvas& c, uint64_t nowMs) {
     }
     const bool wideArt = !hero.empty() && drawHero(c, nowMs, hero, true, true);
     if (!wideArt) {
-        c.gradientV({0, 122, kW, 830}, env.sky, deep);
+        c.gradientV({0, 0, kW, kH}, env.low, deep);
+        c.gradientV({0, 0, kW, 200}, withAlpha(deep, 150), withAlpha(deep, 0));
         if (focus && !focus->tileUrl.empty()) {
             if (auto pic = images_.get(focus->tileUrl, 480, 480))
-                c.drawImage(*pic, 1332, 175, 84, 20);
+                c.drawImage(*pic, 1340, 185, 86, 20);
         }
     }
-    // Software-friendly fades rather than expensive blur or a new GPU pipeline.
-    c.gradientH({0, 124, 1130, kH - 124}, rgba(6, 16, 30, 176), rgba(6, 16, 30, 0));
-    c.gradientV({0, 475, kW, kH - 475}, rgba(8, 20, 34, 8), rgba(7, 17, 29, 135));
-    drawTopBar(c);
+
+    c.gradientV({0, 480, kW, 600}, withAlpha(deep, 0), withAlpha(deep, 218));
+    drawTopBar(c, true);
     drawTabs(c);
-    fonts_.semibold.draw(c, tr(Str::HorizonExplore), 104, 179, 19, env.accent);
+
     if (!focus || rows_.empty()) {
-        fonts_.semibold.draw(c, tr(Str::NoGames), 104, 354, 36, kWhite);
+        fonts_.semibold.draw(c, tr(Str::NoGames), 104, 352, 38, kWhite);
         drawHints(c, {{kIconOptions, tr(Str::Settings)}, {kIconTouchpad, tr(Str::HoldSignOut)}});
-        drawPads(c);
         drawToast(c, nowMs);
         return;
     }
     const int rowIndex = std::clamp(focusRow_, 0, int(rows_.size()) - 1);
     const GameRow& row = rows_[size_t(rowIndex)];
+    auto browseLink = [&](Rect r, Str label) {
+        const auto name = fonts_.semibold.fit(tr(label), 23, r.w-26);
+        fonts_.semibold.draw(c, name, r.x+8, fonts_.semibold.centeredY(r.y,r.h,23), 23, kWhite);
+    };
+    browseLink(horizon::kExplore, Str::BrowseHome);
+    browseLink(horizon::kHomeGenres, Str::BrowseGenres);
+    browseLink(horizon::kViewShelf, Str::OpenCollection);
     const int count = int(row.tiles.size());
     if (count <= 0) {
+        fonts_.semibold.draw(c, tr(Str::NoGames), 104, 352, 38, kWhite);
         drawHints(c, {{kIconOptions, tr(Str::Settings)}, {kIconTouchpad, tr(Str::HoldSignOut)}});
-        drawPads(c);
         drawToast(c, nowMs);
         return;
     }
     const int selected = std::clamp(focusCol_[size_t(rowIndex)], 0, count - 1);
-    // The collection is part of navigation, not a tiny caption over the shelf.
-    const std::string collection = row.title.empty() ? "GAME PASS" : row.title;
-    fonts_.semibold.draw(c, fonts_.semibold.fit(collection, 38, 1290),
-                         104, 221, 38, kWhite);
-    const std::string collectionPos = trf(Str::HorizonCollectionPosition,
-        std::to_string(rowIndex + 1), std::to_string(rows_.size()));
-    fonts_.regular.draw(c, collectionPos,
-                        1814 - fonts_.regular.measure(collectionPos, 20),
-                        226, 20, soft);
-    fonts_.bold.draw(c, fonts_.bold.fit(focus->name, 57, 1070), 104, 326, 57, kWhite);
+
+    if (settings_.horizonShowcase) {
+        const Rect cover = horizon::kShowcaseCover;
+        c.fillRect({cover.x + 4, cover.y + 8, cover.w, cover.h}, rgba(0, 0, 0, 96), 18);
+        c.fillRect(cover, kPanel, 16);
+        if (auto art = images_.get(focus->tileUrl, cover.w, cover.h)) {
+            c.drawImage(*art, cover.x, cover.y, 255, 16);
+        } else {
+            const auto lines = fonts_.semibold.wrap(focus->name, 28, cover.w - 48, 3);
+            int y = cover.y + 30;
+            for (const auto& line : lines) {
+                fonts_.semibold.draw(c, line, cover.x + 24, y, 28, kWhite);
+                y += 38;
+            }
+        }
+        c.strokeRect(cover, withAlpha(kWhite, 104), 1, 16);
+    }
+    const std::string collection = row.title.empty() ? tr(Str::TabGamePass) : row.title;
+    fonts_.bold.draw(c, fonts_.bold.fit(focus->name, 78, 1120), 100, 249, 78, preview31::kText);
     std::string meta = focus->publisher;
     if (!focus->categories.empty()) {
         if (!meta.empty()) meta += "  -  ";
         meta += focus->categories.front();
     }
     if (!meta.empty())
-        fonts_.regular.draw(c, fonts_.regular.fit(meta, 22, 920), 108, 391, 22, soft);
+        fonts_.regular.draw(c, fonts_.regular.fit(meta, 23, 1040), 106, 354, 23, soft);
+
     const bool canPlay = isEffectivePlayableLocked(*focus);
-    const Color white = rgba(236, 249, 251);
-    c.fillRect(horizon::kPlayButton, white, 16);
-    fonts_.semibold.draw(c, canPlay ? "R2  JOGAR" : "VER JOGO",
-                         horizon::kPlayButton.x + 23, horizon::kPlayButton.y + 18,
-                         26, rgba(12, 38, 49));
-    c.fillRect(horizon::kDetailsButton, rgba(12, 28, 43, 170), 16);
-    c.strokeRect(horizon::kDetailsButton, rgba(189, 230, 237, 127), 1, 16);
-    fonts_.semibold.draw(c, "DETALHES", horizon::kDetailsButton.x + 37,
-                         horizon::kDetailsButton.y + 18, 26, white);
+    const Color primary = preview31::kText;
+    c.fillRect({horizon::kPlayButton.x, horizon::kPlayButton.y + 5,
+                horizon::kPlayButton.w, horizon::kPlayButton.h}, rgba(2, 9, 20, 100), 17);
+    c.fillRect(horizon::kPlayButton, preview31::kSelect, 16);
+    c.strokeRect(horizon::kPlayButton, rgba(255, 255, 255, 175), 1, 16);
+    fonts_.semibold.draw(c, canPlay ? tr(Str::Play) : tr(Str::OpenDetails),
+        horizon::kPlayButton.x + 27,
+        fonts_.semibold.centeredY(horizon::kPlayButton.y, horizon::kPlayButton.h, 26),
+        26, rgba(12, 35, 51));
+
+    if (canPlay) {
+        fonts_.semibold.draw(c, tr(Str::OpenDetails), horizon::kDetailsButton.x + 37,
+            fonts_.semibold.centeredY(horizon::kDetailsButton.y, horizon::kDetailsButton.h, 26),
+            26, primary);
+    }
+
     if (horizonBoundary_.direction && nowMs >= horizonBoundary_.startedMs &&
         nowMs - horizonBoundary_.startedMs <= 1600) {
         fonts_.semibold.draw(c, fonts_.semibold.fit(
             tr(horizonBoundary_.direction > 0 ? Str::HorizonEndHint : Str::HorizonStartHint),
-            20, 1190), 104, 583, 20, env.accent);
-        animating_ = true; // redraw once to clear the hint when it expires
+            20, 1190), 104, 511, 20, accent);
+        animating_ = true;
     }
-    const auto order = horizon::drawOrder(selected, count, nimboxSlide_.value / 1000.0f);
-    for (int offset : order) {
-        const int index = horizon::indexForOffset(selected, count, offset);
-        if (index < 0) continue;
-        const GameTile& tile = row.tiles[size_t(index)];
-        const Rect card = horizon::tileRect(float(offset) + nimboxSlide_.value / 1000.0f);
-        const bool center = offset == 0;
-        c.fillRect({card.x-4, card.y+10, card.w+8, card.h+3},
-                   rgba(0, 0, 0, center ? 120 : 65), 14);
-        c.fillRect(card, rgba(25, 51, 63), 14);
-        if (!tile.tileUrl.empty()) {
-            if (auto art = images_.get(tile.tileUrl, card.w, card.h))
-                c.drawImage(*art, card.x, card.y, center ? 255 : 214, 14);
+
+    if (drawnCollection_ != rowIndex) {
+        outgoingCollection_ = drawnCollection_;
+        drawnCollection_ = rowIndex;
+        collectionChangedAt_ = nowMs;
+    }
+    const float elapsed = std::min(1.0f, float(nowMs - collectionChangedAt_) / 280.0f);
+    const bool moving = !nimboxReducedMotion_ && outgoingCollection_ >= 0 &&
+                        outgoingCollection_ < int(rows_.size()) && elapsed < 1.0f;
+    const float ease = elapsed * elapsed * (3.0f - 2.0f * elapsed);
+    const int travel = rowIndex > outgoingCollection_ ? 310 : -310;
+    collectionOffsetY_ = moving ? int(std::lround(travel * (1.0f - ease))) : 0;
+    const auto drawShelf = [&](int shelfIndex, int choice, float slide, int shift) {
+        const GameRow& shelf = rows_[size_t(shelfIndex)];
+        const auto order = horizon::drawOrder(choice, int(shelf.tiles.size()), slide);
+        for (int offset : order) {
+            const int index = choice + offset;
+            const GameTile& tile = shelf.tiles[size_t(index)];
+            const Rect card = horizon::homeCoverRect(float(offset) + slide, shift, settings_.horizonShowcase);
+            const bool center = offset == 0;
+            if (center) c.fillRect({card.x - 10, card.y - 10, card.w + 20, card.h + 20},
+                                   withAlpha(preview31::kAccent, 42), 22);
+            c.fillRect({card.x - 5, card.y + 13, card.w + 10, card.h + 8},
+                       rgba(0, 5, 12, center ? 145 : 85), 18);
+            c.fillRect(card, kPlaceholder, 15);
+            if (!tile.tileUrl.empty()) {
+                if (auto art = images_.get(tile.tileUrl, card.w, card.h))
+                    c.drawImage(*art, card.x, card.y, center ? 255 : 211, 15);
+            }
+            if (center) {
+                c.strokeRect({card.x - 5, card.y - 5, card.w + 10, card.h + 10},
+                             preview31::kText, 3, 19);
+                c.strokeRect({card.x - 8, card.y - 8, card.w + 16, card.h + 16},
+                             withAlpha(preview31::kAccent, 170), 1, 21);
+            } else {
+                c.fillRect(card, rgba(3, 13, 25, 28), 15);
+            }
         }
-        if (center)
-            c.strokeRect({card.x-4, card.y-4, card.w+8, card.h+8},
-                         rgba(226, 248, 251), 3, 18);
-        else
-            c.fillRect(card, rgba(5, 16, 26, 30), 14);
+    };
+    c.setClip({96, 610, 1728, 282});
+    if (moving) {
+        drawShelf(outgoingCollection_, focusCol_[size_t(outgoingCollection_)], 0, collectionOffsetY_ - travel);
+        animating_ = true;
     }
+    drawShelf(rowIndex, selected, nimboxSlide_.value / 1000.0f, collectionOffsetY_);
+    c.resetClip();
+    fonts_.semibold.draw(c, fonts_.semibold.fit(collection, 34, 1140), 104, 553, 34, kWhite);
+    const std::string collectionPos = trf(Str::HorizonCollectionPosition,
+        std::to_string(rowIndex + 1), std::to_string(rows_.size()));
+    fonts_.semibold.draw(c, collectionPos, 1816 - fonts_.semibold.measure(collectionPos, 20), 568, 20, soft);
     const std::string position = trf(Str::HorizonGamePosition,
-        std::to_string(selected+1), std::to_string(count));
-    fonts_.regular.draw(c, position, (kW - fonts_.regular.measure(position, 20)) / 2,
-                        897, 20, rgba(196, 222, 231));
-    fonts_.regular.draw(c, tr(Str::HorizonHorizontalHint), 104, 943, 19, soft);
+        std::to_string(selected + 1), std::to_string(count));
+    fonts_.semibold.draw(c, position, (kW - fonts_.semibold.measure(position, 20)) / 2,
+                         906, 20, rgba(221, 239, 246));
+    const Rect track{771, 943, 378, 3};
+    c.fillRect(track, rgba(214, 236, 245, 53), 2);
+    const int progress = std::max(5, (track.w * (selected + 1)) / count);
+    c.fillRect({track.x, track.y, progress, track.h}, accent, 2);
+
+    fonts_.regular.draw(c, tr(Str::HorizonHorizontalHint), 104, 972, 18, soft);
     const char* directions = tr(Str::HorizonVerticalHint);
-    fonts_.regular.draw(c, directions, 1816 - fonts_.regular.measure(directions, 19),
-                        943, 19, soft);
-    // Soft footer with the live wallpaper visible behind it.
-    c.gradientV({0, kH - 145, kW, 145}, rgba(3, 10, 19, 0), rgba(3, 10, 19, 184));
-    drawHints(c, {{kIconCross, "Detalhes"}, {kIconTriangle, tr(Str::TabSearch)},
-                  {kIconOptions, tr(Str::Settings)}, {kIconTouchpad, tr(Str::HoldSignOut)}});
-    drawPads(c);
+    fonts_.regular.draw(c, directions, 1816 - fonts_.regular.measure(directions, 18),
+                        972, 18, soft);
+
+    c.gradientV({0, kH - 82, kW, 82}, rgba(3, 10, 20, 0), rgba(3, 10, 20, 128));
+    // On a console, show an understated status only for connected pads.
+    const int connected = static_cast<int>(std::count_if(pads_.begin(), pads_.end(),
+        [](const PadSlot& p) { return p.connected; }));
+    if (connected > 0) {
+        c.fillCircle(111.0f, 1028.0f, 6.0f, accent);
+        const std::string countLabel = std::to_string(connected) + " / " +
+            std::to_string(pads_.size());
+        fonts_.semibold.draw(c, countLabel, 132, 1017, 20, soft);
+    }
+    drawHints(c, {{kIconCross, tr(Str::OpenDetails)}, {kIconR3, tr(Str::Profile)},
+                  {kIconTriangle, tr(Str::TabSearch)}, {kIconOptions, tr(Str::Settings)},
+                  {kIconTouchpad, tr(Str::HoldSignOut)}});
     drawToast(c, nowMs);
+}
+
+void AppUi::drawProfilePanel(Canvas& c) {
+    const Rect panel = horizon::kProfilePanel;
+    const int x = panel.x + 44, right = panel.x + panel.w - 44;
+    c.gradientH({0, 0, panel.x, kH}, rgba(8, 13, 21, 105), rgba(8, 13, 21, 193));
+    c.gradientH({panel.x, 0, kW - panel.x, kH}, rgba(8, 13, 21, 193), rgba(8, 13, 21, 235));
+    c.fillRect({panel.x, panel.y + 36, 1, panel.h - 84}, withAlpha(kWhite, 56));
+    const Color accent = nimbox_theme::palette(settings_.nimboxTheme).accent;
+    fonts_.semibold.draw(c, tr(Str::Profile), x, panel.y + 36, 23, kGray);
+    const Rect close = horizon::kProfileClose;
+    c.line(close.x + 17, close.y + 17, close.x + 31, close.y + 31, 2, kWhite);
+    c.line(close.x + 31, close.y + 17, close.x + 17, close.y + 31, 2, kWhite);
+
+    const int cy = panel.y + 155;
+    c.fillCircle(x + 52, cy, 50, withAlpha(accent, 45));
+    // The header already requests this exact cache size on each platform.
+#if defined(__ANDROID__)
+    constexpr int avatar = 64;
+#else
+    constexpr int avatar = 52;
+#endif
+    auto image = images_.get(gamerpicUrl_, 94, 94);
+    if (!image) image = images_.get(gamerpicUrl_, avatar, avatar);
+    if (image) {
+        c.drawImage(*image, x + 52 - image->w / 2, cy - image->h / 2, 255, -1);
+    } else {
+        c.fillCircle(x + 52, cy - 9, 12, accent);
+        c.fillRect({x + 29, cy + 8, 46, 19}, accent, 9);
+    }
+    const std::string name = gamertag_.empty() ? tr(Str::Profile) : gamertag_;
+    fonts_.bold.draw(c, fonts_.bold.fit(name, 45, right - x - 126), x + 126, cy - 44, 45, kWhite);
+    const std::string plan = subscription_ == "GamePass" ? "Game Pass" : subscription_;
+    fonts_.semibold.draw(c, fonts_.semibold.fit(plan.empty() ? "Xbox" : plan, 22, 408),
+                         x + 128, cy + 22, 22, accent);
+
+    drawProfileActions(c, x, right);
+    // Hide base-screen touch targets while this native modal has focus.
+    hintRects_.clear();
+    c.gradientV({0, kH - 120, kW, 40}, rgba(8, 13, 21, 0), rgba(8, 13, 21));
+    c.fillRect({0, kH - 80, kW, 80}, rgba(8, 13, 21));
+    drawHints(c, {{kIconCircle, tr(Str::Back)}});
 }
 
 void AppUi::drawHome(Canvas& c, uint64_t nowMs) {
     if (searching_) return drawSearch(c, nowMs);
+    if (!directory_.empty() || onCatalogShelf()) return drawDirectory(c);
     if (tab_ == Tab::Library) return drawLibrary(c, nowMs);
     if (tab_ == Tab::Consoles) return drawConsoles(c, nowMs);
     drawNimboxHorizon(c, nowMs);
@@ -1192,9 +1319,9 @@ void AppUi::drawDetails(Canvas& c, uint64_t nowMs) {
     c.fillRect(showcase::kFrame, rgba(8, 20, 35, 28), 20);
     c.strokeRect(showcase::kFrame, rgba(216, 232, 247, 76), 1, 20);
     // Fine section markers and a PlayStation-style cool-white focused state.
-    c.fillRect({showcase::kTextX, 233, 48, 3}, rgba(219, 241, 249), 2);
+    c.fillRect({showcase::kTextX, 233, 48, 3}, preview31::kAccent, 2);
     fonts_.semibold.draw(c, tr(Str::DetailsShowcase), showcase::kTextX, 248, 19,
-                         rgba(190, 219, 230));
+                         preview31::kMuted);
 
     drawTopBar(c);
     // The gear is also a touch target; L2 opens these system settings from a
@@ -1869,6 +1996,33 @@ void AppUi::drawAchievementsModal(Canvas& c, uint64_t nowMs) {
     drawHints(c, {{kIconCircle, tr(Str::Back)}});
 }
 
+// Apply a separable binomial blur to the small snapshot before scaling it back up.
+static Image frostSettingsBackdrop(const Image& capture) {
+    Image small = coverResize(capture, 240, 135);
+    Image pass = small;
+    constexpr int weights[] = {1, 6, 15, 20, 15, 6, 1};
+    for (int axis = 0; axis < 2; ++axis) {
+        for (int y = 0; y < small.h; ++y) {
+            for (int x = 0; x < small.w; ++x) {
+                int red = 0, green = 0, blue = 0;
+                for (int offset = -3; offset <= 3; ++offset) {
+                    const int sx = axis == 0 ? std::clamp(x + offset, 0, small.w - 1) : x;
+                    const int sy = axis == 1 ? std::clamp(y + offset, 0, small.h - 1) : y;
+                    const uint32_t pixel = small.px[sy * small.w + sx];
+                    const int weight = weights[offset + 3];
+                    red += (pixel & 255) * weight;
+                    green += ((pixel >> 8) & 255) * weight;
+                    blue += ((pixel >> 16) & 255) * weight;
+                }
+                pass.px[y * small.w + x] = 0xff000000u | ((red + 32) / 64) |
+                    (((green + 32) / 64) << 8) | (((blue + 32) / 64) << 16);
+            }
+        }
+        small.px.swap(pass.px);
+    }
+    return coverResize(small, kW, kH);
+}
+
 void AppUi::render(Canvas& c, uint64_t nowMs) {
     std::lock_guard<std::mutex> lock(mutex_);
     hintRects_.clear();
@@ -1906,7 +2060,7 @@ void AppUi::render(Canvas& c, uint64_t nowMs) {
         case Screen::Error: drawError(c); break;
         case Screen::Settings: {
             // One-shot software frost: render the screen that opened Settings,
-            // downsample then enlarge it. No per-frame 1080p blur cost and no
+            // and filter its snapshot. No per-frame 1080p blur cost and no
             // GPU/MediaCodec dependency on Android, desktop or PS5.
             if (!settingsBackdropReady_) {
                 Canvas base(kW, kH, rgba(4, 12, 23));
@@ -1921,12 +2075,12 @@ void AppUi::render(Canvas& c, uint64_t nowMs) {
                 capture.h = kH;
                 capture.opaque = true;
                 capture.px.assign(base.data(), base.data() + static_cast<size_t>(kW) * kH);
-                const Image reduced = coverResize(capture, 320, 180);
-                settingsFrostedBackdrop_ = coverResize(reduced, kW, kH);
+                settingsFrostedBackdrop_ = frostSettingsBackdrop(capture);
                 settingsBackdropReady_ = true;
             }
             if (settingsBackdropReady_) c.drawImage(settingsFrostedBackdrop_, 0, 0);
             else drawBackground(c);
+            hintRects_.clear();
             drawSettings(c);
             if (settingsQrExpanded_) drawSettingsQrOverlay(c);
             break;
@@ -1934,6 +2088,7 @@ void AppUi::render(Canvas& c, uint64_t nowMs) {
         case Screen::Updating: drawUpdating(c, nowMs); break;
         case Screen::Streaming: break;
     }
+    if (screen_ == Screen::Home && profileOpen_) drawProfilePanel(c);
     if (screen_ == Screen::Home && updatePrompt_) {
         if (showingUpdateNotes_) drawUpdateNotesModal(c);
         else drawUpdatePrompt(c);
@@ -1941,7 +2096,7 @@ void AppUi::render(Canvas& c, uint64_t nowMs) {
     if (screen_ == Screen::Home && quitPrompt_) drawQuitPrompt(c);
     if (screen_ == Screen::Error && countryPickerOpen_) drawCountryPicker(c);
     if (reportOpen_) drawReport(c);
-    if ((screen_ == Screen::Home && !updatePrompt_) || screen_ == Screen::Error) drawSignOutHold(c, nowMs);
+    if ((screen_ == Screen::Home && !updatePrompt_ && !profileOpen_) || screen_ == Screen::Error) drawSignOutHold(c, nowMs);
     if (!toast_.empty()) animating_ = true;  // to expire it
     if (platform::toastsEnabled()) {
         // platform::notify() on a desktop: over everything, under the top bar's right side.
