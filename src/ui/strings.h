@@ -645,6 +645,7 @@ enum class Str {
     OfflineNow,
     NoStatus,
     OpenCollection,
+    ViewAllGames,
     Count
 };
 

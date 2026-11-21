@@ -433,8 +433,11 @@ int desktopSelftest(const std::string& dir) {
             ui.setRows({showcase, all, ubi});
             ui::NavInput down, accept, back, up;
             down.down = accept.accept = back.back = up.up = true;
-            ui.handle(down);
+            ui.onMouseWheel(0, -1);
             ui.handle(accept);
+            check(ui.screen() == ui::Screen::Details && ui.detailTile().productId == all.tiles[0].productId,
+                  "Scrolling to All games immediately exposes the first playable tile");
+            ui.handle(back);
             ui.handle(down);
             ui.render(canvas, platform::nowMs());
             drawCanvas(canvas);
@@ -447,18 +450,24 @@ int desktopSelftest(const std::string& dir) {
             check(ui.screen() == ui::Screen::Details && ui.detailTile().productId == all.tiles[6].productId,
                   "Returning from details retains the selected game");
             ui.handle(back);
+            ui::NavInput genres;
+            genres.square = true;
+            ui.handle(genres);
+            ui.handle(down);
+            ui.handle(accept); // Footer returns to the full grid
+            ui.handle(accept);
+            check(ui.screen() == ui::Screen::Details && ui.detailTile().productId == all.tiles[6].productId,
+                  "Compact genre footer restores full library focus");
             ui.handle(back);
-            ui.handle(up);
-            ui.onMouseDown(620, 460, 1);  // Explore
-            ui.onMouseDown(810, 290, 1);  // Genres
+            ui.handle(back); // Back from the inline library restores the preceding shelf
+            ui.onMouseDown(860, 460, 1);  // Genres directly from the home
             ui.render(canvas, platform::nowMs());
             drawCanvas(canvas);
             check(screenshot(dir, "6j-horizon-genres.png", shot) && varied(shot), "Genre picker capture");
-            ui.onMouseDown(810, 290, 1);  // Strategy
+            ui.onMouseDown(500, 500, 1);  // Second portrait genre card: Strategy
             ui.handle(accept);
             check(ui.screen() == ui::Screen::Details && ui.detailTile().productId == all.tiles[0].productId,
                   "A genre opens its own filtered grid");
-            ui.handle(back);
             ui.handle(back);
             ui.handle(back);
             ui.handle(back);

@@ -67,12 +67,7 @@ void AppUi::handleHome(const NavInput& in, UiEvent& ev) {
         openDirectory(Directory::Explore, tr(Str::BrowseHome));
         return;
     }
-    if (tab_ == Tab::GamePass && !searching_ && !rows_.empty() &&
-        rows_[focusRow_].catalogId == xcloud::sigl::kAllGames && (in.accept || in.r2 || in.square || in.left || in.right)) {
-        if (in.accept) openDirectory(Directory::All, tr(Str::BrowseAll));
-        return;
-    }
-    if (tab_ == Tab::GamePass && !searching_ && in.r2) {
+    if (tab_ == Tab::GamePass && !onCatalogShelf() && !searching_ && in.r2) {
         // Same eligibility as the Play button in Details.
         if (const GameTile* tile = focusedTile()) {
             if (isEffectivePlayableLocked(*tile)) {
@@ -165,6 +160,7 @@ void AppUi::handleHome(const NavInput& in, UiEvent& ev) {
             break;
         }
         case Tab::GamePass: {
+            if (onCatalogShelf()) { handleDirectory(in, ev); return; }
             if (rows_.empty()) break;
             int rows = static_cast<int>(rows_.size());
             const GameRow& curRow = rows_[static_cast<size_t>(focusRow_)];
@@ -296,7 +292,7 @@ UiEvent AppUi::onMouseMove(float x, float y) {
     if (screen_ == Screen::Streaming || screen_ == Screen::Splash) {
         return ev;
     }
-    if (screen_ == Screen::Home && !searching_ && !directory_.empty() && !quitPrompt_ && !updatePrompt_) return ev;
+    if (screen_ == Screen::Home && !searching_ && (!directory_.empty() || (onCatalogShelf() && !profileOpen_)) && !quitPrompt_ && !updatePrompt_) return ev;
     if (screen_ == Screen::Home && quitPrompt_) {
         constexpr int kButtonW = 300, kButtonH = 72, kPanelW = 2 * kButtonW + 24 + 112, kPanelH = 250;
         Rect panel{(kW - kPanelW) / 2, (kH - kPanelH) / 2 - 30, kPanelW, kPanelH};
@@ -419,7 +415,7 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
     if (screen_ == Screen::Streaming || screen_ == Screen::Splash) {
         return ev;
     }
-    if (screen_ == Screen::Home && !searching_ && !updatePrompt_ && !quitPrompt_ && !reportOpen_ && !directory_.empty()) {
+    if (screen_ == Screen::Home && !searching_ && !updatePrompt_ && !quitPrompt_ && !reportOpen_ && (!directory_.empty() || (onCatalogShelf() && !profileOpen_))) {
         directoryPointer(x, y, button, ev);
         return ev;
     }
@@ -672,11 +668,11 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
         }
         if (tab_ == Tab::GamePass && !rows_.empty()) {
             const auto& row = rows_[focusRow_];
-            if (row.catalogId == xcloud::sigl::kAllGames) {
-                if (horizon::contains(horizon::kPlayButton, x, y)) openDirectory(Directory::All, tr(Str::BrowseAll));
-                else if (horizon::contains(horizon::kDetailsButton, x, y)) openDirectory(Directory::Genres, tr(Str::BrowseGenres));
-                if (y >= 150 && y < kH - 90) return ev;
-            } else if (horizon::contains(horizon::kViewShelf, x, y)) {
+            if (horizon::contains(horizon::kHomeGenres, x, y)) {
+                openDirectory(Directory::Genres, tr(Str::BrowseGenres));
+                return ev;
+            }
+            if (horizon::contains(horizon::kViewShelf, x, y)) {
                 openDirectory(Directory::Shelf, row.title);
                 return ev;
             }
@@ -1264,9 +1260,10 @@ UiEvent AppUi::onMouseWheel(float dx, float dy) {
     if (screen_ == Screen::Streaming || screen_ == Screen::Splash) {
         return ev;
     }
-    if (screen_ == Screen::Home && !searching_ && !directory_.empty() && !updatePrompt_ && !quitPrompt_ && !reportOpen_) {
+    if (screen_ == Screen::Home && !searching_ && (!directory_.empty() || (onCatalogShelf() && !profileOpen_)) && !updatePrompt_ && !quitPrompt_ && !reportOpen_) {
         NavInput nav;
-        nav.scrollRows = dy > 0 ? -1 : dy < 0 ? 1 : 0;
+        if (std::fabs(dx) > std::fabs(dy)) nav.scrollCards = dx > 0 ? -1 : 1;
+        else nav.scrollRows = dy > 0 ? -1 : dy < 0 ? 1 : 0;
         handleDirectory(nav, ev);
         return ev;
     }
@@ -1341,12 +1338,15 @@ UiEvent AppUi::onTouch(const app::shell::TouchEvent& ev) {
             touchTracker_.velocityY = 0.8f * touchTracker_.velocityY + 0.2f * (dy / dt);
             touchTracker_.velocityX = 0.8f * touchTracker_.velocityX + 0.2f * (dx / dt);
 
-            if (screen_ == Screen::Home && !directory_.empty() && !searching_ && !updatePrompt_ && !reportOpen_) {
-                const float distance = ev.y - touchTracker_.startY;
+            if (screen_ == Screen::Home && (!directory_.empty() || (onCatalogShelf() && !profileOpen_)) && !searching_ && !updatePrompt_ && !reportOpen_) {
+                const bool genre = activeDirectory().kind == Directory::Genres;
+                const float distance = genre ? ev.x - touchTracker_.startX : ev.y - touchTracker_.startY;
                 if (std::fabs(distance) >= 72) {
                     NavInput nav;
-                    nav.scrollRows = distance > 0 ? -1 : 1;
+                    if (genre) nav.scrollCards = distance > 0 ? -1 : 1;
+                    else nav.scrollRows = distance > 0 ? -1 : 1;
                     handleDirectory(nav, uiEv);
+                    touchTracker_.startX = ev.x;
                     touchTracker_.startY = ev.y;
                 }
             } else if (screen_ == Screen::Home && searching_ && touchTracker_.startX >= kResultsX) {
@@ -1404,7 +1404,7 @@ UiEvent AppUi::onTouch(const app::shell::TouchEvent& ev) {
     }
 
     if (ev.kind == app::shell::TouchEvent::Kind::Up) {
-        if (touchTracker_.isDragging && screen_ == Screen::Home && !directory_.empty() && !searching_) {
+        if (touchTracker_.isDragging && screen_ == Screen::Home && (!directory_.empty() || (onCatalogShelf() && !profileOpen_)) && !searching_) {
             touchTracker_.active = false;
             return uiEv;
         }
@@ -1641,7 +1641,7 @@ UiEvent AppUi::handleLocked(const NavInput& in) {
             // A desktop window has no system menu to close it from (fullscreen,
             // a controller in hand): Circle / Esc at the top of the home screen
             // asks. On the PS5 the system closes the app; Circle does nothing here.
-            if (caps_.desktopWindow && in.back && !searching_ && !profileOpen_ && directory_.empty()) {
+            if (caps_.desktopWindow && in.back && !searching_ && !profileOpen_ && directory_.empty() && !onCatalogShelf()) {
                 quitPrompt_ = true;
                 promptFocus_ = 1;  // Cancel first: a second Circle / Esc never closes by accident
                 dirty_ = true;

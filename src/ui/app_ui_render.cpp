@@ -1092,27 +1092,13 @@ void AppUi::drawNimboxHorizon(Canvas& c, uint64_t nowMs) {
     }
     const int rowIndex = std::clamp(focusRow_, 0, int(rows_.size()) - 1);
     const GameRow& row = rows_[size_t(rowIndex)];
-    const auto entry = [&](Rect r, const char* label, bool primary) {
-        if (primary) c.fillRect(r, preview31::kSelect, 14);
-        else c.fillRect(r, rgba(6, 13, 24, 130), 14);
-        const auto text = fonts_.semibold.fit(label, 23, r.w - 30);
-        fonts_.semibold.draw(c, text, r.x + (r.w - fonts_.semibold.measure(text, 23)) / 2,
-                             fonts_.semibold.centeredY(r.y, r.h, 23), 23, primary ? kBg : kWhite);
+    auto browseLink = [&](Rect r, Str label) {
+        const auto name = fonts_.semibold.fit(tr(label), 23, r.w-26);
+        fonts_.semibold.draw(c, name, r.x+8, fonts_.semibold.centeredY(r.y,r.h,23), 23, kWhite);
     };
-    const std::string exploreKey = (g_keyboardHints ? "Z" : buttonName(g_glyphStyle, PadButton::L2)) +
-                                   std::string("  ") + tr(Str::BrowseHome);
-    entry(horizon::kExplore, exploreKey.c_str(), false);
-    if (row.catalogId == xcloud::sigl::kAllGames) {
-        fonts_.bold.draw(c, tr(Str::BrowseAll), 104, 248, 70, kWhite);
-        fonts_.regular.draw(c, gamesCount(row.tiles.size()), 106, 348, 26, kGray);
-        entry(horizon::kPlayButton, tr(Str::OpenCollection), true);
-        entry(horizon::kDetailsButton, tr(Str::BrowseGenres), false);
-        fonts_.regular.draw(c, tr(Str::HorizonVerticalHint), 104, 950, 21, kGray);
-        drawHints(c, {{kIconCross, tr(Str::OpenCollection)}, {kIconTriangle, tr(Str::TabSearch)}, {kIconOptions, tr(Str::Settings)}});
-        drawnCollection_ = outgoingCollection_ = -1;
-        return;
-    }
-    entry(horizon::kViewShelf, tr(Str::OpenCollection), false);
+    browseLink(horizon::kExplore, Str::BrowseHome);
+    browseLink(horizon::kHomeGenres, Str::BrowseGenres);
+    browseLink(horizon::kViewShelf, Str::OpenCollection);
     const int count = int(row.tiles.size());
     if (count <= 0) {
         fonts_.semibold.draw(c, tr(Str::NoGames), 104, 352, 38, kWhite);
@@ -1296,7 +1282,7 @@ void AppUi::drawProfilePanel(Canvas& c) {
 
 void AppUi::drawHome(Canvas& c, uint64_t nowMs) {
     if (searching_) return drawSearch(c, nowMs);
-    if (!directory_.empty()) return drawDirectory(c);
+    if (!directory_.empty() || onCatalogShelf()) return drawDirectory(c);
     if (tab_ == Tab::Library) return drawLibrary(c, nowMs);
     if (tab_ == Tab::Consoles) return drawConsoles(c, nowMs);
     drawNimboxHorizon(c, nowMs);

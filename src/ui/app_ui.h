@@ -719,7 +719,12 @@ private:
         std::vector<std::string> labels;
         std::vector<GameTile> games;
         int focus = 0;
+        bool allButtonFocused = false;
     };
+    DirectoryPage shelfCatalog_;
+    bool shelfCatalogDirty_ = true;
+    bool onCatalogShelf() const;
+    DirectoryPage& activeDirectory();
     std::vector<DirectoryPage> directory_;
     std::vector<xcloud::FriendPresence> friends_;
     std::string ownPresence_;

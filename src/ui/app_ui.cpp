@@ -170,6 +170,8 @@ void AppUi::setProfile(const std::string& gamertag, const std::string& gamerpicU
     std::lock_guard<std::mutex> lock(mutex_);
     if (gamertag_ != gamertag || gamertag.empty()) {
         directory_.clear();
+        shelfCatalog_ = {};
+        shelfCatalogDirty_ = true;
         friends_.clear();
         friendsLoaded_ = false;
         ownPresence_.clear();
@@ -442,6 +444,7 @@ void AppUi::rebuild(bool keepPosition) {
         for (int i = 0; libraryTile(i); ++i)
             if (libraryTile(i)->productId == focused) gridFocus_ = i;
     }
+    shelfCatalogDirty_ = true;
     if (!directory_.empty()) fillDirectory(directory_.back());
     if (searching_) runSearch(true);
     refreshDetail();

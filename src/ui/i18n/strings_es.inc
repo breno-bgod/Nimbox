@@ -617,7 +617,7 @@ constexpr Column kSpanish = {
     "Carrusel",
     "Escaparate",
     "Elige un carrusel centrado o una portada destacada con una fila de miniaturas.",
-    "Explorar",
+    "Colecciones",
     "Todos los juegos",
     "Géneros",
     "Destacados de NimboPlay",
@@ -636,4 +636,5 @@ constexpr Column kSpanish = {
     "Desconectado",
     "Estado no disponible",
     "Ver todos",
+    "Ver todos los juegos",
 };

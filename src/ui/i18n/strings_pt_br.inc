@@ -617,7 +617,7 @@ constexpr Column kPortugueseBR = {
     "Carrossel",
     "Vitrine",
     "Escolha um carrossel centralizado ou uma capa em destaque com uma faixa de miniaturas.",
-    "Explorar",
+    "Coleções",
     "Todos os jogos",
     "Gêneros",
     "Destaques do NimboPlay",
@@ -636,4 +636,5 @@ constexpr Column kPortugueseBR = {
     "Offline",
     "Status indisponível",
     "Ver todos",
+    "Ver todos os jogos",
 };

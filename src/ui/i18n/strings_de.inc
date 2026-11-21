@@ -617,7 +617,7 @@ constexpr Column kGerman = {
     "Karussell",
     "Schaufenster",
     "Wähle ein zentriertes Karussell oder ein großes Cover mit einer Reihe von Miniaturen.",
-    "Entdecken",
+    "Sammlungen",
     "Alle Spiele",
     "Genres",
     "NimboPlay-Highlights",
@@ -636,4 +636,5 @@ constexpr Column kGerman = {
     "Offline",
     "Status nicht verfügbar",
     "Alle anzeigen",
+    "Alle Spiele ansehen",
 };

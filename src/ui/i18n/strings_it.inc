@@ -617,7 +617,7 @@ constexpr Column kItalian = {
     "Carosello",
     "Vetrina",
     "Scegli un carosello centrale o una copertina in evidenza con una fila di miniature.",
-    "Esplora",
+    "Raccolte",
     "Tutti i giochi",
     "Generi",
     "In evidenza su NimboPlay",
@@ -636,4 +636,5 @@ constexpr Column kItalian = {
     "Offline",
     "Stato non disponibile",
     "Vedi tutti",
+    "Vedi tutti i giochi",
 };

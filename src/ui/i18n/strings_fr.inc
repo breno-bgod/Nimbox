@@ -617,7 +617,7 @@ constexpr Column kFrench = {
     "Carrousel",
     "Vitrine",
     "Choisissez un carrousel centré ou une grande jaquette avec une rangée de miniatures.",
-    "Explorer",
+    "Collections",
     "Tous les jeux",
     "Genres",
     "À la une sur NimboPlay",
@@ -636,4 +636,5 @@ constexpr Column kFrench = {
     "Hors ligne",
     "Statut indisponible",
     "Tout voir",
+    "Voir tous les jeux",
 };

@@ -1,10 +1,96 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include <set>
+#include <string_view>
 #include "ui/app_ui_internal.h"
 #include "ui/nimbox_horizon_layout.h"
 
 namespace xc::ui {
 namespace {
+// Original line marks on a 48-unit canvas. Match localized Store category names;
+// new categories keep their own initial and their original filtering label.
+struct MarkPoint { int x, y; };
+struct GenreMark { const char* stems; const MarkPoint* points; size_t size; Color tint; };
+
+const GenreMark* genreMark(const std::string& title) {
+    static constexpr MarkPoint compass[] = {{-22,0}, {-17,-14}, {-7,-22}, {7,-22}, {17,-14}, {22,0}, {17,14}, {7,22}, {-7,22}, {-17,14}, {-22,0}, {99,99}, {-10,11}, {-4,-4}, {11,-12}, {5,4}, {-10,11}};
+    static constexpr MarkPoint cards[] = {{-22,10}, {-26,-15}, {-8,-19}, {99,99}, {-14,-16}, {15,-16}, {15,19}, {-14,19}, {-14,-16}, {99,99}, {0,-7}, {7,1}, {0,9}, {-7,1}, {0,-7}};
+    static constexpr MarkPoint dice[] = {{-20,-17}, {19,-17}, {19,20}, {-20,20}, {-20,-17}, {99,99}, {-11,-8}, {-9,-8}, {99,99}, {0,1}, {2,1}, {99,99}, {9,11}, {11,11}};
+    static constexpr MarkPoint arcade[] = {{-19,0}, {-19,-7}, {-12,-7}, {-12,-14}, {11,-14}, {11,-7}, {18,-7}, {18,0}, {24,0}, {24,14}, {17,14}, {17,7}, {-17,7}, {-17,14}, {-24,14}, {-24,0}, {-19,0}, {99,99}, {-11,-3}, {-8,-3}, {99,99}, {8,-3}, {11,-3}, {99,99}, {-12,-14}, {-17,-21}, {99,99}, {12,-14}, {17,-21}};
+    static constexpr MarkPoint flag[] = {{-18,22}, {-18,-20}, {0,-23}, {18,-16}, {18,3}, {0,-4}, {-18,0}, {99,99}, {-9,-21}, {-9,-2}, {99,99}, {1,-21}, {1,-4}, {99,99}, {10,-19}, {10,-1}, {99,99}, {-17,-10}, {0,-14}, {17,-7}};
+    static constexpr MarkPoint puzzle[] = {{-19,-15}, {-6,-15}, {-6,-20}, {-2,-24}, {3,-24}, {7,-20}, {7,-15}, {19,-15}, {19,-3}, {13,-3}, {9,1}, {9,5}, {13,9}, {19,9}, {19,20}, {-19,20}, {-19,-15}};
+    static constexpr MarkPoint book[] = {{0,-12}, {-8,-17}, {-23,-19}, {-23,14}, {-9,16}, {0,21}, {9,16}, {23,14}, {23,-19}, {9,-17}, {0,-12}, {0,19}};
+    static constexpr MarkPoint ball[] = {{0,-23}, {14,-18}, {23,-5}, {22,9}, {13,19}, {0,23}, {-14,18}, {-22,7}, {-22,-7}, {-14,-18}, {0,-23}, {99,99}, {0,-9}, {9,-3}, {6,8}, {-6,8}, {-9,-3}, {0,-9}, {0,-22}, {99,99}, {9,-3}, {21,-7}, {99,99}, {6,8}, {13,19}, {99,99}, {-6,8}, {-14,18}, {99,99}, {-9,-3}, {-21,-7}};
+    static constexpr MarkPoint rook[] = {{-17,-21}, {-17,-8}, {-11,-3}, {-13,12}, {-18,16}, {-18,21}, {18,21}, {18,16}, {13,12}, {11,-3}, {17,-8}, {17,-21}, {9,-21}, {9,-14}, {4,-14}, {4,-21}, {-4,-21}, {-4,-14}, {-9,-14}, {-9,-21}, {-17,-21}, {99,99}, {-11,-3}, {11,-3}, {99,99}, {-13,12}, {13,12}};
+    static constexpr MarkPoint family[] = {{-11,-19}, {-5,-16}, {-3,-10}, {-6,-5}, {-12,-3}, {-17,-6}, {-19,-12}, {-16,-17}, {-11,-19}, {99,99}, {11,-12}, {16,-10}, {18,-5}, {16,0}, {11,2}, {6,0}, {4,-5}, {6,-10}, {11,-12}, {99,99}, {-24,18}, {-22,7}, {-15,2}, {-7,2}, {-2,6}, {99,99}, {-1,19}, {0,12}, {5,7}, {16,7}, {22,12}, {23,19}};
+    static constexpr MarkPoint tools[] = {{-20,14}, {3,-9}, {4,-18}, {10,-23}, {14,-23}, {10,-14}, {15,-9}, {24,-13}, {23,-6}, {17,0}, {9,1}, {-14,23}, {-20,18}, {-20,14}};
+    static constexpr MarkPoint target[] = {{-15,-13}, {-8,-18}, {4,-18}, {14,-12}, {18,-4}, {18,5}, {12,14}, {3,18}, {-6,18}, {-15,12}, {-18,4}, {-18,-5}, {-15,-13}, {99,99}, {0,-24}, {0,-12}, {99,99}, {0,12}, {0,24}, {99,99}, {-24,0}, {-12,0}, {99,99}, {12,0}, {24,0}, {99,99}, {-2,0}, {2,0}};
+    static constexpr MarkPoint bulb[] = {{-8,10}, {-9,5}, {-16,-3}, {-16,-10}, {-12,-17}, {-5,-21}, {5,-21}, {12,-17}, {16,-10}, {16,-3}, {9,5}, {8,10}, {-8,10}, {99,99}, {-7,15}, {7,15}, {99,99}, {-4,20}, {4,20}, {99,99}, {0,9}, {0,-2}, {-5,-7}, {99,99}, {0,-2}, {5,-7}};
+    static constexpr MarkPoint glove[] = {{-14,6}, {-21,-3}, {-20,-12}, {-15,-14}, {-11,-9}, {-11,-19}, {-6,-22}, {-2,-19}, {2,-22}, {6,-19}, {10,-20}, {14,-16}, {18,-16}, {21,-11}, {19,1}, {11,11}, {9,19}, {-9,19}, {-14,6}, {99,99}, {-11,9}, {12,9}};
+    static constexpr MarkPoint crown[] = {{-23,-12}, {-12,-2}, {0,-19}, {12,-2}, {23,-12}, {16,12}, {-16,12}, {-23,-12}, {99,99}, {-15,18}, {15,18}};
+    static constexpr MarkPoint notes[] = {{-10,12}, {-10,-14}, {17,-20}, {17,6}, {99,99}, {-9,-8}, {17,-14}, {99,99}, {-10,8}, {-17,6}, {-23,10}, {-23,16}, {-18,19}, {-11,16}, {-10,12}, {99,99}, {17,3}, {10,1}, {4,5}, {4,11}, {9,14}, {15,11}, {17,6}};
+    static constexpr MarkPoint sliders[] = {{-22,-12}, {-11,-12}, {99,99}, {-2,-12}, {22,-12}, {99,99}, {-10,-17}, {-2,-17}, {-2,-7}, {-10,-7}, {-10,-17}, {99,99}, {-22,9}, {5,9}, {99,99}, {14,9}, {22,9}, {99,99}, {5,4}, {14,4}, {14,14}, {5,14}, {5,4}};
+    static constexpr MarkPoint steps[] = {{-24,18}, {-12,18}, {-12,9}, {2,9}, {2,0}, {16,0}, {16,-9}, {24,-9}, {99,99}, {-16,-5}, {-11,-15}, {-2,-18}, {6,-16}, {99,99}, {0,-22}, {7,-16}, {1,-11}};
+    static constexpr MarkPoint network[] = {{-16,-14}, {0,16}, {16,-14}, {-16,-14}, {99,99}, {-22,-18}, {-13,-18}, {-13,-10}, {-22,-10}, {-22,-18}, {99,99}, {12,-18}, {21,-18}, {21,-10}, {12,-10}, {12,-18}, {99,99}, {-4,12}, {4,12}, {4,21}, {-4,21}, {-4,12}};
+    static constexpr GenreMark marks[] = {
+        {"acao|action|accion|azione|abenteuer|aventure|aventura|adventure", compass, sizeof(compass)/sizeof(MarkPoint), rgba(56, 104, 130)},
+        {"cart|card|karten|board|tabuleiro|tavolo|brett|mesa|societe", cards, sizeof(cards)/sizeof(MarkPoint), rgba(100, 78, 143)},
+        {"cassino|casino|glucksspiel", dice, sizeof(dice)/sizeof(MarkPoint), rgba(66, 121, 105)},
+        {"classic|class|clasico|klassik|retro", arcade, sizeof(arcade)/sizeof(MarkPoint), rgba(119, 84, 101)},
+        {"corrida|corsa|course|carreras|racing|renn|voo|flying", flag, sizeof(flag)/sizeof(MarkPoint), rgba(68, 105, 153)},
+        {"desafio|puzzle|rompecabezas|casse|ratsel|enigma|quebra", puzzle, sizeof(puzzle)/sizeof(MarkPoint), rgba(94, 93, 141)},
+        {"educ|lerne|lernen", book, sizeof(book)/sizeof(MarkPoint), rgba(56, 104, 130)},
+        {"esport|sport|deport", ball, sizeof(ball)/sizeof(MarkPoint), rgba(100, 78, 143)},
+        {"estrat|strat", rook, sizeof(rook)/sizeof(MarkPoint), rgba(66, 121, 105)},
+        {"famil|kinder|kids|bambini|enfant|ninos", family, sizeof(family)/sizeof(MarkPoint), rgba(119, 84, 101)},
+        {"ferrament|outil|tools|strument|herramient|werkzeug", tools, sizeof(tools)/sizeof(MarkPoint), rgba(68, 105, 153)},
+        {"tiro|shooter|tir |de tir|sparatutto|dispar|schiess", target, sizeof(target)/sizeof(MarkPoint), rgba(94, 93, 141)},
+        {"indie|independ|unabhang", bulb, sizeof(bulb)/sizeof(MarkPoint), rgba(56, 104, 130)},
+        {"luta|lucha|briga|brawler|fight|combat|kampf|picchiaduro", glove, sizeof(glove)/sizeof(MarkPoint), rgba(100, 78, 143)},
+        {"rpg|role|rolle|rol |de rol|ruolo", crown, sizeof(crown)/sizeof(MarkPoint), rgba(66, 121, 105)},
+        {"music|musik|ritm|rhythm|rythm", notes, sizeof(notes)/sizeof(MarkPoint), rgba(119, 84, 101)},
+        {"simula", sliders, sizeof(sliders)/sizeof(MarkPoint), rgba(68, 105, 153)},
+        {"platform|plataform|plateform|jump", steps, sizeof(steps)/sizeof(MarkPoint), rgba(94, 93, 141)},
+        {"moba|multipl|arena", network, sizeof(network)/sizeof(MarkPoint), rgba(56, 104, 130)}
+    };
+    const std::string key = fold(title);
+    for (const auto& mark : marks) {
+        std::string_view stems(mark.stems);
+        while (!stems.empty()) {
+            const size_t split = stems.find('|');
+            if (key.find(stems.substr(0, split)) != std::string::npos) return &mark;
+            if (split == std::string_view::npos) break;
+            stems.remove_prefix(split + 1);
+        }
+    }
+    return nullptr;
+}
+
+void drawGenreCard(Canvas& c, const Font& font, Rect r, const std::string& title, bool selected) {
+    const auto* mark = genreMark(title);
+    const Color tint = mark ? mark->tint : rgba(75, 99, 130);
+    c.fillRect(r, rgba(18,31,43), 14);
+    const Rect surface{r.x+6, r.y+6, r.w-12, r.h-12};
+    c.gradientV(surface, rgba(20,33,46), tint);
+    c.strokeRect(r, selected ? kWhite : withAlpha(tint, 190), selected ? 4 : 2, 14);
+    const int cx = r.x+r.w/2, cy = r.y+r.h/2-14;
+    if (mark) {
+        for (size_t i = 1; i < mark->size; ++i) {
+            const auto a = mark->points[i-1], b = mark->points[i];
+            if (a.x == 99 || b.x == 99) continue;
+            c.line(cx+a.x*1.55f, cy+a.y*1.55f, cx+b.x*1.55f, cy+b.y*1.55f, 4, kWhite);
+        }
+    } else {
+        size_t end = 1;
+        while (end < title.size() && (static_cast<unsigned char>(title[end]) & 0xC0) == 0x80) ++end;
+        const auto initial = title.substr(0,end);
+        c.strokeCircle(cx,cy,37,3,kWhite);
+        font.draw(c,initial,cx-font.measure(initial,38)/2,cy-24,38,kWhite);
+    }
+    const auto lines = font.wrap(title, 25, r.w-44, 2);
+    int y = r.y+r.h-32-static_cast<int>(lines.size())*30;
+    for (const auto& line : lines) { font.draw(c,line,r.x+22,y,25,kWhite); y+=30; }
+}
+
 constexpr Str profileActions[] = {Str::SocialFriends, Str::LocalNotices, Str::Achievements,
                                   Str::RedeemCode, Str::ManagePlan, Str::SignOut};
 const char* presenceLabel(const std::string& status) {
@@ -117,7 +203,31 @@ void AppUi::fillDirectory(DirectoryPage& page) {
     page.focus = std::clamp(page.focus, 0, std::max(0, count - 1));
 }
 
+bool AppUi::onCatalogShelf() const {
+    return tab_ == Tab::GamePass && focusRow_ >= 0 && focusRow_ < static_cast<int>(rows_.size()) &&
+           rows_[focusRow_].catalogId == xcloud::sigl::kAllGames;
+}
+
+AppUi::DirectoryPage& AppUi::activeDirectory() {
+    if (!directory_.empty()) return directory_.back();
+    if (shelfCatalogDirty_) {
+        shelfCatalog_.kind = Directory::All;
+        shelfCatalog_.title = tr(Str::BrowseAll);
+        fillDirectory(shelfCatalog_);
+        shelfCatalogDirty_ = false;
+    }
+    return shelfCatalog_;
+}
+
 void AppUi::backDirectory() {
+    if (directory_.empty()) {
+        if (focusRow_ > 0) --focusRow_;
+        else if (rows_.size() > 1) ++focusRow_;
+        else if (caps_.desktopWindow) { quitPrompt_ = true; promptFocus_ = 1; }
+        retarget();
+        dirty_ = true;
+        return;
+    }
     directory_.pop_back();
     if (!directory_.empty()) fillDirectory(directory_.back());
     if (directory_.empty() && directoryFromProfile_) {
@@ -140,7 +250,7 @@ void AppUi::activateProfile(UiEvent& ev) {
 }
 
 void AppUi::activateDirectory(UiEvent& ev) {
-    const auto& p = directory_.back();
+    const auto& p = activeDirectory();
     if ((p.kind == Directory::Link || (p.kind == Directory::Ubisoft && p.games.empty()))) {
         if (caps_.openUrl) { ev.action = Action::OpenUrl; ev.url = p.url; }
         return;
@@ -149,6 +259,13 @@ void AppUi::activateDirectory(UiEvent& ev) {
         const bool awards = p.kind == Directory::Awards;
         openDetails(p.games[p.focus]);
         if (awards) openAchievements();
+        return;
+    }
+    if (p.kind == Directory::Genres && (p.allButtonFocused || p.labels.empty())) {
+        const bool returnToAll = directory_.size() == 1 ? onCatalogShelf() :
+                                 directory_[directory_.size()-2].kind == Directory::All;
+        if (returnToAll) backDirectory();
+        else openDirectory(Directory::All, tr(Str::BrowseAll));
         return;
     }
     if (p.labels.empty()) return;
@@ -175,6 +292,13 @@ int AppUi::directoryColumns(const DirectoryPage& page) const {
 }
 
 Rect AppUi::directoryCell(const DirectoryPage& page, int index) const {
+    if (page.kind == Directory::Genres) {
+        constexpr int visible = 6, pitch = 284;
+        const int first = std::clamp(page.focus - visible/2, 0, std::max(0, int(page.labels.size()) - visible));
+        const int slot = index - first;
+        if (slot < 0 || slot >= visible) return {};
+        return {120 + slot*pitch, 296, 260, 392};
+    }
     const int cols = directoryColumns(page);
     const int visibleRows = cols == 6 || page.kind == Directory::Featured ? 2 : cols == 3 ? 4 : 7;
     const int count = static_cast<int>(std::max(page.games.size(), page.labels.size()));
@@ -188,8 +312,29 @@ Rect AppUi::directoryCell(const DirectoryPage& page, int index) const {
 }
 
 void AppUi::handleDirectory(const NavInput& in, UiEvent& ev) {
-    auto& p = directory_.back();
+    auto& p = activeDirectory();
     if (in.back) { backDirectory(); return; }
+    if (p.kind == Directory::Genres) {
+        const int last = static_cast<int>(p.labels.size())-1;
+        if (in.accept) activateDirectory(ev);
+        else if (in.down) p.allButtonFocused = true;
+        else if (in.up) p.allButtonFocused = false;
+        else if (last >= 0 && (in.left || in.right || in.scrollRows || in.scrollCards)) {
+            p.allButtonFocused = false;
+            const int step = in.scrollCards ? in.scrollCards : in.scrollRows ? in.scrollRows : in.right ? 1 : -1;
+            p.focus = std::clamp(p.focus + step, 0, last);
+        }
+        dirty_ = true;
+        return;
+    }
+    if (p.kind == Directory::All && in.square) { openDirectory(Directory::Genres, tr(Str::BrowseGenres)); return; }
+    if (directory_.empty() && (in.up || in.scrollRows < 0) && p.focus < directoryColumns(p) && focusRow_ > 0) {
+        backDirectory(); return;
+    }
+    if (directory_.empty() && (in.down || in.scrollRows > 0) && focusRow_+1 < static_cast<int>(rows_.size()) &&
+        (p.games.empty() || p.focus / 6 == (static_cast<int>(p.games.size())-1)/6)) {
+        ++focusRow_; retarget(); dirty_ = true; return;
+    }
     if (in.triangle && !p.games.empty()) {
         searching_ = searchOnKeys_ = true;
         query_.clear();
@@ -200,6 +345,7 @@ void AppUi::handleDirectory(const NavInput& in, UiEvent& ev) {
         if (count) {
             const int cols = directoryColumns(p);
             if (in.scrollRows) p.focus = std::clamp(p.focus + cols * in.scrollRows, 0, count - 1);
+            else if (in.scrollCards) p.focus = std::clamp(p.focus + in.scrollCards, 0, count-1);
             else moveInGrid(p.focus, count, cols, in);
         }
     }
@@ -207,12 +353,33 @@ void AppUi::handleDirectory(const NavInput& in, UiEvent& ev) {
 }
 
 bool AppUi::directoryPointer(float x, float y, int button, UiEvent& ev) {
-    auto& p = directory_.back();
+    auto& p = activeDirectory();
     if (button == 3 || (button == 1 && horizon::contains(horizon::kBrowseBack, x, y))) {
         backDirectory();
         return true;
     }
     if (button != 1) return true;
+    if (p.kind == Directory::All && horizon::contains(horizon::kCatalogGenres,x,y)) {
+        openDirectory(Directory::Genres,tr(Str::BrowseGenres)); return true;
+    }
+    if (p.kind == Directory::Genres) {
+        if (horizon::contains(horizon::kGenreAll,x,y)) {
+            p.allButtonFocused = true; activateDirectory(ev); return true;
+        }
+        if (horizon::contains(horizon::kGenrePrev,x,y) || horizon::contains(horizon::kGenreNext,x,y)) {
+            NavInput move;
+            move.scrollCards = x < kW/2 ? -1 : 1;
+            handleDirectory(move,ev); return true;
+        }
+    }
+    for (const auto& [icon, rect] : hintRects_) {
+        if (!horizon::contains(rect, x, y)) continue;
+        NavInput input;
+        if (icon == kIconSquare) input.square = true;
+        else if (icon == kIconCircle) input.back = true;
+        else continue;
+        handleDirectory(input,ev); return true;
+    }
     if (!p.games.empty() && horizon::contains(horizon::kBrowseSearch, x, y)) {
         NavInput search;
         search.triangle = true;
@@ -227,6 +394,7 @@ bool AppUi::directoryPointer(float x, float y, int button, UiEvent& ev) {
     for (int i = 0; i < count; ++i) {
         if (!horizon::contains(directoryCell(p, i), x, y)) continue;
         p.focus = i;
+        p.allButtonFocused = false;
         activateDirectory(ev);
         break;
     }
@@ -265,7 +433,7 @@ void AppUi::drawSocialButtons(Canvas& c) {
 }
 
 void AppUi::drawDirectory(Canvas& c) {
-    const auto& p = directory_.back();
+    const auto& p = activeDirectory();
     drawCollectionBackdrop(c, lastRender_, focusedTile());
     c.fillRect({0,0,kW,kH}, rgba(6, 14, 24, 158));
     const Rect back = horizon::kBrowseBack;
@@ -273,6 +441,13 @@ void AppUi::drawDirectory(Canvas& c) {
     c.line(back.x + 24, back.y + 32, back.x + 36, back.y + 44, 3, kWhite);
     fonts_.bold.draw(c, fonts_.bold.fit(p.title, 52, 1190), 184, 91, 52, kWhite);
     const int count = static_cast<int>(std::max(p.games.size(), p.labels.size()));
+    if (p.kind == Directory::All) {
+        const Rect r = horizon::kCatalogGenres;
+        c.fillRect(r, rgba(26,44,59,215), 15);
+        const auto name = tr(Str::BrowseGenres);
+        fonts_.semibold.draw(c, name, r.x+(r.w-fonts_.semibold.measure(name,24))/2,
+                             fonts_.semibold.centeredY(r.y,r.h,24),24,kWhite);
+    }
     if (!p.games.empty()) {
         fonts_.regular.draw(c, gamesCount(count), 186, 168, 23, kGray);
         fonts_.semibold.draw(c, tr(Str::TabSearch), horizon::kBrowseSearch.x + 22, 115, 24, kWhite);
@@ -293,7 +468,11 @@ void AppUi::drawDirectory(Canvas& c) {
     for (int i = begin; i < std::min(count, begin + 16 * cols); ++i) {
         const Rect r = directoryCell(p, i);
         if (!r.w) continue;
-        const bool selected = i == p.focus;
+        const bool selected = i == p.focus && !p.allButtonFocused;
+        if (p.kind == Directory::Genres) {
+            drawGenreCard(c,fonts_.semibold,r,p.labels[i],selected);
+            continue;
+        }
         if (!p.games.empty()) {
             const auto& tile = p.games[i];
             if (p.kind == Directory::Featured) {
@@ -323,8 +502,24 @@ void AppUi::drawDirectory(Canvas& c) {
                                  x, fonts_.semibold.centeredY(r.y,r.h,28), 28, kWhite);
         }
     }
+    if (p.kind == Directory::Genres) {
+        const auto chevron = [&](Rect r,int dir) {
+            const int cx = r.x+r.w/2, cy = r.y+r.h/2;
+            c.line(cx-5*dir,cy-10,cx+5*dir,cy,3,kWhite);
+            c.line(cx+5*dir,cy,cx-5*dir,cy+10,3,kWhite);
+        };
+        if (p.focus > 0) chevron(horizon::kGenrePrev,-1);
+        if (p.focus+1 < count) chevron(horizon::kGenreNext,1);
+        const Rect all = horizon::kGenreAll;
+        const bool focused = p.allButtonFocused || !count;
+        c.fillRect(all, focused ? kWhite : rgba(37,50,64,245), 12);
+        const auto label = tr(Str::ViewAllGames);
+        fonts_.semibold.draw(c,label,all.x+(all.w-fonts_.semibold.measure(label,23))/2,
+                             fonts_.semibold.centeredY(all.y,all.h,23),23,focused ? kBg : kWhite);
+    }
     hintRects_.clear();
-    drawHints(c, {{kIconCircle, tr(Str::Back)}});
+    if (p.kind == Directory::All) drawHints(c, {{kIconSquare,tr(Str::BrowseGenres)}, {kIconCircle,tr(Str::Back)}});
+    else drawHints(c, {{kIconCircle, tr(Str::Back)}});
 }
 
 } // namespace xc::ui

@@ -617,7 +617,7 @@ constexpr Column kEnglish = {
     "Carousel",
     "Spotlight",
     "Choose a centred carousel or a large featured cover with a strip of thumbnails.",
-    "Explore",
+    "Collections",
     "All games",
     "Genres",
     "NimboPlay highlights",
@@ -636,4 +636,5 @@ constexpr Column kEnglish = {
     "Offline",
     "Status unavailable",
     "View all",
+    "View all games",
 };

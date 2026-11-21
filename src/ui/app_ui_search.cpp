@@ -105,7 +105,7 @@ void AppUi::runSearch(bool keepPosition) {
         const GameTile* tile;
     };
     std::vector<Hit> hits;
-    const auto& pool = !directory_.empty() && !directory_.back().games.empty() ? directory_.back().games :
+    const auto& pool = (!directory_.empty() || onCatalogShelf()) ? activeDirectory().games :
                        tab_ == Tab::GamePass ? gamePassPool_ : libraryPool_;
     for (const auto& t : pool) {
         if (hidden_.count(t.productId) || storeUnavailableLocked(t)) continue;
