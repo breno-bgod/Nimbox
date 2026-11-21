@@ -1204,13 +1204,12 @@ void AppUi::drawNimboxHorizon(Canvas& c, uint64_t nowMs) {
 void AppUi::drawProfilePanel(Canvas& c) {
     const Rect panel = horizon::kProfilePanel;
     const int x = panel.x + 44, right = panel.x + panel.w - 44;
-    c.fillRect({0, 0, kW, kH}, withAlpha(kBg, 136));
-    c.fillRect(panel, kPanel, 26);
-    c.strokeRect(panel, preview31::kGlassLine, 1, 26);
+    c.gradientH({0, 0, panel.x, kH}, rgba(8, 13, 21, 105), rgba(8, 13, 21, 193));
+    c.gradientH({panel.x, 0, kW - panel.x, kH}, rgba(8, 13, 21, 193), rgba(8, 13, 21, 235));
+    c.fillRect({panel.x, panel.y + 36, 1, panel.h - 84}, withAlpha(kWhite, 56));
     const Color accent = nimbox_theme::palette(settings_.nimboxTheme).accent;
     fonts_.semibold.draw(c, tr(Str::Profile), x, panel.y + 36, 23, kGray);
     const Rect close = horizon::kProfileClose;
-    c.fillRect(close, withAlpha(kWhite, 18), 24);
     c.line(close.x + 17, close.y + 17, close.x + 31, close.y + 31, 2, kWhite);
     c.line(close.x + 31, close.y + 17, close.x + 17, close.y + 31, 2, kWhite);
 
@@ -1254,7 +1253,8 @@ void AppUi::drawProfilePanel(Canvas& c) {
 
     // Hide base-screen touch targets while this native modal has focus.
     hintRects_.clear();
-    c.fillRect({0, kH - 82, kW, 82}, rgba(3, 11, 24, 246));
+    c.gradientV({0, kH - 120, kW, 40}, rgba(8, 13, 21, 0), rgba(8, 13, 21));
+    c.fillRect({0, kH - 80, kW, 80}, rgba(8, 13, 21));
     drawHints(c, {{kIconCircle, tr(Str::Back)}});
 }
 
