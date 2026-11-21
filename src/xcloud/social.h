@@ -19,6 +19,12 @@ struct FriendPresence {
     bool isGame = false;
 };
 
+struct ChatMessage {
+    std::string sender, text, timestamp;
+};
+bool readConversation(const std::string& auth, const std::string& peer, std::vector<ChatMessage>& messages);
+bool sendChatMessage(const std::string& auth, const std::string& peer, const std::string& text);
+
 // Fetches the signed-in user's friends list and their active presence.
 // Uses PeopleHub API with contract version 2.
 // `xblAuth`: "XBL3.0 x=...;token" for http://xboxlive.com.

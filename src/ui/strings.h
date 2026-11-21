@@ -646,6 +646,7 @@ enum class Str {
     NoStatus,
     OpenCollection,
     ViewAllGames,
+    ChatOpen, ChatSend, ChatCompose, ChatEmpty, ChatLoading, ChatUnavailable, ChatUnconfirmed, ChatSelf, ChatMessages,
     Count
 };
 

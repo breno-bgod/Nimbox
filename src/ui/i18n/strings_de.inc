@@ -637,4 +637,13 @@ constexpr Column kGerman = {
     "Status nicht verfügbar",
     "Alle anzeigen",
     "Alle Spiele ansehen",
+    "Chat öffnen",
+    "Senden",
+    "Nachricht schreiben",
+    "Noch keine Nachrichten",
+    "Unterhaltung wird geladen…",
+    "Unterhaltung nicht verfügbar",
+    "Versand unbestätigt. Prüfe den Chat vor dem erneuten Senden.",
+    "Du",
+    "Nachrichten",
 };

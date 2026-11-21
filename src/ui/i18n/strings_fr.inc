@@ -637,4 +637,13 @@ constexpr Column kFrench = {
     "Statut indisponible",
     "Tout voir",
     "Voir tous les jeux",
+    "Discuter",
+    "Envoyer",
+    "Écrire un message",
+    "Aucun message",
+    "Chargement de la conversation…",
+    "Conversation indisponible",
+    "Envoi non confirmé. Vérifiez la conversation avant de réessayer.",
+    "Vous",
+    "Messages",
 };

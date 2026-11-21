@@ -637,4 +637,13 @@ constexpr Column kEnglish = {
     "Status unavailable",
     "View all",
     "View all games",
+    "Chat",
+    "Send",
+    "Write a message",
+    "No messages yet",
+    "Loading conversation…",
+    "Conversation unavailable",
+    "Delivery unconfirmed. Check the conversation before sending again.",
+    "You",
+    "Messages",
 };

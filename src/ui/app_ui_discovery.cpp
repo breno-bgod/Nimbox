@@ -148,14 +148,14 @@ void AppUi::fillDirectory(DirectoryPage& page) {
         page.labels = {tr(Str::BrowseAll), tr(Str::BrowseGenres), tr(Str::BrowseFeatured),
                        tr(Str::BrowsePass), tr(Str::FilterMouseKeyboard), tr(Str::BrowseOwn), "Ubisoft+ Classics"};
         for (const auto& row : rows_)
-            if (!row.isGrid && row.catalogId != xcloud::sigl::kUbisoftClassics && row.title != tr(Str::HiddenSection)) page.labels.push_back(row.title);
+            if (!row.isGrid && row.catalogId != horizon::kGenreShelf && row.catalogId != xcloud::sigl::kUbisoftClassics && row.title != tr(Str::HiddenSection)) page.labels.push_back(row.title);
     } else if (kind == Directory::Friends) {
         for (const auto& f : friends_) page.labels.push_back(f.gamertag);
     } else if (kind == Directory::Notices) {
         page.labels = notices_;
     } else if (kind == Directory::SignOut) {
         page.labels = {tr(Str::Cancel), tr(Str::SignOut)};
-    } else if (kind != Directory::Link) {
+    } else if (kind != Directory::Link && kind != Directory::Chat) {
         std::unordered_set<std::string> seen;
         std::set<std::string> genres;
         auto append = [&](const std::vector<GameTile>& pool) {
@@ -211,7 +211,7 @@ void AppUi::fillDirectory(DirectoryPage& page) {
 
 bool AppUi::onCatalogShelf() const {
     return tab_ == Tab::GamePass && focusRow_ >= 0 && focusRow_ < static_cast<int>(rows_.size()) &&
-           rows_[focusRow_].catalogId == xcloud::sigl::kAllGames;
+           (rows_[focusRow_].catalogId == xcloud::sigl::kAllGames || rows_[focusRow_].catalogId == horizon::kGenreShelf);
 }
 
 AppUi::DirectoryPage& AppUi::activeDirectory() {
@@ -220,9 +220,12 @@ AppUi::DirectoryPage& AppUi::activeDirectory() {
         shelfCatalog_.kind = Directory::All;
         shelfCatalog_.title = tr(Str::BrowseAll);
         fillDirectory(shelfCatalog_);
+        shelfGenres_.kind = Directory::Genres;
+        shelfGenres_.title = tr(Str::BrowseGenres);
+        fillDirectory(shelfGenres_);
         shelfCatalogDirty_ = false;
     }
-    return shelfCatalog_;
+    return rows_[focusRow_].catalogId == horizon::kGenreShelf ? shelfGenres_ : shelfCatalog_;
 }
 
 void AppUi::backDirectory() {
@@ -234,6 +237,7 @@ void AppUi::backDirectory() {
         dirty_ = true;
         return;
     }
+    if (directory_.back().kind == Directory::Chat) { ++chatSession_; chat_ = {}; }
     directory_.pop_back();
     if (!directory_.empty()) fillDirectory(directory_.back());
     if (directory_.empty() && directoryFromProfile_) {
@@ -268,6 +272,13 @@ void AppUi::activateDirectory(UiEvent& ev) {
         return;
     }
     if (p.kind == Directory::Genres && (p.allButtonFocused || p.labels.empty())) {
+        if (directory_.empty()) {
+            shelfGenres_.allButtonFocused = false;
+            ++focusRow_;
+            retarget();
+            dirty_ = true;
+            return;
+        }
         const bool returnToAll = directory_.size() == 1 ? onCatalogShelf() :
                                  directory_[directory_.size()-2].kind == Directory::All;
         if (returnToAll) backDirectory();
@@ -276,7 +287,13 @@ void AppUi::activateDirectory(UiEvent& ev) {
     }
     if (p.labels.empty()) return;
     const std::string label = p.labels[p.focus];
-    if (p.kind == Directory::Genres) openDirectory(Directory::GenreGames, label);
+    if (p.kind == Directory::Friends && p.focus < int(friends_.size())) {
+        if (friends_[p.focus].xuid.empty()) return;
+        ++chatSession_;
+        chat_ = {};
+        chat_.peer = friends_[p.focus].xuid;
+        openDirectory(Directory::Chat, label);
+    } else if (p.kind == Directory::Genres) openDirectory(Directory::GenreGames, label);
     else if (p.kind == Directory::Explore) {
         const Directory kinds[] = {Directory::All, Directory::Genres, Directory::Featured, Directory::Pass,
                                    Directory::Keyboard, Directory::Own};
@@ -313,16 +330,149 @@ Rect AppUi::directoryCell(const DirectoryPage& page, int index) const {
     if (row < 0 || row >= visibleRows) return {};
     if (cols == 6) return {180 + index % 6 * kCardPitch, 265 + row * 324, kCard, kCard};
     if (page.kind == Directory::Featured) return {102 + (index % 2) * 872, 242 + row * 350, 844, 308};
+    if (page.kind == Directory::Friends) return {120, 245 + row*98, 820, 82};
     const int pitch = cols == 3 ? 566 : 1570;
     return {120 + (index % cols) * pitch, 245 + row * (cols == 3 ? 166 : 98), pitch - 24, cols == 3 ? 140 : 82};
+}
+
+namespace {
+constexpr Rect kChatAction{1060, 610, 350, 76};
+constexpr char kChatKeys[] = "abcdefghijklmnopqrstuvwxyz0123456789 .?!";
+Rect chatKeyRect(int key) {
+    if (key >= 40) return {1050 + (key-40)*340, 718, 316, 68};
+    return {1050 + key%10*68, 402 + key/10*76, 61, 66};
+}
+}
+
+bool AppUi::inChat() const {
+    return screen_ == Screen::Home && !directory_.empty() && directory_.back().kind == Directory::Chat;
+}
+
+AppUi::ChatRequest AppUi::takeChatRequest(uint64_t nowMs) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (!inChat() || chat_.busy || (!chat_.sendQueued && nowMs < chat_.nextRead)) return {};
+    chat_.busy = true;
+    chat_.sending = chat_.sendQueued;
+    chat_.sendQueued = false;
+    return {chatSession_, chat_.peer, chat_.sending ? chat_.draft : ""};
+}
+
+void AppUi::finishChatRequest(const ChatRequest& req, bool ok, std::vector<xcloud::ChatMessage> lines, uint64_t nowMs) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (!inChat() || req.session != chatSession_ || req.peer != chat_.peer || !chat_.busy) return;
+    chat_.busy = chat_.sending = false;
+    if (req.text.empty()) {
+        chat_.readFailed = !ok;
+        if (ok) { chat_.lines = std::move(lines); chat_.loaded = true; }
+        chat_.historyOffset = std::clamp(chat_.historyOffset, 0, std::max(0,int(chat_.lines.size())-1));
+        chat_.nextRead = nowMs + 15000;
+    } else {
+        chat_.sendFailed = !ok;
+        if (ok) { chat_.draft.clear(); chat_.historyOffset = 0; }
+        chat_.nextRead = 0;
+    }
+    dirty_ = true;
+}
+
+void AppUi::editChat(std::string_view input) {
+    if (chat_.sending || chat_.sendQueued) return;
+    for (size_t i = 0; i < input.size();) {
+        unsigned char c = input[i];
+        if (c == '\b' && !chat_.draft.empty()) {
+            while (!chat_.draft.empty() && (static_cast<unsigned char>(chat_.draft.back()) & 0xc0) == 0x80)
+                chat_.draft.pop_back();
+            if (!chat_.draft.empty()) chat_.draft.pop_back();
+        } else if (c == '\n' || c == '\r') {
+            pressChatKey(41);
+            return;
+        } else if (c >= 32) {
+            size_t len = c < 128 ? 1 : c < 224 ? 2 : c < 240 ? 3 : 4;
+            if (i+len > input.size() || chat_.draft.size()+len > 256) break;
+            chat_.draft.append(input.data()+i, len);
+            i += len;
+            continue;
+        }
+        ++i;
+    }
+    dirty_ = true;
+}
+
+void AppUi::pressChatKey(int key) {
+    if (key == 41) {
+        if (!chat_.sending && !chat_.sendQueued && chat_.draft.find_first_not_of(' ') != std::string::npos) {
+            chat_.sendQueued = true;
+            chat_.sendFailed = false;
+        }
+    } else if (key == 40) editChat("\b");
+    else if (key >= 0 && key < 40) editChat(std::string_view(kChatKeys + key, 1));
+    dirty_ = true;
+}
+
+void AppUi::drawChat(Canvas& c, const std::string& name) {
+    fonts_.semibold.draw(c,tr(Str::ChatMessages),120,235,29,kWhite);
+    int y = 303;
+    const int end = int(chat_.lines.size())-chat_.historyOffset;
+    for (int i = std::max(0,end-4); i < end; ++i) {
+        const auto& msg = chat_.lines[i];
+        fonts_.semibold.draw(c, msg.sender == chat_.peer ? name : tr(Str::ChatSelf),120,y,20,kWhite);
+        y += 35;
+        for (const auto& line : fonts_.regular.wrap(msg.text,24,820,3)) {
+            fonts_.regular.draw(c,line,120,y,24,kWhite);
+            y += 31;
+        }
+        y += 18;
+    }
+    if (chat_.readFailed || !end) {
+        const Str status = chat_.readFailed ? Str::ChatUnavailable : chat_.loaded ? Str::ChatEmpty : Str::ChatLoading;
+        fonts_.regular.draw(c,tr(status),120,y,24,kGray);
+    }
+    fonts_.semibold.draw(c,tr(Str::ChatCompose),1050,235,29,kWhite);
+    y = 300;
+    for (const auto& line : fonts_.regular.wrap(chat_.draft,23,665,3)) {
+        fonts_.regular.draw(c,line,1050,y,23,kWhite); y += 30;
+    }
+    for (int i=0;i<42;++i) {
+        Rect r = chatKeyRect(i);
+        bool focus = i == chat_.key;
+        if (focus || i >= 40) c.fillRect(r,focus ? kWhite : withAlpha(kWhite,32),12);
+        std::string label = i == 41 ? tr(Str::ChatSend) : i == 40 ? tr(Str::KeyDelete) :
+                            i == 36 ? "_" : std::string(1,kChatKeys[i]);
+        fonts_.semibold.draw(c,label,r.x+(r.w-fonts_.semibold.measure(label,24))/2,
+                             fonts_.semibold.centeredY(r.y,r.h,24),24,focus ? kBg : kWhite);
+    }
+    if (chat_.sendFailed) {
+        y = 810;
+        for (const auto& line : fonts_.regular.wrap(tr(Str::ChatUnconfirmed),22,680,3)) {
+            fonts_.regular.draw(c,line,1050,y,22,kWhite); y += 30;
+        }
+    }
+    hintRects_.clear();
+    drawHints(c,{{kIconL1R1,tr(Str::ChatMessages)}, {kIconCircle,tr(Str::Back)}});
 }
 
 void AppUi::handleDirectory(const NavInput& in, UiEvent& ev) {
     auto& p = activeDirectory();
     if (in.back) { backDirectory(); return; }
+    if (p.kind == Directory::Chat) {
+        int& key = chat_.key;
+        if (in.accept) pressChatKey(key);
+        else if (in.left) key = std::max(key >= 40 ? 40 : (key/10)*10, key-1);
+        else if (in.right) key = std::min(key >= 40 ? 41 : (key/10)*10+9, key+1);
+        else if (in.up) key = key >= 40 ? (key == 40 ? 32 : 37) : std::max(0,key-10);
+        else if (in.down && key < 40) key = key >= 30 ? (key < 35 ? 40 : 41) : key+10;
+        else if (in.l1 || in.r1 || in.scrollRows)
+            chat_.historyOffset = std::clamp(chat_.historyOffset + (in.l1 || in.scrollRows < 0 ? 1 : -1),
+                                             0,std::max(0,int(chat_.lines.size())-1));
+        dirty_ = true;
+        return;
+    }
     if (p.kind == Directory::Genres) {
         const int last = static_cast<int>(p.labels.size())-1;
         if (in.accept) activateDirectory(ev);
+        else if (directory_.empty() && (in.up || in.down || in.scrollRows)) {
+            focusRow_ = std::clamp(focusRow_ + (in.up || in.scrollRows < 0 ? -1 : 1), 0, int(rows_.size())-1);
+            retarget();
+        }
         else if (in.down) p.allButtonFocused = true;
         else if (in.up) p.allButtonFocused = false;
         else if (last >= 0 && (in.left || in.right || in.scrollRows || in.scrollCards)) {
@@ -366,6 +516,15 @@ bool AppUi::directoryPointer(float x, float y, int button, UiEvent& ev) {
         return true;
     }
     if (button != 1) return true;
+    if (p.kind == Directory::Chat) {
+        for (int i=0;i<42;++i) if (horizon::contains(chatKeyRect(i),x,y)) {
+            chat_.key = i; pressChatKey(i); break;
+        }
+        return true;
+    }
+    if (p.kind == Directory::Friends && horizon::contains(kChatAction,x,y)) {
+        activateDirectory(ev); return true;
+    }
     if (p.kind == Directory::All && horizon::contains(horizon::directoryHeading(horizon::kCatalogGenres,inlineShelf),x,y)) {
         openDirectory(Directory::Genres,tr(Str::BrowseGenres)); return true;
     }
@@ -442,7 +601,6 @@ void AppUi::drawSocialButtons(Canvas& c) {
 void AppUi::drawDirectory(Canvas& c) {
     const auto& p = activeDirectory();
     drawCollectionBackdrop(c, lastRender_, focusedTile());
-    c.fillRect({0,0,kW,kH}, rgba(6, 14, 24, 158));
     const bool inlineShelf = directory_.empty();
     if (inlineShelf) {
         drawTopBar(c,true);
@@ -453,6 +611,7 @@ void AppUi::drawDirectory(Canvas& c) {
     c.line(back.x + 36, back.y + 20, back.x + 24, back.y + 32, 3, kWhite);
     c.line(back.x + 24, back.y + 32, back.x + 36, back.y + 44, 3, kWhite);
     fonts_.bold.draw(c, fonts_.bold.fit(p.title, 52, 1190), 184, titleY, 52, kWhite);
+    if (p.kind == Directory::Chat) { drawChat(c,p.title); return; }
     const int count = static_cast<int>(std::max(p.games.size(), p.labels.size()));
     if (p.kind == Directory::All) {
         const Rect r = horizon::directoryHeading(horizon::kCatalogGenres,inlineShelf);
@@ -501,18 +660,33 @@ void AppUi::drawDirectory(Canvas& c) {
                     tr(tile.purchasable && !tile.playable ? Str::BuyToPlay : Str::Play), r.x, r.y+r.h+40, 18, kGray);
             }
         } else {
-            c.fillRect(r, selected ? rgba(61, 83, 103, 220) : rgba(22, 36, 51, 193), 12);
-            if (selected) c.strokeRect(r, kWhite, 2, 12);
+            if (selected) {
+                c.fillRect(r, withAlpha(kWhite,32), 12);
+                c.fillRect({r.x,r.y+18,3,r.h-36}, kWhite, 2);
+            }
             int x = r.x+28;
             if (p.kind == Directory::Friends && i < int(friends_.size())) {
                 const auto& who = friends_[i];
                 if (auto avatar = images_.get(who.gamerpicUrl, 52, 52)) c.drawImage(*avatar,x,r.y+15,255,-1);
                 x += 72;
-                const auto activity = who.presenceText.empty() ? presenceLabel(who.presenceState) : who.presenceText;
-                fonts_.regular.draw(c, fonts_.regular.fit(activity, 22, r.w/2), r.x+r.w/2, r.y+25, 22, kGray);
+                c.fillCircle(x-25,r.y+56,6,who.presenceState == "Online" ? rgba(139,232,174) : kGray);
             }
-            fonts_.semibold.draw(c, fonts_.semibold.fit(p.labels[i], 28, p.kind == Directory::Friends ? r.w/2-122 : r.w-56),
+            fonts_.semibold.draw(c, fonts_.semibold.fit(p.labels[i], 28, p.kind == Directory::Friends ? r.w-125 : r.w-56),
                                  x, fonts_.semibold.centeredY(r.y,r.h,28), 28, kWhite);
+        }
+    }
+    if (p.kind == Directory::Friends && p.focus < int(friends_.size())) {
+        const auto& who = friends_[p.focus];
+        if (auto pic = images_.get(who.gamerpicUrl,128,128)) c.drawImage(*pic,1060,248,255,-1);
+        fonts_.bold.draw(c,fonts_.bold.fit(who.gamertag,49,715),1060,410,49,kWhite);
+        fonts_.semibold.draw(c,presenceLabel(who.presenceState),1060,481,24,kWhite);
+        int y = 525;
+        for (const auto& line : fonts_.regular.wrap(who.presenceText,22,720,2)) {
+            fonts_.regular.draw(c,line,1060,y,22,kWhite); y += 28;
+        }
+        if (!who.xuid.empty()) {
+            c.fillRect(kChatAction,kWhite,16);
+            fonts_.semibold.draw(c,tr(Str::ChatOpen),kChatAction.x+28,kChatAction.y+21,27,kBg);
         }
     }
     if (p.kind == Directory::Genres) {

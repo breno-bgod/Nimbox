@@ -637,4 +637,13 @@ constexpr Column kItalian = {
     "Stato non disponibile",
     "Vedi tutti",
     "Vedi tutti i giochi",
+    "Chat",
+    "Invia",
+    "Scrivi un messaggio",
+    "Nessun messaggio",
+    "Caricamento conversazione…",
+    "Conversazione non disponibile",
+    "Invio non confermato. Controlla la conversazione prima di riprovare.",
+    "Tu",
+    "Messaggi",
 };

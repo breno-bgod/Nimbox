@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <vector>
 namespace xc::ui::horizon {
+inline constexpr char kGenreShelf[] = "horizon:genres";
 // 1920x1080 PS5-safe stage: all visible covers stay within 96px side margins.
 // Seven well-spaced covers, never overlapping in the 1080p TV safe area.
 constexpr int kCenterX = 960, kPitch = 218, kSideItems = 3;

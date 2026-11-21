@@ -433,7 +433,9 @@ int desktopSelftest(const std::string& dir) {
             ui.setRows({showcase, all, ubi});
             ui::NavInput down, accept, back, up;
             down.down = accept.accept = back.back = up.up = true;
-            ui.onMouseWheel(0, -1);
+            ui.onMouseWheel(0, -1); // Ubisoft+ Classics
+            ui.handle(down);        // Genres, inline
+            ui.onMouseWheel(0, -1); // All games, already in grid mode
             ui.handle(accept);
             check(ui.screen() == ui::Screen::Details && ui.detailTile().productId == all.tiles[0].productId,
                   "Scrolling to All games immediately exposes the first playable tile");
@@ -460,7 +462,6 @@ int desktopSelftest(const std::string& dir) {
                   "Compact genre footer restores full library focus");
             ui.handle(back);
             ui.handle(back); // Back from the inline library restores the preceding shelf
-            ui.onMouseDown(860, 460, 1);  // Genres directly from the home
             ui.render(canvas, platform::nowMs());
             drawCanvas(canvas);
             check(screenshot(dir, "6j-horizon-genres.png", shot) && varied(shot), "Genre picker capture");
@@ -480,6 +481,7 @@ int desktopSelftest(const std::string& dir) {
             ui.handle(back);
             ui.handle(back);
             xcloud::FriendPresence friendOnline;
+            friendOnline.xuid = "12345";
             friendOnline.gamertag = "Test player";
             friendOnline.presenceState = "Online";
             ui.setSocial({friendOnline}, "Away", true);
@@ -487,6 +489,27 @@ int desktopSelftest(const std::string& dir) {
             ui.render(canvas, platform::nowMs());
             drawCanvas(canvas);
             check(screenshot(dir, "6k-horizon-friends.png", shot) && varied(shot), "Friends screen capture");
+            ui.handle(back);
+            ui.onMouseDown(1314, 70, 1);
+            ui.handle(accept);
+            auto read = ui.takeChatRequest(100);
+            check(read.peer == friendOnline.xuid && read.text.empty() && read.session, "Open the selected friend's conversation");
+            ui.finishChatRequest(read,true,{{"12345","Example reply","2026-01-01"}},100);
+            ui.typeText("Hello");
+            ui.onMouseDown(1480,749,1);
+            auto send = ui.takeChatRequest(110);
+            check(send.text == "Hello" && send.peer == "12345" && !ui.takeChatRequest(111).session,
+                  "An explicit send queues one request addressed to the selected XUID");
+            ui.finishChatRequest(send,false,{},120);
+            auto refresh = ui.takeChatRequest(125);
+            check(refresh.session && refresh.text.empty(),"Unconfirmed delivery refreshes history without resending");
+            ui.finishChatRequest(refresh,true,{},126);
+            ui.onMouseDown(1480,749,1);
+            auto retry = ui.takeChatRequest(130);
+            check(retry.text == "Hello", "Failed send preserves the draft for manual retry");
+            ui.handle(back);
+            ui.finishChatRequest(retry,true,{},140);
+            check(!ui.wantsTextInput() && !ui.takeChatRequest(150).session, "Leaving chat discards stale results");
             ui.handle(back);
             ui.showToast("Test notification");
             ui.onMouseDown(1370, 70, 1);

@@ -170,7 +170,10 @@ void AppUi::setProfile(const std::string& gamertag, const std::string& gamerpicU
     std::lock_guard<std::mutex> lock(mutex_);
     if (gamertag_ != gamertag || gamertag.empty()) {
         directory_.clear();
+        ++chatSession_;
+        chat_ = {};
         shelfCatalog_ = {};
+        shelfGenres_ = {};
         shelfCatalogDirty_ = true;
         friends_.clear();
         friendsLoaded_ = false;
@@ -421,6 +424,24 @@ void AppUi::rebuild(bool keepPosition) {
         rows.push_back(std::move(r));
     }
     if (!hiddenRow.tiles.empty()) rows.push_back(std::move(hiddenRow));
+    // Keep discovery at the end, including after cached or user-hidden shelves.
+    std::stable_partition(rows.begin(), rows.end(), [](const GameRow& row) {
+        return row.catalogId != xcloud::sigl::kUbisoftClassics && row.catalogId != xcloud::sigl::kAllGames;
+    });
+    std::stable_partition(rows.begin(), rows.end(), [](const GameRow& row) {
+        return row.catalogId != xcloud::sigl::kAllGames;
+    });
+    auto catalog = std::find_if(rows.begin(), rows.end(), [](const GameRow& row) {
+        return row.catalogId == xcloud::sigl::kAllGames && !row.tiles.empty();
+    });
+    if (catalog != rows.end()) {
+        GameRow genres;
+        genres.title = tr(Str::BrowseGenres);
+        genres.catalogId = horizon::kGenreShelf;
+        // The home renderer uses a shelf's first tile for the ambient artwork.
+        genres.tiles.push_back(catalog->tiles.front());
+        rows.insert(catalog, std::move(genres));
+    }
     setRowsLocked(std::move(rows));
 
     if (keepPosition) {

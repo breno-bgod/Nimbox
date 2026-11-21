@@ -1,12 +1,63 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 RafaelNGP
 #include "xcloud/social.h"
+#include <algorithm>
 
 #include "net/http.h"
 #include "util/json.h"
 #include "util/log.h"
 
 namespace xc::xcloud {
+
+namespace {
+bool conversationRequest(net::Request& req, const std::string& auth, const std::string& peer) {
+    if (auth.empty() || peer.empty() || peer.size() > 20 || peer.find_first_not_of("0123456789") != std::string::npos) return false;
+    req.url = "https://xblmessaging.xboxlive.com/network/Xbox/users/me/conversations/users/xuid(" + peer + ")";
+    req.headers = {{"Authorization", auth}, {"x-xbl-contract-version", "1"}};
+    req.timeoutMs = 6000;
+    return true;
+}
+}
+
+bool readConversation(const std::string& auth, const std::string& peer, std::vector<ChatMessage>& messages) {
+    net::Request req;
+    if (!conversationRequest(req, auth, peer)) return false;
+    req.url += "?maxItems=24";
+    auto response = net::perform(req);
+    if (response.status == 404) { messages.clear(); return true; }
+    if (!response.ok()) return false;
+    auto body = json::parse(response.body);
+    if (!body || !body->isObject() || !body->has("conversationId")) return false;
+    std::vector<ChatMessage> result;
+    for (const auto& message : (*body)["messages"].items()) {
+        if (message["isDeleted"].asBool()) continue;
+        ChatMessage line{message["sender"].str(), {}, message["timestamp"].str()};
+        for (const auto& part : message["contentPayload"]["content"]["parts"].items()) {
+            if (part["contentType"].str() == "text" && part["unsuitableFor"].size() == 0)
+                line.text += part["text"].str();
+        }
+        if (!line.text.empty()) result.push_back(std::move(line));
+    }
+    std::stable_sort(result.begin(), result.end(), [](const ChatMessage& a, const ChatMessage& b) {
+        return a.timestamp < b.timestamp;
+    });
+    messages = std::move(result);
+    return true;
+}
+
+bool sendChatMessage(const std::string& auth, const std::string& peer, const std::string& text) {
+    net::Request req;
+    if (!conversationRequest(req, auth, peer) || text.size() > 256 || text.find_first_not_of(' ') == std::string::npos)
+        return false;
+    req.method = "POST";
+    req.headers.emplace_back("Content-Type", "application/json");
+    auto part = json::Value::object();
+    part.set("contentType","text").set("version",0).set("text",text);
+    auto parts = json::Value::array();
+    parts.push(std::move(part));
+    req.body = json::Value::object().set("parts",std::move(parts)).dump();
+    return net::perform(req).ok();
+}
 
 std::string fetchOwnPresence(const std::string& auth) {
     if (auth.empty()) return {};

@@ -172,7 +172,7 @@ void AppUi::drawTopBar(Canvas& c, bool overArt) {
     c.strokeCircle(scx, scy, 9.5f, 3.5f, kWhite);
     c.fillCircle(scx, scy, 4.0f, rgba(20, 20, 20));
     if (overArt) {
-        drawSocialButtons(c);
+        if (screen_ == Screen::Home && !searching_) drawSocialButtons(c);
         const auto name = fonts_.semibold.fit(gamertag_, kGamertagPx, 250);
         fonts_.semibold.draw(c, name, x - 16 - fonts_.semibold.measure(name, kGamertagPx),
                              fonts_.semibold.centeredY(46, 52, kGamertagPx), kGamertagPx, kWhite);
@@ -730,8 +730,12 @@ void AppUi::drawGrid(Canvas& c, const std::vector<GameTile>& tiles, int x0, int 
 
 void AppUi::drawCollectionBackdrop(Canvas& c, uint64_t nowMs, const GameTile* game) {
     c.gradientV({0, 0, kW, kH}, rgba(38, 54, 72), rgba(8, 15, 26));
-    if (game && !game->heroUrl.empty()) drawHero(c, nowMs, game->heroUrl, true, true);
-    c.gradientV({0, 0, kW, kH}, rgba(6, 12, 20, 106), rgba(6, 12, 20, 221));
+    if (game && !drawHero(c, nowMs, game->heroUrl, true, true) && !game->tileUrl.empty()) {
+        if (auto cover = images_.get(game->tileUrl, kH, kH))
+            c.drawImage(*cover, kW-kH, 0);
+    }
+    c.gradientH({0,0,kW,kH}, rgba(5,10,17,192), rgba(5,10,17,15));
+    c.gradientV({0,0,kW,kH}, rgba(5,10,17,32), rgba(5,10,17,160));
 }
 
 void AppUi::drawLibrary(Canvas& c, uint64_t nowMs) {
@@ -823,11 +827,11 @@ void AppUi::drawLibrary(Canvas& c, uint64_t nowMs) {
 }
 
 void AppUi::drawSearch(Canvas& c, uint64_t nowMs) {
-    drawBackground(c);
+    drawCollectionBackdrop(c, nowMs, focusedTile());
     // Results on the right.
     drawGrid(c, results_, kResultsX, kGridTop, kResultCols, resultScroll_.value, searchOnKeys_ ? -1 : resultFocus_,
              kGridTop - 20);
-    drawTopBar(c);
+    drawTopBar(c, true);
     drawTabs(c);
     const char* scope = tab_ == Tab::GamePass ? tr(Str::TabGamePass) : tr(Str::YourGames);
     bool filtering = anyFilter();
@@ -1097,7 +1101,6 @@ void AppUi::drawNimboxHorizon(Canvas& c, uint64_t nowMs) {
         fonts_.semibold.draw(c, name, r.x+8, fonts_.semibold.centeredY(r.y,r.h,23), 23, kWhite);
     };
     browseLink(horizon::kExplore, Str::BrowseHome);
-    browseLink(horizon::kHomeGenres, Str::BrowseGenres);
     browseLink(horizon::kViewShelf, Str::OpenCollection);
     const int count = int(row.tiles.size());
     if (count <= 0) {
@@ -1304,30 +1307,9 @@ void AppUi::drawDetails(Canvas& c, uint64_t nowMs) {
     const bool needsPurchase = !effectivePlayable && !g->playable && (isF2P || g->purchasable);
     const char* planName = planDisplayName(g->plan);
 
-    if (!drawHero(c, nowMs, g->heroUrl, true)) {
-        drawBackground(c);
-        // Never reuse the previous game's hero when this one has no art.
-        if (auto cover = images_.get(g->tileUrl, 900, 900))
-            c.drawImage(*cover, 900, 70, 160, 18);
-    }
-
-    // A quiet editorial stage, not a large opaque "app card". The artwork
-    // remains visible between the text and the narrow information rail.
-    c.gradientH({0, 160, 1130, 750}, rgba(4, 13, 24, 174), rgba(4, 13, 24, 0));
-    c.gradientH({1320, 162, 600, 762}, rgba(3, 11, 20, 0), rgba(3, 11, 20, 190));
-    c.gradientV({0, 745, kW, 210}, rgba(5, 13, 23, 0), rgba(5, 13, 23, 205));
-    c.fillRect(showcase::kFrame, rgba(8, 20, 35, 28), 20);
-    c.strokeRect(showcase::kFrame, rgba(216, 232, 247, 76), 1, 20);
-    // Fine section markers and a PlayStation-style cool-white focused state.
-    c.fillRect({showcase::kTextX, 233, 48, 3}, preview31::kAccent, 2);
-    fonts_.semibold.draw(c, tr(Str::DetailsShowcase), showcase::kTextX, 248, 19,
-                         preview31::kMuted);
-
-    drawTopBar(c);
-    // The gear is also a touch target; L2 opens these system settings from a
-    // game detail without replacing the existing Options/game profile menu.
-    fonts_.regular.draw(c, tr(Str::SettingsDetailsShortcut), 1584, 141, 18,
-                        rgba(197, 220, 235));
+    drawCollectionBackdrop(c, nowMs, g);
+    c.gradientH({1040, 0, 880, kH}, rgba(6,10,16,0), rgba(6,10,16,173));
+    drawTopBar(c, true);
 
     // Main editorial column.
     int titleY = 288;
@@ -1370,8 +1352,6 @@ void AppUi::drawDetails(Canvas& c, uint64_t nowMs) {
 
     // About the game. Keep full descriptions in the model, trim ONLY the
     // presentation to leave the action row fixed for all title lengths.
-    c.line(showcase::kTextX, 559, showcase::kTextX + 625, 559, 1,
-           rgba(208, 232, 239, 90));
     fonts_.semibold.draw(c, tr(Str::DetailsAbout), showcase::kTextX, 580, 24, kWhite);
     int descY = 622;
     for (const auto& line : fonts_.regular.wrap(g->description, 23, 905, needsPurchase ? 2 : 4)) {
@@ -1380,12 +1360,6 @@ void AppUi::drawDetails(Canvas& c, uint64_t nowMs) {
         descY += 34;
     }
 
-    // Right-hand rail: real Xbox data, with no invented trailers or awards.
-    auto panel = [&](Rect bounds) {
-        c.fillRect(bounds, rgba(5, 15, 27, 181), 16);
-        c.strokeRect(bounds, rgba(209, 231, 241, 72), 1, 16);
-    };
-    panel(showcase::kAchievementsPanel);
     const int rx = showcase::kRailX + 25;
     fonts_.semibold.draw(c, tr(Str::Achievements), rx, 281, 23, kWhite);
     int unlocked = 0, total = 0, score = 0, possibleScore = 0;
@@ -1420,7 +1394,6 @@ void AppUi::drawDetails(Canvas& c, uint64_t nowMs) {
             playedSeconds = it->second;
     }
 
-    panel(showcase::kSessionPanel);
     fonts_.semibold.draw(c, tr(Str::DetailsSession), rx, 489, 22, kWhite);
     int lineY = 527;
     if (queueTitle_ == g->titleId && queueSeconds_ >= 0) {
@@ -1440,7 +1413,6 @@ void AppUi::drawDetails(Canvas& c, uint64_t nowMs) {
     if (lineY == 527 && !planName && !g->publisher.empty())
         fonts_.regular.draw(c, fonts_.regular.fit(g->publisher, 21, 353), rx, lineY, 21, kGray);
 
-    panel(showcase::kArtworkPanel);
     if (!needsPurchase || isF2P) {
     const Rect artwork{showcase::kRailX + 24, 659, 174, 194};
     c.fillRect(artwork, rgba(31, 52, 65), 12);
@@ -1524,8 +1496,7 @@ void AppUi::drawDetails(Canvas& c, uint64_t nowMs) {
         if (!g->xboxTitleId.empty()) {
             achRect_ = showcase::kAchievementsButton;
             const bool focused = detailButtonFocus_ == 1;
-            c.fillRect(achRect_, focused ? rgba(243, 247, 253) : rgba(12, 27, 43, 210), 26);
-            c.strokeRect(achRect_, rgba(213, 233, 243, 130), focused ? 3 : 1, 26);
+            if (focused) c.fillRect(achRect_, kWhite, 26);
             if (focused)
                 c.strokeRect({achRect_.x - 6, achRect_.y - 6,
                               achRect_.w + 12, achRect_.h + 12}, kWhite, 3, 30);
@@ -1537,7 +1508,6 @@ void AppUi::drawDetails(Canvas& c, uint64_t nowMs) {
         }
     }
 
-    preview31::footerBackdrop(c);
     std::vector<Hint> hints;
     if (claimRect_.w > 0) hints.push_back({kIconCross, tr(Str::ClaimFree)});
     else if (playRect_.w > 0) hints.push_back({kIconCross, tr(detailButtonFocus_ == 1 && achRect_.w > 0 ? Str::Achievements : Str::Play)});
@@ -2087,6 +2057,19 @@ void AppUi::render(Canvas& c, uint64_t nowMs) {
         }
         case Screen::Updating: drawUpdating(c, nowMs); break;
         case Screen::Streaming: break;
+    }
+    const int view = screen_ == Screen::Home ?
+        (searching_ ? 30 : !directory_.empty() ? 40 + int(directory_.back().kind) :
+         onCatalogShelf() ? 40 + int(activeDirectory().kind) : int(tab_)) : 100 + int(screen_);
+    if (view != lastHorizonView_) {
+        viewEnteredAt_ = nowMs;
+        lastHorizonView_ = view;
+    }
+    if ((screen_ == Screen::Home || screen_ == Screen::Details) && !nimboxReducedMotion_ &&
+        nowMs >= viewEnteredAt_ && nowMs-viewEnteredAt_ < 180) {
+        const int alpha = int(88 * (180 - (nowMs-viewEnteredAt_)) / 180);
+        c.fillRect({0,0,kW,kH}, rgba(4,9,15,alpha));
+        animating_ = true;
     }
     if (screen_ == Screen::Home && profileOpen_) drawProfilePanel(c);
     if (screen_ == Screen::Home && updatePrompt_) {

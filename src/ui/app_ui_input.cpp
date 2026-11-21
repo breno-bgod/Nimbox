@@ -669,10 +669,6 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
         }
         if (tab_ == Tab::GamePass && !rows_.empty()) {
             const auto& row = rows_[focusRow_];
-            if (horizon::contains(horizon::kHomeGenres, x, y)) {
-                openDirectory(Directory::Genres, tr(Str::BrowseGenres));
-                return ev;
-            }
             if (horizon::contains(horizon::kViewShelf, x, y)) {
                 openDirectory(Directory::Shelf, row.title);
                 return ev;
@@ -1340,7 +1336,8 @@ UiEvent AppUi::onTouch(const app::shell::TouchEvent& ev) {
             touchTracker_.velocityX = 0.8f * touchTracker_.velocityX + 0.2f * (dx / dt);
 
             if (screen_ == Screen::Home && (!directory_.empty() || (onCatalogShelf() && !profileOpen_)) && !searching_ && !updatePrompt_ && !reportOpen_) {
-                const bool genre = activeDirectory().kind == Directory::Genres;
+                const bool genre = activeDirectory().kind == Directory::Genres &&
+                    (!directory_.empty() || std::fabs(ev.x-touchTracker_.startX) > std::fabs(ev.y-touchTracker_.startY));
                 const float distance = genre ? ev.x - touchTracker_.startX : ev.y - touchTracker_.startY;
                 if (std::fabs(distance) >= 72) {
                     NavInput nav;

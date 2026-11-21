@@ -1018,6 +1018,16 @@ void worker() {
                     if (!ok) XC_LOGW("sign-in renewal: %s", err.c_str());
                     nextCheckAt = now + (ok ? 60000 : 300000);  // offline: not every minute
                 }
+                if (am.signedIn()) {
+                    const auto request = g_ui->takeChatRequest(now);
+                    if (request.session) {
+                        std::vector<xcloud::ChatMessage> lines;
+                        const auto& auth = am.profile().xblAuthorization;
+                        bool ok = request.text.empty() ? xcloud::readConversation(auth, request.peer, lines)
+                                                       : xcloud::sendChatMessage(auth, request.peer, request.text);
+                        g_ui->finishChatRequest(request, ok, std::move(lines), platform::nowMs());
+                    }
+                }
                 platform::sleepMs(50);
                 break;
             }

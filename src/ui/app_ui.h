@@ -323,6 +323,9 @@ public:
     void showSplash(const std::string& status);
     void showSignIn(const std::string& code, const std::string& url);
     // The signed-in account, top right; `gamerscore` (digits) under the name.
+    struct ChatRequest { uint64_t session = 0; std::string peer, text; };
+    ChatRequest takeChatRequest(uint64_t nowMs);
+    void finishChatRequest(const ChatRequest& request, bool ok, std::vector<xcloud::ChatMessage> lines, uint64_t nowMs);
     void setSocial(std::vector<xcloud::FriendPresence> friends, std::string presence, bool loaded);
     void setProfile(const std::string& gamertag, const std::string& gamerpicUrl, const std::string& gamerscore = {});
     // The account's Game Pass plan under the name ("Ultimate", "Premium",
@@ -712,7 +715,7 @@ private:
     horizon::BoundaryGate horizonBoundary_{};
     bool nimboxReducedMotion_ = false;
     enum class Directory { Explore, Genres, GenreGames, All, Featured, Pass, Keyboard, Own, Ubisoft, Shelf,
-                           Friends, Notices, Awards, Link, SignOut };
+                           Friends, Chat, Notices, Awards, Link, SignOut };
     struct DirectoryPage {
         Directory kind = Directory::Explore;
         std::string title, url;
@@ -721,11 +724,23 @@ private:
         int focus = 0;
         bool allButtonFocused = false;
     };
-    DirectoryPage shelfCatalog_;
+    DirectoryPage shelfCatalog_, shelfGenres_;
     bool shelfCatalogDirty_ = true;
     bool onCatalogShelf() const;
     DirectoryPage& activeDirectory();
     std::vector<DirectoryPage> directory_;
+    struct ChatState {
+        std::string peer, draft;
+        std::vector<xcloud::ChatMessage> lines;
+        uint64_t nextRead = 0;
+        int key = 0, historyOffset = 0;
+        bool busy = false, sendQueued = false, sending = false, loaded = false, readFailed = false, sendFailed = false;
+    } chat_;
+    uint64_t chatSession_ = 0;
+    bool inChat() const;
+    void editChat(std::string_view input);
+    void pressChatKey(int key);
+    void drawChat(Canvas& c, const std::string& name);
     std::vector<xcloud::FriendPresence> friends_;
     std::string ownPresence_;
     bool friendsLoaded_ = false;
@@ -902,6 +917,8 @@ private:
     uint64_t heroShownAt_ = 0;  // when its image first drew (0: not yet)
     uint64_t lastRender_ = 0;
     bool animating_ = false;
+    int lastHorizonView_ = -1;
+    uint64_t viewEnteredAt_ = 0;
     std::map<std::string, app::GameProfile> perGameSettings_;
     bool gameSettingsOpen_ = false;
     int gameSettingsRow_ = 0;

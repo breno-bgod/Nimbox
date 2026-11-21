@@ -637,4 +637,13 @@ constexpr Column kPortugueseBR = {
     "Status indisponível",
     "Ver todos",
     "Ver todos os jogos",
+    "Conversar",
+    "Enviar",
+    "Escreva uma mensagem",
+    "Nenhuma mensagem por aqui ainda",
+    "Carregando conversa…",
+    "Conversa indisponível",
+    "Envio sem confirmação. Confira a conversa antes de tentar novamente.",
+    "Você",
+    "Mensagens",
 };
