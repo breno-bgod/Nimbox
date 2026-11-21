@@ -17,6 +17,17 @@ Extract the zip archive to any folder and run:
 
     NimboPlay.exe
 
+Experimental xCloud device access test (double-click, no commands needed):
+
+    Testar-xCloud.cmd
+
+Choose Killer Instinct 2 Classic, Grand Theft Auto VI or Fortnite.
+Mode 1 checks the catalog and allowed devices; mode 2 also requests and
+immediately closes a test session, only when the account is entitled.
+This does NOT bypass device authorization or start gameplay. It reports
+what Xbox services actually return to your account on this client.
+Do not share screenshots containing your XUID, gamertag or sign-in codes.
+
 Optional command-line parameters:
     --windowed      Start in windowed mode
     --fullscreen    Start in fullscreen mode

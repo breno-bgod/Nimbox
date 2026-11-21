@@ -95,6 +95,8 @@ import re
 
 required = [
     "NimboPlay/NimboPlay.exe",
+    "NimboPlay/xcloud-cli.exe",
+    "NimboPlay/Testar-xCloud.cmd",
     "NimboPlay/SDL3.dll",
     "NimboPlay/README-windows.txt",
     "NimboPlay/assets/cacert.pem",

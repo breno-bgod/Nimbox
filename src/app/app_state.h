@@ -51,7 +51,7 @@ bool allow1440Locked();
 void refreshSettingsUiLocked();
 
 // --- Worker commands (worker.cpp) ----------------------------------------------
-enum Command { kNone, kSignIn, kPlay, kSignOut, kReloadLibrary, kConsoles, kUpdate, kClaimFree, kCheckSignIn, kNetworkTest, kSyncTrophies, kRemoveTrophies };
+enum Command { kNone, kSignIn, kPlay, kSignOut, kReloadLibrary, kConsoles, kUpdate, kClaimFree, kCheckSignIn, kNetworkTest, kSyncTrophies, kRemoveTrophies, kDeviceDiagnose };
 extern std::atomic<int> g_command;
 // A library refresh that came back incomplete: when (platform::nowMs) the next try is due, 0 none.
 extern std::atomic<uint64_t> g_libraryRetryAt;
@@ -66,6 +66,11 @@ extern std::atomic<bool> g_cancel;
 extern std::mutex g_argMutex;
 extern ui::GameTile g_playTile;  // what kPlay plays
 void worker();
+// Android experimental diagnostic. Runs only on the existing worker that owns
+// AuthManager and GssvClient; no concurrent sign-in, stream, or token copies.
+// readDeviceDiagnosis() returns NX_DIAG_RUNNING while the operation is pending.
+bool requestDeviceDiagnosis(const std::string& query, bool probeSession);
+std::string readDeviceDiagnosis();
 // The worker thread started (detached), as coreStartup() does.
 void startWorker();
 // Plays the queue-ready chime through the DualSense speaker and vibrates.
