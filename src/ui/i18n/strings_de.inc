@@ -646,4 +646,7 @@ constexpr Column kGerman = {
     "Versand unbestätigt. Prüfe den Chat vor dem erneuten Senden.",
     "Du",
     "Nachrichten",
+    "Tastatur",
+    "Senden…",
+    "Inhalt nicht verfügbar",
 };

@@ -323,9 +323,9 @@ public:
     void showSplash(const std::string& status);
     void showSignIn(const std::string& code, const std::string& url);
     // The signed-in account, top right; `gamerscore` (digits) under the name.
-    struct ChatRequest { uint64_t session = 0; std::string peer, text; };
+    struct ChatRequest { uint64_t session = 0; std::string peer, text, conversationId; uint64_t account = 0; };
     ChatRequest takeChatRequest(uint64_t nowMs);
-    void finishChatRequest(const ChatRequest& request, bool ok, std::vector<xcloud::ChatMessage> lines, uint64_t nowMs);
+    void finishChatRequest(const ChatRequest& request, const xcloud::ChatResponse& result, uint64_t nowMs);
     void setSocial(std::vector<xcloud::FriendPresence> friends, std::string presence, bool loaded);
     void setProfile(const std::string& gamertag, const std::string& gamerpicUrl, const std::string& gamerscore = {});
     // The account's Game Pass plan under the name ("Ultimate", "Premium",
@@ -731,12 +731,14 @@ private:
     std::vector<DirectoryPage> directory_;
     struct ChatState {
         std::string peer, draft;
-        std::vector<xcloud::ChatMessage> lines;
+        int readStatus = 0, sendStatus = 0;
+        bool keyboardOpen = false, composing = false, sendFocus = false;
         uint64_t nextRead = 0;
         int key = 0, historyOffset = 0;
         bool busy = false, sendQueued = false, sending = false, loaded = false, readFailed = false, sendFailed = false;
     } chat_;
-    uint64_t chatSession_ = 0;
+    std::map<std::string,xcloud::ChatHistory> chatHistory_;
+    uint64_t chatSession_ = 0, chatAccount_ = 0;
     bool inChat() const;
     void editChat(std::string_view input);
     void pressChatKey(int key);

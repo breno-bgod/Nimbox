@@ -1021,11 +1021,11 @@ void worker() {
                 if (am.signedIn()) {
                     const auto request = g_ui->takeChatRequest(now);
                     if (request.session) {
-                        std::vector<xcloud::ChatMessage> lines;
-                        const auto& auth = am.profile().xblAuthorization;
-                        bool ok = request.text.empty() ? xcloud::readConversation(auth, request.peer, lines)
-                                                       : xcloud::sendChatMessage(auth, request.peer, request.text);
-                        g_ui->finishChatRequest(request, ok, std::move(lines), platform::nowMs());
+                        const auto& profile = am.profile();
+                        auto result = request.text.empty()
+                            ? xcloud::readConversation(profile.xblAuthorization, request.peer, request.conversationId)
+                            : xcloud::sendChatMessage(profile.xblAuthorization, request.peer, profile.xuid, request.text);
+                        g_ui->finishChatRequest(request,result,platform::nowMs());
                     }
                 }
                 platform::sleepMs(50);

@@ -646,4 +646,7 @@ constexpr Column kItalian = {
     "Invio non confermato. Controlla la conversazione prima di riprovare.",
     "Tu",
     "Messaggi",
+    "Tastiera",
+    "Invio…",
+    "Contenuto non disponibile",
 };
