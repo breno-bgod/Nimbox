@@ -3,6 +3,8 @@
 </p>
 
 <h1 align="center">NimboPlay</h1>
+<p align="center"><strong>Fork independente do <a href="https://github.com/RafaelNGP/psbox-cloud-gaming">PSBox Cloud Gaming</a>, criado por <a href="https://github.com/RafaelNGP">RafaelNGP</a>.</strong></p>
+<p align="center"><a href="https://github.com/RafaelNGP/psbox-cloud-gaming">Repositório oficial do PSBox</a></p>
 <p align="center"><strong>Versão oficial do código: 1.7.7</strong></p>
 <p align="center"><em>Xbox Cloud Gaming, running natively on PlayStation 5, PlayStation 4, and Linux.</em></p>
 
@@ -154,8 +156,8 @@ project as distributed must be too. All other components are compatible
 font, Mozilla's CA bundle); `THIRD_PARTY_NOTICES.md` lists each one with its
 version and license.
 
-NimboPlay is an independent fork based on the original GPL-licensed PSBox Cloud
-Gaming project by RafaelNGP. Original authorship and license notices are retained;
+NimboPlay is an independent fork of [PSBox Cloud Gaming](https://github.com/RafaelNGP/psbox-cloud-gaming),
+the original GPL-licensed project created by [RafaelNGP](https://github.com/RafaelNGP). Original authorship and license notices are retained;
 see `LICENSE` and `THIRD_PARTY_NOTICES.md`. The GitHub repository still uses the
 technical path `breno-bgod/Nimbox`; this does not affect the public brand.
 
