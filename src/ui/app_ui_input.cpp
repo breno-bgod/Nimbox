@@ -925,6 +925,12 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
                 return ev;
             }
         } else if (tab_ == Tab::Consoles) {
+            if (consolesKnown_ && consoles_.empty() && horizon::contains(kConsoleSearchTarget, x, y)) {
+                NavInput confirm;
+                confirm.accept = true;
+                handleHome(confirm, ev);
+                return ev;
+            }
             for (size_t i = 0; i < consoles_.size(); ++i) {
                 const Rect card = consoleCardRect(static_cast<int>(i), consoleFocus_);
                 if (nimbox_theme::contains(card, x, y)) {

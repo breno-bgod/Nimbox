@@ -516,6 +516,7 @@ int desktopSelftest(const std::string& dir) {
         ui.render(canvas, platform::nowMs());
         drawCanvas(canvas);
         check(screenshot(dir, "8-consoles-empty.png", shot) && varied(shot), "Console setup and QR");
+        check(ui.onMouseDown(320, 866, 1).action == ui::Action::ConsolesShown, "Touch starts console discovery");
         ui.setConsoles({{"test-console", "Xbox de teste", "XboxSeriesX", "ConnectedStandby"}}, true);
         ui.render(canvas, platform::nowMs());
         drawCanvas(canvas);

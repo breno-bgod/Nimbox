@@ -998,6 +998,11 @@ void AppUi::drawConsoles(Canvas& c, uint64_t nowMs) {
                     captionY += 30;
                 }
             }
+            const Rect search = kConsoleSearchTarget;
+            c.fillRect(search, withAlpha(kWhite, 230), 12);
+            const auto label = fonts_.semibold.fit(tr(Str::SearchAgain), 24, search.w - 36);
+            fonts_.semibold.draw(c, label, search.x + (search.w - fonts_.semibold.measure(label, 24)) / 2,
+                                 fonts_.semibold.centeredY(search.y, search.h, 24), 24, kBg);
             drawHints(c, {{kIconCross, tr(Str::SearchAgain)},
                           {kIconOptions, tr(Str::Settings)},
                           {kIconTouchpad, tr(Str::HoldSignOut)}});
