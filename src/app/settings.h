@@ -91,6 +91,7 @@ struct Settings {
     std::string resolution = "1080p";  // "720p", "1080p", "1440p", or "best" (Auto)
     std::string region;                // gssv region name; empty = automatic
     // Nimbox display-only preferences. Never sent to the streaming service.
+    bool horizonShowcase = false;
     int nimboxTheme = 0;               // Aurora, Infinity, Blue, Emerald, Cinema
     int nimboxReflection = 44;         // local collection-floor reflection, 0-100
     bool nimboxReducedMotion = false;  // local UI animation only

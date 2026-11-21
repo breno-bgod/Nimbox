@@ -7,17 +7,42 @@
 #include <cstdint>
 #include <vector>
 namespace xc::ui::horizon {
-constexpr int kCenterX = 960, kPitch = 210, kSideItems = 4;
-constexpr int kSelectedSide = 230, kNeighborSide = 174, kTileCenterY = 731;
-constexpr Rect kPlayButton{104, 485, 230, 62};
-constexpr Rect kDetailsButton{350, 485, 244, 62};
-inline Rect tileRect(float offset) {
+inline constexpr char kGenreShelf[] = "horizon:genres";
+// 1920x1080 PS5-safe stage: all visible covers stay within 96px side margins.
+// Seven well-spaced covers, never overlapping in the 1080p TV safe area.
+constexpr int kCenterX = 960, kPitch = 218, kSideItems = 3;
+constexpr int kSelectedSide = 244, kNeighborSide = 176, kTileCenterY = 746;
+// Shared between Canvas rendering and native pointer hit testing.
+constexpr Rect kPlayButton{104, 432, 204, 62};
+constexpr Rect kDetailsButton{325, 432, 205, 62};
+// Avatar hit box is separate from the Settings gear at x=1834..1886.
+constexpr Rect kProfileAvatarTap{1744, 30, 65, 84};
+constexpr Rect kExplore{568, 432, 200, 62}, kHomeGenres{790, 432, 210, 62}, kViewShelf{1324, 548, 174, 54};
+constexpr Rect kCatalogGenres{1168, 98, 270, 64}, kGenreAll{792, 794, 336, 58};
+constexpr Rect kGenrePrev{44, 452, 56, 76}, kGenreNext{1820, 452, 56, 76};
+constexpr Rect kFriends{1292, 46, 48, 52}, kBell{1350, 46, 48, 52};
+constexpr Rect kBrowseBack{96, 96, 72, 64}, kBrowseSearch{1478, 98, 340, 64};
+constexpr Rect directoryHeading(Rect r, bool inlineShelf) {
+    if (inlineShelf) r.y += 48;
+    return r;
+}
+constexpr Rect profileAction(int index) { return {1220, 480 + index * 65, 552, 58}; }
+constexpr Rect kProfilePanel{1176, 136, 640, 792};
+constexpr Rect kProfileClose{1736, 160, 48, 48};
+inline Rect tileRect(float offset, int displacementY = 0) {
     if (!std::isfinite(offset)) offset = 0.0f;
     offset = std::clamp(offset, -5.0f, 5.0f);
     const float scale = std::clamp(1.0f - std::fabs(offset), 0.0f, 1.0f);
     const int side = int(std::lround(kNeighborSide + (kSelectedSide - kNeighborSide) * scale));
     const int cx = kCenterX + int(std::lround(offset * kPitch));
-    return {cx - side / 2, kTileCenterY - side / 2, side, side};
+    return {cx - side / 2, kTileCenterY - side / 2 + displacementY, side, side};
+}
+constexpr Rect kShowcaseCover{1384, 154, 340, 340};
+inline Rect homeCoverRect(float offset, int shift, bool showcase) {
+    if (!showcase) return tileRect(offset, shift);
+    constexpr int side = 152, pitch = 207;
+    const int x = kCenterX + static_cast<int>(std::lround(offset * pitch)) - side / 2;
+    return {x, kTileCenterY - side / 2 + shift, side, side};
 }
 // Only one visual collection exists. These utilities are intentionally
 // independent of the removed physical 3D case geometry and its renderer.

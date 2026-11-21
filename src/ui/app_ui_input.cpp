@@ -9,6 +9,26 @@
 namespace xc::ui {
 
 void AppUi::handleHome(const NavInput& in, UiEvent& ev) {
+    if (!searching_ && !directory_.empty()) { handleDirectory(in, ev); return; }
+    // The profile is a modal: never pass its input through to the carousel.
+    if (profileOpen_) {
+        if (in.up || in.down) {
+            profileFocus_ = std::clamp(profileFocus_ + (in.down ? 1 : -1), 0, 5);
+            dirty_ = true;
+        } else if (in.accept) {
+            activateProfile(ev);
+        } else if (in.back || in.r3 || in.options) {
+            profileOpen_ = false;
+            dirty_ = true;
+        }
+        return;
+    }
+    // Library already owns R3 for sorting; leave that established action.
+    if (!searching_ && tab_ != Tab::Library && in.r3) {
+        profileOpen_ = true;
+        dirty_ = true;
+        return;
+    }
     // Caller holds mutex_. Keep hold/release independent from repeat pulses.
     if (!in.carouselHeldLeft && !in.carouselHeldRight &&
         !in.left && !in.right && in.scrollCards == 0)
@@ -43,7 +63,11 @@ void AppUi::handleHome(const NavInput& in, UiEvent& ev) {
         if (tab_ == Tab::Consoles) ev.action = Action::ConsolesShown;
         return;
     }
-    if (tab_ == Tab::GamePass && !searching_ && in.r2) {
+    if (tab_ == Tab::GamePass && !searching_ && in.l2) {
+        openDirectory(Directory::Explore, tr(Str::BrowseHome));
+        return;
+    }
+    if (tab_ == Tab::GamePass && !onCatalogShelf() && !searching_ && in.r2) {
         // Same eligibility as the Play button in Details.
         if (const GameTile* tile = focusedTile()) {
             if (isEffectivePlayableLocked(*tile)) {
@@ -136,6 +160,7 @@ void AppUi::handleHome(const NavInput& in, UiEvent& ev) {
             break;
         }
         case Tab::GamePass: {
+            if (onCatalogShelf()) { handleDirectory(in, ev); return; }
             if (rows_.empty()) break;
             int rows = static_cast<int>(rows_.size());
             const GameRow& curRow = rows_[static_cast<size_t>(focusRow_)];
@@ -267,6 +292,16 @@ UiEvent AppUi::onMouseMove(float x, float y) {
     if (screen_ == Screen::Streaming || screen_ == Screen::Splash) {
         return ev;
     }
+    if (screen_ == Screen::Home && !searching_ && (!directory_.empty() || (onCatalogShelf() && !profileOpen_)) && !quitPrompt_ && !updatePrompt_) {
+        auto& page = activeDirectory();
+        if (page.kind == Directory::Friends) {
+            for (int i=0; i<int(page.labels.size()); ++i) {
+                Rect r = directoryCell(page,i);
+                if (r.w && horizon::contains(r,x,y)) { page.focus = i; break; }
+            }
+        }
+        return ev;
+    }
     if (screen_ == Screen::Home && quitPrompt_) {
         constexpr int kButtonW = 300, kButtonH = 72, kPanelW = 2 * kButtonW + 24 + 112, kPanelH = 250;
         Rect panel{(kW - kPanelW) / 2, (kH - kPanelH) / 2 - 30, kPanelW, kPanelH};
@@ -285,7 +320,7 @@ UiEvent AppUi::onMouseMove(float x, float y) {
     if (screen_ == Screen::Home && !searching_ && !reportOpen_ && !updatePrompt_ && !quitPrompt_) {
         // Horizon uses explicit clickable covers, not the classic grid hover.
         if (tab_ == Tab::GamePass) return ev;
-        if (tab_ == Tab::Library && y >= 150 && y < kH - 80) {
+        if (tab_ == Tab::Library && y >= kLibraryTop - 10 && y < kH - 80) {
             constexpr int kGridW = kLibraryCols * kCardPitch - kCardGap;
             const int left = (kW - kGridW) / 2;
             const LibraryLayout& L = libraryLayout();
@@ -307,9 +342,9 @@ UiEvent AppUi::onMouseMove(float x, float y) {
             return ev;
         }
         int curY = kSettingsListTop - static_cast<int>(std::lround(settingsScrollY_));
-        for (const auto& [i, groupStart] : visibleSettingsRows(caps_)) {
+        for (const auto& [i, groupStart] : settingsPage(caps_, settingsRow_)) {
             if (groupStart) curY += kSettingsGroupGap;
-            if (x >= kMargin && x < kMargin + kSettingsRowW && y >= curY && y < curY + kSettingsRowH &&
+            if (x >= kSettingsRowX && x < kSettingsRowX + kSettingsRowW && y >= curY && y < curY + kSettingsRowH &&
                 y >= kSettingsClipTop && y < kSettingsListBottom) {
                 if (settingsRow_ != i) {
                     settingsRow_ = i;
@@ -389,6 +424,30 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
     if (screen_ == Screen::Streaming || screen_ == Screen::Splash) {
         return ev;
     }
+    if (screen_ == Screen::Home && !searching_ && !updatePrompt_ && !quitPrompt_ && !reportOpen_ &&
+        (!directory_.empty() || (onCatalogShelf() && !profileOpen_ && (button == 3 || y >= 122)))) {
+        directoryPointer(x, y, button, ev);
+        return ev;
+    }
+    // The native profile blocks pointer events to all background controls.
+    if (screen_ == Screen::Home && profileOpen_ && !updatePrompt_ && !quitPrompt_) {
+        if (button == 1) {
+            for (int row = 0; row < 6; ++row) {
+                if (horizon::contains(horizon::profileAction(row), x, y)) {
+                    profileFocus_ = row;
+                    activateProfile(ev);
+                    return ev;
+                }
+            }
+        }
+        if (button == 3 || (button == 1 &&
+            (horizon::contains(horizon::kProfileClose, x, y) ||
+             !horizon::contains(horizon::kProfilePanel, x, y)))) {
+            profileOpen_ = false;
+            dirty_ = true;
+        }
+        return ev;
+    }
     if (button == 3 && screen_ == Screen::Settings && settingsQrExpanded_) {
         settingsQrExpanded_ = false;
         dirty_ = true;
@@ -456,7 +515,7 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
             handleGameSettings(NavInput{.back = true}, ev);
             return ev;
         }
-        if (searching_) {
+        if (screen_ == Screen::Home && searching_) {
             searching_ = false;
             dirty_ = true;
             return ev;
@@ -604,6 +663,35 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
         return ev;
     }
 
+    if (screen_ == Screen::Home && !searching_ && !updatePrompt_ && !quitPrompt_ && !reportOpen_) {
+        if (horizon::contains(horizon::kFriends, x, y)) {
+            openDirectory(Directory::Friends, tr(Str::SocialFriends));
+            return ev;
+        }
+        if (horizon::contains(horizon::kBell, x, y)) {
+            openDirectory(Directory::Notices, tr(Str::LocalNotices));
+            return ev;
+        }
+        if (tab_ == Tab::GamePass && horizon::contains(horizon::kExplore, x, y)) {
+            openDirectory(Directory::Explore, tr(Str::BrowseHome));
+            return ev;
+        }
+        if (tab_ == Tab::GamePass && !rows_.empty()) {
+            const auto& row = rows_[focusRow_];
+            if (horizon::contains(horizon::kViewShelf, x, y)) {
+                openDirectory(Directory::Shelf, row.title);
+                return ev;
+            }
+        }
+    }
+    // Avatar opens real profile details; gear keeps its existing Settings action.
+    if (screen_ == Screen::Home && !searching_ && !updatePrompt_ &&
+        !quitPrompt_ && !reportOpen_ &&
+        horizon::contains(horizon::kProfileAvatarTap, x, y)) {
+        profileOpen_ = true;
+        dirty_ = true;
+        return ev;
+    }
     // Check avatar / settings button click to open settings
     if ((screen_ == Screen::Home && !searching_) ||
         (screen_ == Screen::Details && !achievementsOpen_ && !gameSettingsOpen_)) {
@@ -831,12 +919,13 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
                     }
                     return ev;
                 }
-                if (horizon::contains(horizon::kDetailsButton, x, y)) {
+                if ((isEffectivePlayableLocked(*tile) && horizon::contains(horizon::kDetailsButton, x, y)) ||
+                    (settings_.horizonShowcase && horizon::contains(horizon::kShowcaseCover, x, y))) {
                     openDetails(*tile);
                     return ev;
                 }
             }
-            if (!rows_.empty()) {
+            if (!rows_.empty() && y >= 610 && y < 892) {
                 const int rowIndex = std::clamp(focusRow_, 0, int(rows_.size()) - 1);
                 const auto& tiles = rows_[size_t(rowIndex)].tiles;
                 const int count = int(tiles.size());
@@ -847,8 +936,8 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
                 for (auto it = order.rbegin(); it != order.rend(); ++it) {
                     const int offset = *it;
                     const int index = horizon::indexForOffset(selected, count, offset);
-                    if (index < 0 || !horizon::contains(horizon::tileRect(
-                            float(offset) + nimboxSlide_.value / 1000.0f), x, y))
+                    if (index < 0 || !horizon::contains(horizon::homeCoverRect(
+                            float(offset) + nimboxSlide_.value / 1000.0f, collectionOffsetY_, settings_.horizonShowcase), x, y))
                         continue;
                     if (offset == 0) {
                         openDetails(tiles[size_t(index)]);
@@ -867,7 +956,7 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
             return ev; // Never tap a hidden classic control.
         }
         if (tab_ == Tab::Library) {
-            if (y >= 150 && y < kH - 80) {
+            if (y >= kLibraryTop - 10 && y < kH - 80) {
                 constexpr int kGridW = kLibraryCols * kCardPitch - kCardGap;
                 const int left = (kW - kGridW) / 2;
                 const LibraryLayout& L = libraryLayout();
@@ -883,9 +972,7 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
                     }
                 }
             }
-            constexpr int kAvatar = 52;
-            int right = kW - kMargin - kAvatar - 16;
-            if (x >= right - 200 && x <= right && y >= 110 && y <= 145) {
+            if (horizon::contains(kLibrarySortTarget, x, y)) {
                 librarySort_ = static_cast<LibrarySort>((static_cast<int>(librarySort_) + 1) %
                                                        static_cast<int>(LibrarySort::Count));
                 rebuild(true);
@@ -893,11 +980,16 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
                 dirty_ = true;
                 return ev;
             }
-        } else if (tab_ == Tab::Consoles && y >= 320 && y < 700) {
-            constexpr int kCardW = 480, kCardH = 380, kGap = 40, kTop = 320;
+        } else if (tab_ == Tab::Consoles) {
+            if (consolesKnown_ && consoles_.empty() && horizon::contains(kConsoleSearchTarget, x, y)) {
+                NavInput confirm;
+                confirm.accept = true;
+                handleHome(confirm, ev);
+                return ev;
+            }
             for (size_t i = 0; i < consoles_.size(); ++i) {
-                int cx = kMargin + static_cast<int>(i) * (kCardW + kGap);
-                if (x >= cx && x < cx + kCardW && y >= kTop && y < kTop + kCardH) {
+                const Rect card = consoleCardRect(static_cast<int>(i), consoleFocus_);
+                if (nimbox_theme::contains(card, x, y)) {
                     consoleFocus_ = static_cast<int>(i);
                     const ConsoleTile& con = consoles_[i];
                     ev.action = Action::Play;
@@ -1019,41 +1111,18 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
             return ev;
         }
         // The QR has its own large, opaque view for small portable screens.
-        if (!dropdownOpen_ && x >= 1320 && x <= 1535 &&
-            y >= 702 && y <= 903) {
+        if (!dropdownOpen_ && nimbox_theme::contains(kSettingsRemoteLink, x, y)) {
             settingsQrExpanded_ = true;
             dirty_ = true;
             return ev;
         }
-        // Appearance tiles belong exclusively to Settings. Clicking them
-        // persists a VISUAL preference; stream/login/controller values never
-        // change. The regular settings rows remain accessible by controller.
         if (!dropdownOpen_) {
-            for (int i = 0; i < nimbox_theme::kThemeCount; ++i) {
-                if (!nimbox_theme::contains(nimbox_theme::kThemeCards[i], x, y)) continue;
-                settings_.nimboxTheme = i;
+            for (int section = 0; section < kSectionCount; ++section) {
+                if (!nimbox_theme::contains(settingsSectionRect(section), x, y)) continue;
+                settingsRow_ = kSettingsOrder[kSectionStarts[section]];
+                settingsScrollY_ = 0;
+                resetSettingsHoldStart_ = 0;
                 dirty_ = true;
-                ev.action = Action::SettingsChanged;
-                ev.settings = settings_;
-                return ev;
-            }
-            const Rect reflectZone{nimbox_theme::kReflectionTrack.x,
-                                   nimbox_theme::kReflectionTrack.y - 18,
-                                   nimbox_theme::kReflectionTrack.w, 48};
-            if (nimbox_theme::contains(reflectZone, x, y)) {
-                settings_.nimboxReflection = nimbox_theme::reflectionFromX(x);
-                dirty_ = true;
-                ev.action = Action::SettingsChanged;
-                ev.settings = settings_;
-                return ev;
-            }
-            if (nimbox_theme::contains(nimbox_theme::kReducedMotionButton, x, y)) {
-                nimboxReducedMotion_ = !nimboxReducedMotion_;
-                settings_.nimboxReducedMotion = nimboxReducedMotion_;
-                if (nimboxReducedMotion_) nimboxSlide_.value = nimboxSlide_.target;
-                dirty_ = true;
-                ev.action = Action::SettingsChanged;
-                ev.settings = settings_;
                 return ev;
             }
         }
@@ -1062,9 +1131,9 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
             constexpr int kItemH = 62, kVisible = 8, kListW = 640;
             int n = static_cast<int>(options.size());
             int visible = std::min(n, kVisible);
-            Rect panel{kMargin + kSettingsRowW - kListW, 184, kListW, visible * kItemH + 16};
+            Rect panel{kSettingsRowX + kSettingsRowW - kListW, 184, kListW, visible * kItemH + 16};
             int curY = kSettingsListTop - static_cast<int>(std::lround(settingsScrollY_));
-            for (const auto& [i, groupStart] : visibleSettingsRows(caps_)) {
+            for (const auto& [i, groupStart] : settingsPage(caps_, settingsRow_)) {
                 if (groupStart) curY += kSettingsGroupGap;
                 if (i == settingsRow_) {
                     panel.y = curY + kSettingsRowH + 8;
@@ -1100,9 +1169,9 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
             }
         }
         int curY = kSettingsListTop - static_cast<int>(std::lround(settingsScrollY_));
-        for (const auto& [i, groupStart] : visibleSettingsRows(caps_)) {
+        for (const auto& [i, groupStart] : settingsPage(caps_, settingsRow_)) {
             if (groupStart) curY += kSettingsGroupGap;
-            if (x >= kMargin && x < kMargin + kSettingsRowW && y >= curY && y < curY + kSettingsRowH &&
+            if (x >= kSettingsRowX && x < kSettingsRowX + kSettingsRowW && y >= curY && y < curY + kSettingsRowH &&
                 y >= kSettingsClipTop && y < kSettingsListBottom) {
                 settingsRow_ = i;
                 if (i == 14) {
@@ -1166,7 +1235,7 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
                     return ev;
                 } else {
                     auto opts = settingOptions(i);
-                    if (opts.size() > 2) {
+                    if (opts.size() > 2 || i == nimbox_theme::kAppearanceFirst) {
                         dropdownOpen_ = true;
                         dropdownIndex_ = settingSelected(i);
                         dropdownTop_ = std::max(0, dropdownIndex_ - 4);
@@ -1197,6 +1266,13 @@ UiEvent AppUi::onMouseWheel(float dx, float dy) {
     if (screen_ == Screen::Streaming || screen_ == Screen::Splash) {
         return ev;
     }
+    if (screen_ == Screen::Home && !searching_ && (!directory_.empty() || (onCatalogShelf() && !profileOpen_)) && !updatePrompt_ && !quitPrompt_ && !reportOpen_) {
+        NavInput nav;
+        if (std::fabs(dx) > std::fabs(dy)) nav.scrollCards = dx > 0 ? -1 : 1;
+        else nav.scrollRows = dy > 0 ? -1 : dy < 0 ? 1 : 0;
+        handleDirectory(nav, ev);
+        return ev;
+    }
     if (screen_ == Screen::Home && updatePrompt_ && showingUpdateNotes_) {
         updateNotesScroll_ = std::clamp(updateNotesScroll_ - static_cast<int>(dy * 2), 0, updateNotesMaxScroll_);
         dirty_ = true;
@@ -1223,7 +1299,7 @@ UiEvent AppUi::onMouseWheel(float dx, float dy) {
         achScroll_ = std::max(0, achScroll_ - static_cast<int>(dy * 3));
         dirty_ = true;
     } else if (screen_ == Screen::Settings && !dropdownOpen_ && tester_ == Tester::None && !pickerOpen_ && !trophyDisclaimerOpen_) {
-        float maxScroll = settingsMaxScroll(caps_);
+        float maxScroll = settingsMaxScroll(caps_, settingsRow_);
         settingsScrollY_ = std::clamp(settingsScrollY_ - dy * 120.0f, 0.0f, maxScroll);
         dirty_ = true;
     }
@@ -1246,6 +1322,7 @@ UiEvent AppUi::onTouch(const app::shell::TouchEvent& ev) {
             touchTracker_.startY = touchTracker_.lastY = ev.y;
             touchTracker_.startTimeMs = touchTracker_.lastTimeMs = now;
             touchTracker_.isDragging = false;
+            touchTracker_.crossedShelf = false;
             touchTracker_.velocityX = touchTracker_.velocityY = 0.0f;
         }
         return uiEv;
@@ -1253,6 +1330,10 @@ UiEvent AppUi::onTouch(const app::shell::TouchEvent& ev) {
 
     if (!touchTracker_.active || touchTracker_.fingerId != ev.fingerId) return uiEv;
 
+    if (touchTracker_.crossedShelf) {
+        if (ev.kind == app::shell::TouchEvent::Kind::Up) touchTracker_.active = false;
+        return uiEv;
+    }
     if (ev.kind == app::shell::TouchEvent::Kind::Motion) {
         float dx = ev.x - touchTracker_.lastX;
         float dy = ev.y - touchTracker_.lastY;
@@ -1268,7 +1349,21 @@ UiEvent AppUi::onTouch(const app::shell::TouchEvent& ev) {
             touchTracker_.velocityY = 0.8f * touchTracker_.velocityY + 0.2f * (dy / dt);
             touchTracker_.velocityX = 0.8f * touchTracker_.velocityX + 0.2f * (dx / dt);
 
-            if (screen_ == Screen::Home && searching_ && touchTracker_.startX >= kResultsX) {
+            if (screen_ == Screen::Home && (!directory_.empty() || (onCatalogShelf() && !profileOpen_)) && !searching_ && !updatePrompt_ && !reportOpen_) {
+                const bool genre = activeDirectory().kind == Directory::Genres &&
+                    (!directory_.empty() || std::fabs(ev.x-touchTracker_.startX) > std::fabs(ev.y-touchTracker_.startY));
+                const float distance = genre ? ev.x - touchTracker_.startX : ev.y - touchTracker_.startY;
+                if (std::fabs(distance) >= 72) {
+                    NavInput nav;
+                    if (genre) nav.scrollCards = distance > 0 ? -1 : 1;
+                    else nav.scrollRows = distance > 0 ? -1 : 1;
+                    const int previousShelf = focusRow_;
+                    handleDirectory(nav, uiEv);
+                    touchTracker_.crossedShelf = previousShelf != focusRow_;
+                    touchTracker_.startX = ev.x;
+                    touchTracker_.startY = ev.y;
+                }
+            } else if (screen_ == Screen::Home && searching_ && touchTracker_.startX >= kResultsX) {
                 int totalRows = (static_cast<int>(results_.size()) + kResultCols - 1) / kResultCols;
                 float maxScroll = std::max(0.0f, static_cast<float>(totalRows * kGridPitchY - (kH - kGridTop - 80)));
                 resultScroll_.target = std::clamp(resultScroll_.target - dy, 0.0f, maxScroll);
@@ -1294,22 +1389,14 @@ UiEvent AppUi::onTouch(const app::shell::TouchEvent& ev) {
                 achScroll_ = std::max(0, achScroll_ - static_cast<int>(dy));
                 dirty_ = true;
             } else if (screen_ == Screen::Settings && !dropdownOpen_ && tester_ == Tester::None && !pickerOpen_ && !trophyDisclaimerOpen_) {
-                const Rect reflectZone{nimbox_theme::kReflectionTrack.x,
-                                       nimbox_theme::kReflectionTrack.y - 22,
-                                       nimbox_theme::kReflectionTrack.w, 55};
-                if (nimbox_theme::contains(reflectZone, ev.x, ev.y)) {
-                    settings_.nimboxReflection = nimbox_theme::reflectionFromX(ev.x);
-                    dirty_ = true;
-                    uiEv.action = Action::SettingsChanged;
-                    uiEv.settings = settings_;
-                } else if (ev.x < 1270) {
-                    float maxScroll = settingsMaxScroll(caps_);
+                if (ev.x >= kSettingsRowX && ev.x < kSettingsRowX + kSettingsRowW) {
+                    float maxScroll = settingsMaxScroll(caps_, settingsRow_);
                     settingsScrollY_ = std::clamp(settingsScrollY_ - dy, 0.0f, maxScroll);
                     dirty_ = true;
 
                 // Finger drag moves highlight cursor with the finger/scroll
                 int curY = kSettingsListTop - static_cast<int>(std::lround(settingsScrollY_));
-                auto rows = visibleSettingsRows(caps_);
+                auto rows = settingsPage(caps_, settingsRow_);
                 for (const auto& [i, groupStart] : rows) {
                     if (groupStart) curY += kSettingsGroupGap;
                     if (ev.y >= curY && ev.y < curY + kSettingsRowH) {
@@ -1331,6 +1418,10 @@ UiEvent AppUi::onTouch(const app::shell::TouchEvent& ev) {
     }
 
     if (ev.kind == app::shell::TouchEvent::Kind::Up) {
+        if (touchTracker_.isDragging && screen_ == Screen::Home && (!directory_.empty() || (onCatalogShelf() && !profileOpen_)) && !searching_) {
+            touchTracker_.active = false;
+            return uiEv;
+        }
         if (touchTracker_.isDragging && screen_ == Screen::Home &&
             tab_ == Tab::GamePass && !searching_ && !updatePrompt_ &&
             !quitPrompt_ && !reportOpen_ && touchTracker_.startY >= 360.0f &&
@@ -1382,7 +1473,7 @@ UiEvent AppUi::onTouch(const app::shell::TouchEvent& ev) {
                         dirty_ = true;
                     }
                 } else if (screen_ == Screen::Settings && !dropdownOpen_ && tester_ == Tester::None && !pickerOpen_ && !trophyDisclaimerOpen_) {
-                    float maxScroll = settingsMaxScroll(caps_);
+                    float maxScroll = settingsMaxScroll(caps_, settingsRow_);
                     settingsScrollY_ = std::clamp(settingsScrollY_ - flingDelta, 0.0f, maxScroll);
                     dirty_ = true;
                 }
@@ -1406,7 +1497,7 @@ UiEvent AppUi::onTouch(const app::shell::TouchEvent& ev) {
                     dirty_ = true;
                 }
             } else if (screen_ == Screen::Settings && !dropdownOpen_ && tester_ == Tester::None && !pickerOpen_ && !trophyDisclaimerOpen_) {
-                auto rows = visibleSettingsRows(caps_);
+                auto rows = settingsPage(caps_, settingsRow_);
                 int curY = kSettingsListTop - static_cast<int>(std::lround(settingsScrollY_));
                 int focusedY = -1;
                 int firstVisibleRow = -1;
@@ -1564,7 +1655,7 @@ UiEvent AppUi::handleLocked(const NavInput& in) {
             // A desktop window has no system menu to close it from (fullscreen,
             // a controller in hand): Circle / Esc at the top of the home screen
             // asks. On the PS5 the system closes the app; Circle does nothing here.
-            if (caps_.desktopWindow && in.back && !searching_) {
+            if (caps_.desktopWindow && in.back && !searching_ && !profileOpen_ && directory_.empty() && !onCatalogShelf()) {
                 quitPrompt_ = true;
                 promptFocus_ = 1;  // Cancel first: a second Circle / Esc never closes by accident
                 dirty_ = true;
@@ -1718,6 +1809,15 @@ UiEvent AppUi::handleLocked(const NavInput& in) {
                 break;
             }
             if (auto rows = visibleSettingsRows(caps_); true) {  // the rows on screen, in their order
+                const int section = settingsSection(settingsRow_);
+                if (in.l1 || in.r1) {
+                    const int next = (section + (in.r1 ? 1 : kSectionCount - 1)) % kSectionCount;
+                    settingsRow_ = kSettingsOrder[kSectionStarts[next]];
+                    settingsScrollY_ = 0;
+                    resetSettingsHoldStart_ = 0;
+                    dirty_ = true;
+                    break;
+                }
                 int pos = posOf(rows, settingsRow_);
                 if (in.down && pos + 1 < static_cast<int>(rows.size())) {
                     settingsRow_ = rows[static_cast<size_t>(pos + 1)].row;
@@ -1728,6 +1828,8 @@ UiEvent AppUi::handleLocked(const NavInput& in) {
                     resetSettingsHoldStart_ = 0;
                     dirty_ = true;
                 }
+                if (settingsSection(settingsRow_) != section) settingsScrollY_ = 0;
+                rows = settingsPage(caps_, settingsRow_);
                 // Keep view scrolled so settingsRow_ is comfortably visible
                 int unscaledY = kSettingsListTop;
                 int focusedY = -1;
@@ -1740,7 +1842,7 @@ UiEvent AppUi::handleLocked(const NavInput& in) {
                     unscaledY += kSettingsRowH + kSettingsGap;
                 }
                 if (focusedY >= 0) {
-                    float maxScroll = settingsMaxScroll(caps_);
+                    float maxScroll = settingsMaxScroll(caps_, settingsRow_);
                     float rowScreenY = static_cast<float>(focusedY) - settingsScrollY_;
                     if (rowScreenY < static_cast<float>(kSettingsClipTop + 10)) {
                         settingsScrollY_ = std::clamp(static_cast<float>(focusedY - (kSettingsClipTop + 10)), 0.0f, maxScroll);
@@ -2005,7 +2107,8 @@ UiEvent AppUi::handleLocked(const NavInput& in) {
         default: break;
     }
     // Sign out: hold TOUCHPAD for 5 s on the home or error screen.
-    bool canSignOut = screen_ == Screen::Home || screen_ == Screen::Error;
+    // Holding the touchpad while the profile modal is open must not sign out.
+    bool canSignOut = (screen_ == Screen::Home && !profileOpen_) || screen_ == Screen::Error;
     if (canSignOut && in.touchpad && !signOutLatched_) {
         if (!signOutHoldStart_) signOutHoldStart_ = in.nowMs ? in.nowMs : 1;
         if (in.nowMs - signOutHoldStart_ >= kSignOutHoldMs) {

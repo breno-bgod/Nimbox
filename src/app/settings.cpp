@@ -82,6 +82,7 @@ bool Settings::load(const std::string& path) {
     language = (*j)["language"].str(language);
     resolution = (*j)["resolution"].str(resolution);
     region = (*j)["region"].str(region);
+    horizonShowcase = (*j)["horizonShowcase"].asBool(false);
     nimboxTheme = static_cast<int>(std::clamp<int64_t>((*j)["nimboxTheme"].asInt(nimboxTheme), 0, 4));
     nimboxReflection = static_cast<int>(std::clamp<int64_t>((*j)["nimboxReflection"].asInt(nimboxReflection), 0, 100));
     nimboxReducedMotion = (*j)["nimboxReducedMotion"].asBool(nimboxReducedMotion);
@@ -358,6 +359,7 @@ bool Settings::save(const std::string& path) const {
     v.set("language", language);
     v.set("resolution", resolution);
     v.set("region", region);
+    v.set("horizonShowcase", horizonShowcase);
     v.set("nimboxTheme", std::clamp(nimboxTheme, 0, 4));
     v.set("nimboxReflection", std::clamp(nimboxReflection, 0, 100));
     v.set("nimboxReducedMotion", nimboxReducedMotion);

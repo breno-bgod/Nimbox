@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 #include "ui/app_ui_internal.h"
+#include "ui/nimbox_horizon_layout.h"
 #include "ui/stream_menu.h"
 #include "input/gyro.h"
 #include "input/controller_backend.h"
@@ -623,7 +624,7 @@ std::vector<std::string> AppUi::settingOptions(int row) const {
     if (row == 0) {
         for (int i = 0; i < static_cast<int>(Language::Count); ++i) out.push_back(languageName(static_cast<Language>(i)));
     } else if (row == nimbox_theme::kAppearanceFirst) {
-        for (const auto& theme : nimbox_theme::kPalettes) out.push_back(theme.name);
+        out = {tr(Str::LayoutCarousel), tr(Str::LayoutSpotlight)};
     } else if (row == nimbox_theme::kAppearanceReflection) {
         for (int v = 0; v <= 100; v += 10) out.push_back(std::to_string(v) + " %");
     } else if (row == nimbox_theme::kAppearanceMotion) {
@@ -722,7 +723,7 @@ std::vector<std::string> AppUi::settingOptions(int row) const {
 int AppUi::settingSelected(int row) const {
     // Caller holds mutex_.
     if (row == 0) return settings_.language;
-    if (row == nimbox_theme::kAppearanceFirst) return std::clamp(settings_.nimboxTheme, 0, 4);
+    if (row == nimbox_theme::kAppearanceFirst) return settings_.horizonShowcase ? 1 : 0;
     if (row == nimbox_theme::kAppearanceReflection) return nimbox_theme::clampReflection(settings_.nimboxReflection) / 10;
     if (row == nimbox_theme::kAppearanceMotion) return settings_.nimboxReducedMotion ? 1 : 0;
     if (row == 1) {
@@ -786,7 +787,8 @@ int AppUi::settingSelected(int row) const {
 void AppUi::applySetting(int row, int index) {
     // Caller holds mutex_.
     if (row == nimbox_theme::kAppearanceFirst) {
-        settings_.nimboxTheme = std::clamp(index, 0, nimbox_theme::kThemeCount - 1);
+        settings_.horizonShowcase = index == 1;
+        settingsBackdropReady_ = false;
     } else if (row == nimbox_theme::kAppearanceReflection) {
         settings_.nimboxReflection = nimbox_theme::clampReflection(index * 10);
     } else if (row == nimbox_theme::kAppearanceMotion) {
@@ -1259,39 +1261,17 @@ void AppUi::handleGameSettings(const NavInput& in, UiEvent& ev) {
 }
 
 void AppUi::drawSettings(Canvas& c) {
-    // A cached, blurred Home/Details is underneath. Keep the glass reading
-    // surfaces darker and more neutral than the brighter NimboPlay logo.
-    const Color cyan = rgba(145, 201, 250);
-    c.fillRect({0, 0, kW, kH}, rgba(4, 11, 22, 132));
-    c.gradientV({0, 0, kW, kH}, rgba(7, 20, 37, 25), rgba(3, 10, 22, 96));
-    c.fillRect({69, 190, 1196, 758}, rgba(0, 5, 12, 56), 25);
-    c.fillRect({1280, 190, 586, 758}, rgba(0, 5, 12, 59), 25);
-    c.fillRect({76, 181, 1180, 756}, rgba(10, 22, 37, 207), 22);
-    c.strokeRect({76, 181, 1180, 756}, rgba(203, 228, 246, 62), 1, 22);
-    c.fillRect({1287, 181, 570, 756}, rgba(10, 22, 37, 216), 22);
-    c.strokeRect({1287, 181, 570, 756}, rgba(203, 228, 246, 61), 1, 22);
-    c.gradientH({94, 184, 530, 2}, rgba(112, 224, 239, 148), rgba(112, 224, 239, 0));
-    c.gradientH({1306, 184, 320, 2}, rgba(112, 224, 239, 126), rgba(112, 224, 239, 0));
-    c.fillRect({95, 201, 3, 52}, rgba(102, 214, 237, 140), 2);
-    c.fillRect({1307, 201, 3, 52}, rgba(102, 214, 237, 130), 2);
-    drawTopBar(c);
-
+    c.gradientH({0, 0, kW, kH}, rgba(9, 13, 21, 186), rgba(9, 13, 21, 150));
+    const Color accent = nimbox_theme::palette(settings_.nimboxTheme).accent;
     // Back button next to Settings title for touch navigation
     Rect backBtn{kMargin, 94, 52, 52};
-    c.fillRect(backBtn, rgba(39, 64, 67, 180), 16);
-    c.strokeRect(backBtn, rgba(157, 189, 191, 95), 1, 16);
     float bx = backBtn.x + backBtn.w / 2.0f, by = backBtn.y + backBtn.h / 2.0f;
     c.line(bx + 4.0f, by - 9.0f, bx - 4.0f, by, 3.0f, kWhite);
     c.line(bx - 4.0f, by, bx + 4.0f, by + 9.0f, 3.0f, kWhite);
 
     // Editorial page header; the back and Settings targets remain intact.
-    fonts_.bold.draw(c, tr(Str::Settings), kMargin + 72, 127, 44, kWhite);
-    // NimboPlay wordmark remains visible through the shared native top bar.
-    fonts_.semibold.draw(c, "CONSOLE EXPERIENCE", 1306, 136, 16,
-                         rgba(142, 197, 214));
-    fonts_.bold.draw(c, "SEU ESPACO, SUAS REGRAS", 112, 203, 19, rgba(233, 247, 249));
-    fonts_.regular.draw(c, "Ajustes do sistema e experiencias personalizadas", 112, 229,
-                        17, rgba(145, 180, 191));
+    fonts_.bold.draw(c, tr(Str::Settings), kMargin + 76, 91, 48, kWhite);
+
     if (loading_) {
         drawLoadingBar(c, kW - kMargin - 480, 100, 480, lastRender_);
     }
@@ -1309,56 +1289,35 @@ void AppUi::drawSettings(Canvas& c) {
 #endif
                                         tr(Str::ResetSettings), tr(Str::SyncTrophies),  tr(Str::RemoveTrophies),
                                         tr(Str::FpsLimit), tr(Str::StoreCountry),
-                                        "Ambiente visual", "Reflexo do piso", "Movimento reduzido",
-                                        "Upscaler de imagem", "Suavizacao (Deband)",
-                                        "Nitidez CAS", "Saida do chat de voz"};
-    constexpr int kRowW = kSettingsRowW, kRowH = kSettingsRowH, kGap = kSettingsGap, kGroupGap = kSettingsGroupGap, kRowPx = kSettingsRowPx;
+                                        tr(Str::HomeLayout), "Reflexo do piso", "Movimento reduzido",
+                                        "Upscaler de imagem", "Suavização (Deband)",
+                                        "Nitidez CAS", "Saída do chat de voz"};
+    constexpr int kRowW = kSettingsRowW, kRowH = kSettingsRowH, kGap = kSettingsGap, kRowPx = kSettingsRowPx;
     constexpr int kListTop = kSettingsListTop, kClipTop = kSettingsClipTop;
+    const int section = settingsSection(settingsRow_);
+    const char* sections[] = {"Horizon", tr(Str::SettingsPlayback), tr(Str::SettingsControls),
+                              tr(Str::SettingsAccount), tr(Str::SettingsSystem)};
+    for (int i = 0; i < kSectionCount; ++i) {
+        const Rect tab = settingsSectionRect(i);
+        const bool active = i == section;
+        if (active) {
+            c.fillRect(tab, withAlpha(kWhite, 24), 5);
+            c.fillRect({tab.x, tab.y + 10, 3, tab.h - 20}, accent, 1);
+        }
+        fonts_.semibold.draw(c, sections[i], tab.x + 22, tab.y + 14, 25, active ? kWhite : rgba(221, 224, 229));
+    }
     Rect rows[kSettingRows];  // by row id
     int y = kListTop - static_cast<int>(std::lround(settingsScrollY_));
-    c.setClip({kMargin - 8, kClipTop, kRowW + 16, kSettingsListBottom - kClipTop});
-    // Draw each section as a single layered surface. Row IDs and hitboxes
-    // are unchanged; this only affects the software-rendered presentation.
-    const auto visibleRows = visibleSettingsRows(caps_);
-    int sectionY = y;
-    for (size_t first = 0; first < visibleRows.size();) {
-        if (visibleRows[first].groupStart) sectionY += kGroupGap;
-        size_t end = first + 1;
-        while (end < visibleRows.size() && !visibleRows[end].groupStart) ++end;
-        const int count = static_cast<int>(end - first);
-        Rect slab{kMargin + 3, sectionY - 4, kRowW - 6,
-                  count * (kRowH + kGap) - kGap + 8};
-        c.fillRect(slab, rgba(5, 19, 33, 156), 14);
-        c.strokeRect(slab, rgba(138, 181, 195, 40), 1, 14);
-        c.line(slab.x + 18.0f, slab.y + 1.0f, slab.x + slab.w - 18.0f,
-               slab.y + 1.0f, 1.0f, rgba(170, 220, 232, 23));
-        sectionY += count * (kRowH + kGap);
-        first = end;
-    }
-    for (const auto& [i, groupStart] : visibleRows) {  // what caps_ rules out is hidden
-        if (groupStart) {
-            const char* group = i == 1 ? "TRANSMISSAO E IMAGEM" :
-                                i == 14 ? "CONTROLES E ACESSIBILIDADE" :
-                                i == 19 ? "MANUTENCAO" :
-                                i == nimbox_theme::kAppearanceFirst ? "APARÊNCIA" : "PREFERENCIAS";
-            c.fillRect({kMargin + 5, y + 7, 4, 18}, cyan, 2);
-            fonts_.bold.draw(c, group, kMargin + 21, y + 7, 17, rgba(159, 212, 228));
-            c.line(kMargin + 360.0f, y + 16.0f, kMargin + kRowW - 18.0f,
-                   y + 16.0f, 1.0f, rgba(141, 196, 209, 30));
-            y += kGroupGap;
-        }
-        Rect r{kMargin, y, kRowW, kRowH};
+    c.setClip({kSettingsRowX - 8, kClipTop, kRowW + 16, kSettingsListBottom - kClipTop});
+    for (const auto& item : settingsPage(caps_, settingsRow_)) {
+        const int i = item.row;
+        Rect r{kSettingsRowX, y, kRowW, kRowH};
         rows[i] = r;
         bool focused = i == settingsRow_;
         int ty = fonts_.semibold.centeredY(r.y, r.h, kRowPx);
 
         if (i == 23) {
-            // Restore factory defaults button: red background
-            Color redBg = focused ? rgba(137, 48, 58, 240) : rgba(76, 35, 44, 158);
-            c.fillRect({r.x + 5, r.y + 1, r.w - 10, r.h - 2}, redBg, 10);
-            c.strokeRect({r.x + 5, r.y + 1, r.w - 10, r.h - 2},
-                         focused ? rgba(251, 137, 147, 220) : rgba(208, 106, 117, 60),
-                         focused ? 2 : 1, 10);
+            if (focused) c.fillRect(r, rgba(151, 65, 69, 105), 5);
 
             // Progress fill animation when holding Cross/accept
             if (focused && resetSettingsHoldStart_ > 0) {
@@ -1373,44 +1332,19 @@ void AppUi::drawSettings(Canvas& c) {
             int textX = r.x + (r.w - textW) / 2;
             fonts_.bold.draw(c, labels[i], textX, ty, kRowPx, kWhite);
         } else {
-            // Only the focused row becomes an illuminated card; resting
-            // rows share a subtle category surface instead of flat blocks.
-            c.fillRect({r.x + 5, r.y + 1, r.w - 10, r.h - 2},
-                       focused ? rgba(188, 217, 237, 49) : rgba(255, 255, 255, 5), 10);
             if (focused) {
-                c.gradientH({r.x + 11, r.y + 4, 220, r.h - 8},
-                            rgba(173, 208, 234, 32), rgba(173, 208, 234, 0));
-                c.fillRect({r.x + 6, r.y + 5, 4, r.h - 10}, cyan, 2);
-                c.strokeRect({r.x + 5, r.y + 1, r.w - 10, r.h - 2},
-                             dropdownOpen_ ? rgba(195, 218, 236, 108) : rgba(211, 234, 249, 154),
-                             dropdownOpen_ ? 1 : 2, 10);
-            } // Resting rows have no spreadsheet-like divider lines.
+                c.fillRect(r, withAlpha(kWhite, 29), 5);
+                c.strokeRect(r, withAlpha(kWhite, 87), 1, 5);
+            } else {
+                c.fillRect({r.x + 18, r.y + r.h, r.w - 36, 1}, withAlpha(kWhite, 26));
+            }
             fonts_.semibold.draw(c, labels[i], r.x + 32, ty, kRowPx,
-                                 focused ? kWhite : rgba(217, 231, 237));
+                                 focused ? kWhite : preview31::kText);
             float cx = static_cast<float>(r.x + r.w - 40), cy = static_cast<float>(r.y + r.h / 2);
             const bool isSubmenuRow = (i == 3 || i == 4 || i == 12 || i == 14 || i == 15);
             if (isSubmenuRow) {
-                const int pillW = focused ? 42 : 24;
-                const int pillH = 22;
-                const int pillX = r.x + r.w - 16 - pillW;
-                const int pillY = r.y + (r.h - pillH) / 2;
-                c.fillRect({pillX, pillY, pillW, pillH},
-                           focused ? rgba(24, 28, 32) : rgba(255, 255, 255, 22), 6);
-                c.strokeRect({pillX, pillY, pillW, pillH},
-                             focused ? rgba(22, 163, 74) : rgba(255, 255, 255, 55), 1, 6);
-                if (focused) {
-                    if (g_keyboardHints) {
-                        fonts_.bold.draw(c, "OK", pillX + 4, fonts_.bold.centeredY(pillY, pillH, 10), 10, rgba(74, 222, 128));
-                    } else {
-                        drawFaceButton(c, fonts_.bold, circleConfirms_ ? kIconCircle : kIconCross,
-                                       static_cast<float>(pillX + 12), static_cast<float>(pillY + pillH / 2), 7.5f);
-                    }
-                }
-                const float acx = static_cast<float>(pillX + pillW - 11);
-                const float acy = static_cast<float>(pillY + pillH / 2);
-                const Color arrowCol = focused ? rgba(74, 222, 128) : rgba(215, 215, 215);
-                c.line(acx - 2.0f, acy - 4.0f, acx + 2.5f, acy, 2.0f, arrowCol);
-                c.line(acx + 2.5f, acy, acx - 2.0f, acy + 4.0f, 2.0f, arrowCol);
+                c.line(cx - 3, cy - 6, cx + 3, cy, 2, kWhite);
+                c.line(cx + 3, cy, cx - 3, cy + 6, 2, kWhite);
             } else if (i != 7 && i != 17 && i != 18 && i != 19 && i != 25) {
                 c.line(cx - 8, cy - 3, cx, cy + 4, 2.5f, focused ? kWhite : kGray);
                 c.line(cx, cy + 4, cx + 8, cy - 3, 2.5f, focused ? kWhite : kGray);
@@ -1461,6 +1395,39 @@ void AppUi::drawSettings(Canvas& c) {
         y += kRowH + kGap;
     }
     c.resetClip();
+    fonts_.regular.draw(c, tr(Str::WebControlTitle), kSettingsRemoteLink.x + 22,
+                        kSettingsRemoteLink.y + 14, 24, kWhite);
+    const float arrowX = kSettingsRemoteLink.x + kSettingsRemoteLink.w - 24;
+    const float arrowY = kSettingsRemoteLink.y + 29;
+    c.line(arrowX - 6, arrowY + 4, arrowX + 4, arrowY - 6, 2, kWhite);
+    c.line(arrowX - 4, arrowY - 6, arrowX + 4, arrowY - 6, 2, kWhite);
+    c.line(arrowX + 4, arrowY - 6, arrowX + 4, arrowY + 2, 2, kWhite);
+    if (settingsRow_ == nimbox_theme::kAppearanceFirst) {
+        const bool showcase = dropdownOpen_ ? dropdownIndex_ == 1 : settings_.horizonShowcase;
+        constexpr Rect preview{kSettingsRowX + 20, 518, kW / 4, kH / 4};
+        auto mini = [&](Rect r) {
+            return Rect{preview.x + r.x / 4, preview.y + r.y / 4, r.w / 4, r.h / 4};
+        };
+        c.fillRect(preview, rgba(10, 18, 29, 208), 8);
+        c.strokeRect(preview, withAlpha(kWhite, 65), 1, 8);
+        c.fillRect(mini({104, 248, 720, 34}), withAlpha(kWhite, 150), 2);
+        c.fillRect(mini(horizon::kPlayButton), withAlpha(kWhite, 155), 3);
+        if (showcase) c.fillRect(mini(horizon::kShowcaseCover), accent, 4);
+        for (int offset = -3; offset <= 3; ++offset) {
+            const Rect card = mini(horizon::homeCoverRect(float(offset), 0, showcase));
+            c.fillRect(card, offset == 0 ? accent : rgba(87, 107, 129), 3);
+            if (offset == 0) c.strokeRect(card, kWhite, 1, 3);
+        }
+    }
+    const int viewport = kSettingsListBottom - kSettingsListTop;
+    const int total = settingsTotalHeight(caps_, settingsRow_);
+    if (total > viewport) {
+        const int height = viewport * viewport / total;
+        const float fraction = std::clamp(settingsScrollY_ / (total - viewport), 0.0f, 1.0f);
+        const int top = kSettingsListTop + static_cast<int>((viewport - height) * fraction);
+        c.fillRect({kSettingsRowX + kRowW + 10, kSettingsListTop, 4, viewport}, preview31::kGlassLine, 2);
+        c.fillRect({kSettingsRowX + kRowW + 10, top, 4, height}, preview31::kMuted, 2);
+    }
     static constexpr Str kSettingDescs[28] = {
         Str::SettingDescLanguage,
         Str::SettingDescResolution,
@@ -1493,14 +1460,14 @@ void AppUi::drawSettings(Canvas& c) {
     };
     if (settingsRow_ >= 0 && settingsRow_ < kSettingRows) {
         const char* desc = settingsRow_ == nimbox_theme::kAppearanceFirst
-            ? "Altera o ambiente atras das caixas. O streaming nao muda."
+            ? tr(Str::HomeLayoutHint)
             : settingsRow_ == nimbox_theme::kAppearanceReflection
             ? "Intensidade dos reflexos no piso da colecao."
             : settingsRow_ == nimbox_theme::kAppearanceMotion
-            ? "Reduz animacoes de capas e do disco."
+            ? "Reduz o movimento das capas e a transição entre coleções."
             : settingsRow_ == 20
 #if defined(__ANDROID__)
-            ? "H.264 (AVC): GPU = MediaCodec; CPU = FFmpeg. Escolha antes de jogar; pode haver fallback."
+            ? "Escolha como exibir o vídeo H.264: hardware, software ou Android Surface."
 #else
             ? "Codec do streaming: H.264 (AVC). Escolha hardware ou software; nao troca o codec."
 #endif
@@ -1513,97 +1480,11 @@ void AppUi::drawSettings(Canvas& c) {
             : settingsRow_ == 34
             ? "Seleciona a saida do chat de voz: automatico ou TV e headset."
             : tr(kSettingDescs[settingsRow_]);
-        c.fillRect({100, 869, 1132, 59}, rgba(5, 17, 30, 204), 13);
-        c.strokeRect({100, 869, 1132, 59}, rgba(126, 183, 204, 51), 1, 13);
-        c.fillRect({101, 883, 4, 30}, cyan, 2);
-        auto lines = fonts_.regular.wrap(desc, 18, kRowW - 66, 2);
-        const int hintBaseline = 902;
-        int dy = (lines.size() > 1) ? (hintBaseline - 26) : hintBaseline;
-        for (const auto& line : lines) {
-            fonts_.regular.draw(c, line, kMargin + 25, dy, 21, rgba(172, 205, 219));
-            dy += 26;
+        int yDesc = 868;
+        for (const auto& line : fonts_.regular.wrap(desc, 22, kRowW - 42, 3)) {
+            fonts_.regular.draw(c, line, kSettingsRowX + 18, yDesc, 22, preview31::kText);
+            yDesc += 29;
         }
-    }
-
-    // The right column now exposes REAL, persisted appearance controls.
-    // Preserve the existing remote Web UI QR underneath — do not replace it
-    // with demonstration features from the HTML prototype.
-    if (tester_ == Tester::None && !pickerOpen_) {
-        fonts_.bold.draw(c, "Ambiente visual", 1328, 204, 30, kWhite);
-        fonts_.regular.draw(c, "Escolha a atmosfera da sua colecao", 1328, 245,
-                            17, rgba(152, 189, 201));
-        c.fillRect({1310, 272, 524, 225}, rgba(4, 17, 31, 150), 16);
-        c.strokeRect({1310, 272, 524, 225}, rgba(138, 202, 217, 48), 1, 16);
-        fonts_.semibold.draw(c, "CENARIOS   /   05", 1328, 278, 13, rgba(127, 205, 226));
-        for (int i = 0; i < nimbox_theme::kThemeCount; ++i) {
-            const auto& theme = nimbox_theme::kPalettes[i];
-            const Rect card = nimbox_theme::kThemeCards[i];
-            const bool selected = i == settings_.nimboxTheme;
-            c.fillRect({card.x + 1, card.y + 3, card.w, card.h}, rgba(0, 0, 0, 80), 9);
-            c.gradientV(card, theme.sky, theme.low);
-            c.fillCircle(card.x + card.w - 51.0f, card.y + 8.0f, 31.0f,
-                         withAlpha(theme.accent, selected ? 142 : 78));
-            c.line(card.x + 12.0f, card.y + 28.0f, card.x + card.w - 13.0f,
-                   card.y + 28.0f, 1.0f, rgba(225, 250, 252, 68));
-            c.fillRect({card.x, card.y + card.h - 31, card.w, 31},
-                       rgba(5, 18, 33, 205), 7);
-            c.strokeRect(card, selected ? rgba(172, 241, 249, 245) :
-                         rgba(147, 186, 200, 92), selected ? 3 : 1, 9);
-            if (selected) c.fillRect({card.x + 9, card.y + card.h - 4,
-                                      card.w - 18, 3}, rgba(118, 228, 239, 210), 1);
-            fonts_.semibold.draw(c, theme.name, card.x + 13,
-                                 card.y + card.h - 27, 17, kWhite);
-            if (selected) c.fillCircle(card.x + card.w - 17, card.y + 13,
-                                       5.0f, rgba(225, 255, 255));
-        }
-        const std::string refl = std::to_string(settings_.nimboxReflection) + "%";
-        fonts_.semibold.draw(c, "Reflexo do piso", 1330, 502, 19, kWhite);
-        fonts_.semibold.draw(c, refl,
-                             1800 - fonts_.semibold.measure(refl, 18), 502,
-                             18, rgba(189, 220, 202));
-        const Rect track = nimbox_theme::kReflectionTrack;
-        c.fillRect({track.x, track.y + 2, track.w, track.h - 4}, rgba(55, 83, 101), 5);
-        c.fillRect({track.x, track.y + 2,
-                    track.w * nimbox_theme::clampReflection(settings_.nimboxReflection) / 100,
-                    track.h - 4}, rgba(93, 204, 230), 5);
-        const float thumbX = static_cast<float>(track.x) +
-                             track.w * nimbox_theme::clampReflection(settings_.nimboxReflection) / 100.0f;
-        c.fillCircle(thumbX, track.y + track.h / 2.0f, 13.0f, rgba(69, 145, 173, 68));
-        c.fillCircle(thumbX, track.y + track.h / 2.0f, 8.0f, rgba(221, 249, 254));
-        fonts_.semibold.draw(c, "Reduzir movimento", 1330, 599, 19, kWhite);
-        const Rect motion = nimbox_theme::kReducedMotionButton;
-        c.fillRect(motion, settings_.nimboxReducedMotion ? rgba(24, 89, 108) :
-                   rgba(24, 53, 72), 22);
-        c.strokeRect(motion, settings_.nimboxReducedMotion ? rgba(123, 229, 243, 185) :
-                     rgba(124, 172, 191, 90), 1, 22);
-        const char* motionLabel = settings_.nimboxReducedMotion ? "Ligado" : "Desligado";
-        const int knobX = settings_.nimboxReducedMotion ? motion.x + motion.w - 22 : motion.x + 22;
-        c.fillCircle(knobX, motion.y + motion.h / 2.0f, 15.0f,
-                     settings_.nimboxReducedMotion ? rgba(127, 235, 245) : rgba(123, 150, 169));
-        fonts_.semibold.draw(c, motionLabel,
-                             settings_.nimboxReducedMotion ? motion.x + 27 : motion.x + 49,
-                             motion.y + 12, 18, kWhite);
-
-        // Real, previously available web-control QR. Shrink only its layout;
-        // the URL and service remain exactly as they were.
-        Rect remotePanel{1310, 656, 523, 250};
-        c.fillRect({remotePanel.x + 3, remotePanel.y + 7, remotePanel.w,
-                    remotePanel.h}, rgba(0, 5, 13, 75), 16);
-        c.fillRect(remotePanel, rgba(8, 20, 34, 241), 16);
-        c.strokeRect(remotePanel, rgba(118, 181, 205, 75), 1, 16);
-        c.fillRect({remotePanel.x + 1, remotePanel.y + 25, 3, 61},
-                   rgba(102, 218, 238, 166), 2);
-        fonts_.bold.draw(c, tr(Str::WebControlTitle), 1330, 672, 21, kWhite);
-        std::string qrUrl = !webUrl_.empty() ? webUrl_ :
-                            "http://" + platform::localIPv4() + ":8080";
-        drawQr(c, qrUrl, 1517, 713, 142, qrcodegen_Ecc_LOW);
-        fonts_.semibold.draw(c, tr(Str::SettingsQrPointerHint), 1530, 849,
-                             17, rgba(192, 218, 244));
-        fonts_.regular.draw(c, "Acesse o painel remoto", 1530, 754, 17, rgba(194, 220, 211));
-        const std::string urlText = fonts_.semibold.fit(qrUrl, 16, 272);
-        fonts_.semibold.draw(c, urlText, 1530, 787, 16, rgba(181, 224, 193));
-        fonts_.regular.draw(c, "Mesmas funcoes, novo visual", 1530, 814, 15,
-                            rgba(145, 175, 174));
     }
 
     if (s_gyroCalModalOpen) {
@@ -1705,7 +1586,7 @@ void AppUi::drawSettings(Canvas& c) {
         } else if (settingsRow_ == 10) {
             drawHints(c, {{kIconDpadLR, tr(Str::Adjust)}, {kIconTriangle, tr(Str::ReportProblem)}, {kIconCircle, tr(Str::Back)}});
         } else {
-            drawHints(c, {{kIconCross, tr(Str::Change)}, {kIconR3, tr(Str::SettingsExpandQr)},
+            drawHints(c, {{kIconL1R1, tr(Str::Sections)}, {kIconCross, tr(Str::Change)}, {kIconR3, tr(Str::SettingsExpandQr)},
                           {kIconTriangle, tr(Str::ReportProblem)}, {kIconCircle, tr(Str::Back)}});
         }
     }

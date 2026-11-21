@@ -18,6 +18,7 @@
 #include "media/audio_out.h"
 #include "platform/platform.h"
 #include "ui/app_ui.h"
+#include "xcloud/catalog.h"
 #include "ui/nimbox_detail_showcase.h"
 #include "ui/canvas.h"
 #include "ui/font.h"
@@ -224,24 +225,21 @@ int desktopSelftest(const std::string& dir) {
     ui.handle(exitZoom);
     check(ui.screen() == ui::Screen::Settings, "Closing the QR stays inside Settings");
 
-    // Appearance controls are real: clicking a swatch persists a visual theme
-    // without changing stream bitrate, region, controller or Play.
+    // The native layout selector changes Home layout without affecting playback.
     {
         auto before = ui.settings();
-        const auto original = shot.rgb;
-        ui.onMouseDown(1682.0f, 385.0f, 1); // Emerald, row 2 / col 2
+        ui.onMouseDown(720, 333, 1); // Home layout
+        ui.onMouseDown(1320, 472, 1); // Spotlight
         auto next = ui.settings();
-        check(next.nimboxTheme == 3 && next.region == before.region &&
+        check(next.horizonShowcase && next.nimboxTheme == before.nimboxTheme && next.region == before.region &&
               next.maxBitrateMbps == before.maxBitrateMbps &&
-              next.padMap == before.padMap, "Emerald theme changes appearance only");
-        ui.onMouseDown(1690.0f, 550.0f, 1); // floor reflection
-        check(ui.settings().nimboxReflection > 50, "Reflection slider responds to touch");
-        ui.onMouseDown(1660.0f, 604.0f, 1); // reduced motion
-        check(ui.settings().nimboxReducedMotion, "Reduced motion toggle responds to touch");
+              next.padMap == before.padMap, "Spotlight changes layout only");
+        check(ui::settingsRowPosition(caps, 29) < 0, "Horizon hides legacy floor reflection");
         ui.render(canvas, platform::nowMs());
         drawCanvas(canvas);
-        check(screenshot(dir, "2f-settings-emerald.png", shot) && varied(shot) &&
-              shot.rgb != original, "Settings environment swatches change native pixels");
+        check(screenshot(dir, "2f-settings-layout.png", shot) && varied(shot), "Layout preview");
+        ui.onMouseDown(720, 401, 1); // movement preference
+        check(ui.settings().nimboxReducedMotion, "Reduced motion can be selected by touch");
         ui.setSettings(before);
     }
     // The PS5's Settings, every row shown (the console's own capabilities).
@@ -252,6 +250,16 @@ int desktopSelftest(const std::string& dir) {
     ui.setCaps(caps);
     // The same with an Xbox pad's glyphs (A / B, Menu, View...).
     {
+        ui.onMouseDown(245, 343, 1);
+        check(ui.settingsFocus() == 1, "Playback tab opens streaming options");
+        ui.render(canvas, platform::nowMs());
+        drawCanvas(canvas);
+        check(screenshot(dir, "2h-settings-playback.png", shot), "Playback page capture");
+        ui.handle(ui::NavInput{.r1 = true});
+        check(ui.settingsFocus() == 14, "Shoulder navigation opens Controls");
+        ui.render(canvas, platform::nowMs());
+        drawCanvas(canvas);
+        check(screenshot(dir, "2i-settings-controls.png", shot), "Controls page capture");
         const std::vector<uint8_t> ps = shot.rgb;
         ui::g_glyphStyle = ui::glyphStyleFor(input::PadKind::Xbox);
         ui.invalidate();
@@ -400,7 +408,10 @@ int desktopSelftest(const std::string& dir) {
         for (int i = 0; i < 5; ++i)
             selectedSettings.titlePlaytime["cv-test-" + std::to_string(i)] = 1800u + 600u * i;
         ui.setSettings(selectedSettings);
-        ui.setRows({showcase});
+        auto discovery = showcase;
+        discovery.title = "Discovery";
+        std::reverse(discovery.tiles.begin(), discovery.tiles.end());
+        ui.setRows({showcase, discovery});
         ui.showHome();
         ui.render(canvas, platform::nowMs());
         drawCanvas(canvas);
@@ -408,22 +419,156 @@ int desktopSelftest(const std::string& dir) {
                   screenshot(dir, "6-nimbox-horizon-home.png", shot) && varied(shot),
               "Horizon is the only Game Pass home (6-nimbox-horizon-home.png)");
 
-        const auto originalPalette = shot.rgb;
-        ui::SettingsChoice cinemaSettings = selectedSettings;
-        cinemaSettings.nimboxTheme = 4;
-        cinemaSettings.nimboxReflection = 0;
-        ui.setSettings(cinemaSettings);
+        {
+            auto all = showcase;
+            all.title = "Full catalog";
+            all.catalogId = xcloud::sigl::kAllGames;
+            all.isGrid = true;
+            all.tiles[0].categories = {"Strategy"};
+            for (size_t i = 1; i < all.tiles.size(); ++i) all.tiles[i].categories = {"Adventure"};
+            auto ubi = showcase;
+            ubi.title = "Ubisoft+ Classics";
+            ubi.catalogId = xcloud::sigl::kUbisoftClassics;
+            ubi.tiles = {all.tiles.back()};
+            ui.setRows({showcase, all, ubi});
+            ui::NavInput down, accept, back, up;
+            down.down = accept.accept = back.back = up.up = true;
+            ui.onMouseWheel(0, -1); // Ubisoft+ Classics
+            ui.handle(down);        // Genres, inline
+            ui.onMouseWheel(0, -1); // All games, already in grid mode
+            ui.handle(accept);
+            check(ui.screen() == ui::Screen::Details && ui.detailTile().productId == all.tiles[0].productId,
+                  "Scrolling to All games immediately exposes the first playable tile");
+            ui.handle(back);
+            ui.handle(down);
+            ui.render(canvas, platform::nowMs());
+            drawCanvas(canvas);
+            check(screenshot(dir, "6i-horizon-catalog.png", shot) && varied(shot), "Native catalog grid capture");
+            ui.handle(accept);
+            check(ui.screen() == ui::Screen::Details && ui.detailTile().productId == all.tiles[6].productId,
+                  "All games opens a six-column library");
+            ui.handle(back);
+            ui.handle(accept);
+            check(ui.screen() == ui::Screen::Details && ui.detailTile().productId == all.tiles[6].productId,
+                  "Returning from details retains the selected game");
+            ui.handle(back);
+            ui::NavInput genres;
+            genres.square = true;
+            ui.handle(genres);
+            ui.handle(down);
+            ui.handle(accept); // Footer returns to the full grid
+            ui.handle(accept);
+            check(ui.screen() == ui::Screen::Details && ui.detailTile().productId == all.tiles[6].productId,
+                  "Compact genre footer restores full library focus");
+            ui.handle(back);
+            ui.handle(back); // Back from the inline library restores the preceding shelf
+            ui.render(canvas, platform::nowMs());
+            drawCanvas(canvas);
+            check(screenshot(dir, "6j-horizon-genres.png", shot) && varied(shot), "Genre picker capture");
+            ui.onMouseDown(500, 500, 1);  // Second portrait genre card: Strategy
+            ui.handle(accept);
+            check(ui.screen() == ui::Screen::Details && ui.detailTile().productId == all.tiles[0].productId,
+                  "A genre opens its own filtered grid");
+            ui.handle(back);
+            ui.handle(back);
+            ui.handle(back);
+            ui.onMouseDown(620, 460, 1);
+            ui.onMouseDown(220, 640, 1);  // Ubisoft+ Classics
+            ui.handle(accept);
+            check(ui.screen() == ui::Screen::Details && ui.detailTile().productId == all.tiles.back().productId,
+                  "Ubisoft+ Classics uses titles from its own catalog feed");
+            ui.handle(back);
+            ui.handle(back);
+            ui.handle(back);
+            xcloud::FriendPresence friendOnline;
+            friendOnline.xuid = "12345";
+            friendOnline.gamertag = "Test player";
+            friendOnline.presenceState = "Online";
+            ui.setSocial({friendOnline}, "Away", true);
+            ui.onMouseDown(1314, 70, 1);
+            ui.render(canvas, platform::nowMs());
+            drawCanvas(canvas);
+            check(screenshot(dir, "6k-horizon-friends.png", shot) && varied(shot), "Friends screen capture");
+            ui.handle(back);
+            ui.onMouseDown(1314, 70, 1);
+            ui.handle(accept);
+            auto read = ui.takeChatRequest(100);
+            check(read.peer == friendOnline.xuid && read.text.empty() && read.session, "Open the selected friend's conversation");
+            ui.finishChatRequest(read,true,{{"12345","Example reply","2026-01-01"}},100);
+            ui.render(canvas,platform::nowMs());
+            drawCanvas(canvas);
+            check(screenshot(dir,"6m-horizon-chat.png",shot) && varied(shot), "Native chat capture");
+            ui.typeText("Hello");
+            ui.onMouseDown(1480,749,1);
+            auto send = ui.takeChatRequest(110);
+            check(send.text == "Hello" && send.peer == "12345" && !ui.takeChatRequest(111).session,
+                  "An explicit send queues one request addressed to the selected XUID");
+            ui.finishChatRequest(send,false,{},120);
+            auto refresh = ui.takeChatRequest(125);
+            check(refresh.session && refresh.text.empty(),"Unconfirmed delivery refreshes history without resending");
+            ui.finishChatRequest(refresh,true,{},126);
+            ui.onMouseDown(1480,749,1);
+            auto retry = ui.takeChatRequest(130);
+            check(retry.text == "Hello", "Failed send preserves the draft for manual retry");
+            ui.handle(back);
+            ui.finishChatRequest(retry,true,{},140);
+            check(!ui.wantsTextInput() && !ui.takeChatRequest(150).session, "Leaving chat discards stale results");
+            ui.handle(back);
+            ui.showToast("Test notification");
+            ui.onMouseDown(1370, 70, 1);
+            ui.render(canvas, platform::nowMs());
+            drawCanvas(canvas);
+            check(screenshot(dir, "6l-horizon-notifications.png", shot) && varied(shot), "Notification inbox capture");
+            ui.handle(back);
+            ui.onMouseDown(1770, 70, 1);
+            ui.onMouseDown(1240, 825, 1);  // Sign out, still requires confirmation
+            check(ui.handle(accept).action != ui::Action::SignOut, "Sign-out defaults to Cancel");
+            ui.onMouseDown(1240, 825, 1);
+            ui.handle(down);
+            check(ui.handle(accept).action == ui::Action::SignOut, "Explicit sign-out confirmation dispatches the event");
+            ui.setRows({showcase, discovery});
+            ui.render(canvas, platform::nowMs());
+        }
+        ui::NavInput nextCollection;
+        nextCollection.down = true;
+        ui.handle(nextCollection);
+        const uint64_t start = platform::nowMs();
+        ui.render(canvas, start);
+        ui.render(canvas, start + 140);
+        drawCanvas(canvas);
+        check(screenshot(dir, "6g-collection-change.png", shot), "Capture collection transition midpoint");
+        const auto midpoint = shot.rgb;
+        ui.render(canvas, start + 300);
+        drawCanvas(canvas);
+        check(screenshot(dir, "6h-next-collection.png", shot) && midpoint != shot.rgb,
+              "Collection transition settles on the new shelf");
+        ui::NavInput previousCollection;
+        previousCollection.up = true;
+        ui.handle(previousCollection);
+        ui.setRows({showcase});
         ui.render(canvas, platform::nowMs());
         drawCanvas(canvas);
-        check(screenshot(dir, "6c-horizon-cinema-home.png", shot) && varied(shot) &&
-                  shot.rgb != originalPalette,
-              "Cinema Dark changes Horizon background");
+        screenshot(dir, "6-nimbox-horizon-home.png", shot);
+        const size_t coverPixel = 210u * canvas.width() + 1420u;
+        const auto originalBackdrop = canvas.data()[coverPixel];
+        auto spotlight = selectedSettings;
+        spotlight.horizonShowcase = true;
+        ui.setSettings(spotlight);
+        ui.render(canvas, platform::nowMs());
+        drawCanvas(canvas);
+        check(screenshot(dir, "6c-horizon-spotlight.png", shot) && varied(shot) &&
+              canvas.data()[coverPixel] != originalBackdrop, "Spotlight draws the featured cover");
+        ui.onMouseDown(1440, 264, 1);
+        check(ui.screen() == ui::Screen::Details, "Spotlight cover opens the selected game");
+        ui.showHome();
         ui.setSettings(selectedSettings);
 
         ui::NavInput oldModeShortcut;
         oldModeShortcut.r3 = true;
         ui.handle(oldModeShortcut);
         ui.render(canvas, platform::nowMs());
+        drawCanvas(canvas);
+        check(screenshot(dir, "6f-profile.png", shot) && varied(shot), "Profile drawer capture");
         check(ui.screen() == ui::Screen::Home,
               "R3 does not restore Colecao Viva or classic collection");
 
@@ -464,6 +609,32 @@ int desktopSelftest(const std::string& dir) {
             check(screenshot(dir, "6d-ps5-showcase-awards-focused.png", shot) && varied(shot),
                   "PS5 Showcase controller focus on Achievements");
         }
+
+        ui.showHome();
+        ui.setOwned(showcase.tiles, {}, true);
+        ui::NavInput nextTab;
+        nextTab.r1 = true;
+        ui.handle(nextTab);
+        ui.render(canvas, platform::nowMs());
+        drawCanvas(canvas);
+        check(screenshot(dir, "7-library.png", shot) && varied(shot), "Owned library capture");
+        check(ui.onMouseDown(1650, 189, 1).action == ui::Action::PrefsChanged, "Visible library sort target");
+        ui.onMouseDown(260, 344, 1);
+        check(ui.screen() == ui::Screen::Details, "First library cover opens details");
+        ui.showHome();
+        ui.setConsoles({}, true);
+        check(ui.handle(nextTab).action == ui::Action::ConsolesShown, "Consoles tab opens");
+        ui.render(canvas, platform::nowMs());
+        drawCanvas(canvas);
+        check(screenshot(dir, "8-consoles-empty.png", shot) && varied(shot), "Console setup and QR");
+        check(ui.onMouseDown(320, 866, 1).action == ui::Action::ConsolesShown, "Touch starts console discovery");
+        ui.setConsoles({{"test-console", "Xbox de teste", "XboxSeriesX", "ConnectedStandby"}}, true);
+        ui.render(canvas, platform::nowMs());
+        drawCanvas(canvas);
+        check(screenshot(dir, "8b-consoles.png", shot) && varied(shot), "Paired console capture");
+        const auto connect = ui.onMouseDown(350, 480, 1);
+        check(connect.action == ui::Action::Play && connect.game.titleId == "test-console",
+              "Paired console starts the correct remote session");
 
         ui.setRows({});
         ui.setSettings(savedSettings);
