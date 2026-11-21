@@ -118,6 +118,20 @@ constexpr int kSettingsRowX = 538;
 constexpr int kSettingsRowW = 1264, kSettingsRowH = 58, kSettingsGap = 7;
 constexpr int kSettingsGroupGap = 0, kSettingsRowPx = 25;
 constexpr int kSettingsListTop = 245, kSettingsClipTop = 239, kSettingsListBottom = 839;
+inline int gameProfileSection(int id) {
+    switch (id) {
+    case 0: case 10: case 18: return 0;
+    case 1: case 2: case 3: case 4: case 8: case 14: case 15: return 1;
+    default: return 2;
+    }
+}
+inline Rect gameProfileRowRect(const std::vector<SettingsRowPos>& rows,int pos,int section) {
+    if (gameProfileSection(rows[pos].row) != section) return {};
+    int slot = 0;
+    for (int i=0;i<pos;++i) if (gameProfileSection(rows[i].row)==section) ++slot;
+    return {kSettingsRowX,kSettingsListTop+slot*(kSettingsRowH+kSettingsGap),kSettingsRowW,kSettingsRowH};
+}
+
 
 inline int settingsTotalHeight(const UiCaps& caps, int row) {
     return int(settingsPage(caps, row).size()) * (kSettingsRowH + kSettingsGap);

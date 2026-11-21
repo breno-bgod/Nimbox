@@ -635,6 +635,27 @@ int desktopSelftest(const std::string& dir) {
         returnToDetails.back = true;
         ui.handle(returnToDetails);
         check(ui.screen() == ui::Screen::Details, "Settings returns to the selected game detail");
+        const auto selectedGame = ui.detailTile().productId;
+        ui::NavInput options;
+        options.options = true;
+        ui.handle(options);
+        check(ui.screen()==ui::Screen::Settings && !ui.gameSettingsOpen(),"Tab / Options opens global settings from Details");
+        ui.handle(returnToDetails);
+        const auto profile = ui::showcase::kGameProfileButton;
+        ui.onMouseDown(profile.x+34,profile.y+25,1);
+        check(ui.gameSettingsOpen(),"Named title action opens its own profile");
+        ui.render(canvas,platform::nowMs());
+        drawCanvas(canvas);
+        check(screenshot(dir,"6n-horizon-title-settings.png",shot) && varied(shot),"Per-title settings capture");
+        ui.onMouseDown(170,345,1); // Playback section
+        ui::NavInput change;
+        change.right = true;
+        const auto edited = ui.handle(change);
+        check(edited.action==ui::Action::GameSettingsChanged && edited.game.productId==selectedGame,
+              "Profile change stays scoped to the selected title");
+        ui.onMouseDown(120,120,1);
+        check(!ui.gameSettingsOpen() && ui.screen()==ui::Screen::Details && ui.detailTile().productId==selectedGame,
+              "Profile Back returns to the same title");
         {
             const auto play = ui.onMouseDown(ui::showcase::kPlayButton.x + 34.0f,
                                              ui::showcase::kPlayButton.y + 25.0f, 1);

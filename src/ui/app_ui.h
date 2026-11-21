@@ -638,6 +638,10 @@ private:
     void drawDetails(Canvas& c, uint64_t nowMs);
     void drawLaunching(Canvas& c, uint64_t nowMs);
     void drawError(Canvas& c);
+    void openGeneralSettings();
+    void drawSettingsBackdrop(Canvas& c, Screen source, uint64_t nowMs);
+    void drawSettingsHeader(Canvas& c, const std::string& title);
+    void gameProfilePointer(float x,float y,bool click,UiEvent& ev);
     void drawSettings(Canvas& c);
     void drawUpdatePrompt(Canvas& c);
     void drawUpdateNotesModal(Canvas& c);

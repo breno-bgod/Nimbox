@@ -1498,10 +1498,16 @@ void AppUi::drawDetails(Canvas& c, uint64_t nowMs) {
         }
     }
 
+    const auto profileButton = showcase::kGameProfileButton;
+    if (detailButtonFocus_ == 2) c.fillRect(profileButton,withAlpha(kWhite,35),12);
+    const auto profileLabel = std::string(tr(Str::GameSettings)) + " · " + g->name;
+    fonts_.semibold.draw(c,fonts_.semibold.fit(profileLabel,24,profileButton.w-48),
+                         profileButton.x+20,profileButton.y+16,24,kWhite);
     std::vector<Hint> hints;
-    if (claimRect_.w > 0) hints.push_back({kIconCross, tr(Str::ClaimFree)});
+    if (detailButtonFocus_ == 2) hints.push_back({kIconCross,tr(Str::GameSettings)});
+    else if (claimRect_.w > 0) hints.push_back({kIconCross, tr(Str::ClaimFree)});
     else if (playRect_.w > 0) hints.push_back({kIconCross, tr(detailButtonFocus_ == 1 && achRect_.w > 0 ? Str::Achievements : Str::Play)});
-    hints.push_back({kIconOptions, tr(Str::GameSettings)});
+    hints.push_back({kIconOptions, tr(Str::Settings)});
     hints.push_back({kIconTriangle, tr(favorites_.count(g->productId) ? Str::RemoveFavorite : Str::AddFavorite)});
     hints.push_back({kIconSquare, tr(hidden_.count(g->productId) ? Str::Unhide : Str::Hide)});
     if (!isAcquired(*g)) hints.push_back({kIconR3, tr(wishlist_.count(g->productId) ? Str::RemoveWishlist : Str::AddWishlist)});
@@ -1978,6 +1984,30 @@ static Image frostSettingsBackdrop(const Image& capture) {
     return coverResize(small, kW, kH);
 }
 
+void AppUi::drawSettingsBackdrop(Canvas& c,Screen source,uint64_t nowMs) {
+    // One-shot software frost: render the screen that opened Settings,
+    // and filter its snapshot. No per-frame 1080p blur cost and no
+    // GPU/MediaCodec dependency on Android, desktop or PS5.
+    if (!settingsBackdropReady_) {
+        Canvas base(kW, kH, rgba(4, 12, 23));
+        if (source == Screen::Details)
+            drawDetails(base, nowMs);
+        else if (source == Screen::Home)
+            drawHome(base, nowMs);
+        else
+            drawError(base);
+        Image capture;
+        capture.w = kW;
+        capture.h = kH;
+        capture.opaque = true;
+        capture.px.assign(base.data(), base.data() + static_cast<size_t>(kW) * kH);
+        settingsFrostedBackdrop_ = frostSettingsBackdrop(capture);
+        settingsBackdropReady_ = true;
+    }
+    if (settingsBackdropReady_) c.drawImage(settingsFrostedBackdrop_, 0, 0);
+    else drawBackground(c);
+}
+
 void AppUi::render(Canvas& c, uint64_t nowMs) {
     std::lock_guard<std::mutex> lock(mutex_);
     hintRects_.clear();
@@ -2007,34 +2037,17 @@ void AppUi::render(Canvas& c, uint64_t nowMs) {
         case Screen::SignIn: drawSignIn(c, nowMs); break;
         case Screen::Home: drawHome(c, nowMs); break;
         case Screen::Details:
-            drawDetails(c, nowMs);
-            if (gameSettingsOpen_) drawGameSettings(c);
+            if (gameSettingsOpen_) {
+                drawSettingsBackdrop(c,Screen::Details,nowMs);
+                hintRects_.clear();
+                drawGameSettings(c);
+            } else drawDetails(c,nowMs);
             if (achievementsOpen_) drawAchievementsModal(c, nowMs);
             break;
         case Screen::Launching: drawLaunching(c, nowMs); break;
         case Screen::Error: drawError(c); break;
         case Screen::Settings: {
-            // One-shot software frost: render the screen that opened Settings,
-            // and filter its snapshot. No per-frame 1080p blur cost and no
-            // GPU/MediaCodec dependency on Android, desktop or PS5.
-            if (!settingsBackdropReady_) {
-                Canvas base(kW, kH, rgba(4, 12, 23));
-                if (settingsReturnScreen_ == Screen::Details)
-                    drawDetails(base, nowMs);
-                else if (settingsReturnScreen_ == Screen::Home)
-                    drawHome(base, nowMs);
-                else
-                    drawError(base);
-                Image capture;
-                capture.w = kW;
-                capture.h = kH;
-                capture.opaque = true;
-                capture.px.assign(base.data(), base.data() + static_cast<size_t>(kW) * kH);
-                settingsFrostedBackdrop_ = frostSettingsBackdrop(capture);
-                settingsBackdropReady_ = true;
-            }
-            if (settingsBackdropReady_) c.drawImage(settingsFrostedBackdrop_, 0, 0);
-            else drawBackground(c);
+            drawSettingsBackdrop(c,settingsReturnScreen_,nowMs);
             hintRects_.clear();
             drawSettings(c);
             if (settingsQrExpanded_) drawSettingsQrOverlay(c);
