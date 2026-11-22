@@ -401,6 +401,37 @@ void AppUi::drawSplash(Canvas& c, uint64_t nowMs) {
 
 void AppUi::drawSignIn(Canvas& c, uint64_t nowMs) {
     drawCollectionBackdrop(c, nowMs, focusedTile());
+    if (boosteroidSignIn_) {
+        constexpr int left = 180;
+        drawInternalBrand(c, left - 12, 113, 208, 113);
+        fonts_.bold.draw(c, "Entrar com Boosteroid", left, 260, 60, kWhite);
+        fonts_.regular.draw(c, "Use o QR Code ou abra a pagina no navegador.", left, 400, 30, kGray);
+        fonts_.semibold.draw(c, fonts_.semibold.fit(codeUrl_, 29, 950), left, 471, 29, kWhite);
+        fonts_.regular.draw(c, "O NimboPlay continua aberto durante o login.", left, 545, 25, kGray);
+        if (!codeUrl_.empty()) {
+            uint8_t qr[qrcodegen_BUFFER_LEN_MAX], tmp[qrcodegen_BUFFER_LEN_MAX];
+            if (qrcodegen_encodeText(codeUrl_.c_str(), tmp, qr, qrcodegen_Ecc_MEDIUM,
+                                     qrcodegen_VERSION_MIN, qrcodegen_VERSION_MAX,
+                                     qrcodegen_Mask_AUTO, true)) {
+                const int n = qrcodegen_getSize(qr);
+                constexpr int boxSize = 440;
+                const int module = std::max(1, (boxSize - 60) / (n + 2));
+                const int side = module * (n + 2);
+                Rect panel{1280, 300, side + 40, side + 40};
+                c.fillRect(panel, kWhite, 24);
+                const int ox = panel.x + 20 + module, oy = panel.y + 20 + module;
+                for (int yy = 0; yy < n; ++yy)
+                    for (int xx = 0; xx < n; ++xx)
+                        if (qrcodegen_getModule(qr, xx, yy))
+                            c.fillRect({ox + xx * module, oy + yy * module, module, module}, kBg);
+                fonts_.regular.draw(c, "Escaneie para entrar", panel.x, panel.y + panel.h + 26, 25, kGray);
+            }
+        }
+        drawSpinner(c, left + 18, 734, 14, nowMs);
+        fonts_.regular.draw(c, "Aguardando confirmacao da conta...", left + 54, 721, 26, kGray);
+        if (caps_.openUrl) drawHints(c, {{kIconCross, tr(Str::OpenInBrowser)}});
+        return;
+    }
     const int left = 180;
     drawInternalBrand(c, left - 12, 113, 208, 113);
     fonts_.bold.draw(c, tr(Str::SignInTitle), left, 260, 72, kWhite);
