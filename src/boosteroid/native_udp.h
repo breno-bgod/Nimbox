@@ -12,6 +12,7 @@
 #include <map>
 #include <mutex>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace xc::boosteroid {
