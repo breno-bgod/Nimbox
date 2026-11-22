@@ -143,7 +143,7 @@ void AppUi::drawTopBar(Canvas& c, bool overArt) {
     // NimboPlay's complete transparent wordmark is the primary header brand.
     // No extra text beside it: the lettering is already included in the image.
     drawInternalBrand(c, 91, 20, 184, 100);
-    // Native service selector: L2 held + R1, or tap the NimboPlay wordmark.
+    // Service shortcut uses L2 held + R1 without stealing Home header taps.
     if (!overArt) fonts_.regular.draw(c, "L2 + R1: Boosteroid", 390, 91, 17, kGray);
     if (hasCloudTime && !overArt) drawCloudTime(c, 292, 59);
 
