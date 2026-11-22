@@ -143,6 +143,8 @@ void AppUi::drawTopBar(Canvas& c, bool overArt) {
     // NimboPlay's complete transparent wordmark is the primary header brand.
     // No extra text beside it: the lettering is already included in the image.
     drawInternalBrand(c, 91, 20, 184, 100);
+    // Native service selector: L2 held + R1, or tap the NimboPlay wordmark.
+    if (!overArt) fonts_.regular.draw(c, "L2 + R1: Boosteroid", 390, 91, 17, kGray);
     if (hasCloudTime && !overArt) drawCloudTime(c, 292, 59);
 
     // Avatar and centered Settings touch button
@@ -474,16 +476,18 @@ void AppUi::drawBoosteroidNative(Canvas& c, uint64_t nowMs) {
             fonts_.regular.draw(c, std::to_string(page) + " / " + std::to_string(pages),
                                 1710, 208, 24, kGray);
         }
-        fonts_.regular.draw(c, "Reprodução nativa ainda em validação no PS5 e Android.",
-                            86, 957, 22, kGray);
+        fonts_.regular.draw(c,
+            boosteroidStatus_ == "Biblioteca Boosteroid" || boosteroidStatus_.empty()
+            ? "Reprodução nativa ainda em validação no PS5 e Android."
+            : fonts_.regular.fit(boosteroidStatus_, 22, 1500),
+            86, 957, 22, kGray);
     } else {
         drawCentered(c, fonts_.bold, "Boosteroid indisponível", 375, 48, kWhite);
         drawCentered(c, fonts_.regular, boosteroidStatus_, 485, 26, kGray);
         drawCentered(c, fonts_.regular, "Triângulo: tentar novamente", 565, 24, kGray);
     }
     c.fillRect({0, kH - 80, kW, 80}, kBg);
-    drawHints(c, {{kIconCircle, tr(Str::Back)}});
-    fonts_.regular.draw(c, "L2 + R1: Boosteroid  |  Triângulo: atualizar  |  R3: sair da conta",
+    fonts_.regular.draw(c, "Voltar  |  Triângulo: atualizar  |  R3: sair da conta",
                         170, kH - 54, 20, kGray);
 }
 
@@ -577,6 +581,7 @@ void AppUi::drawSignIn(Canvas& c, uint64_t nowMs) {
     }
     if (caps_.openUrl) drawHints(c, {{kIconCross, tr(Str::OpenInBrowser)}});  // a desktop: the page in the browser
 #endif
+    fonts_.regular.draw(c, "L2 + R1 ou toque no logo: Boosteroid", 700, 1015, 20, kGray);
 }
 
 void AppUi::drawTabs(Canvas& c) {
