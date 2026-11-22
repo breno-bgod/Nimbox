@@ -19,3 +19,6 @@
 .hz-shell ~ .settings-modal,.settings-modal-header,.settings-layout{--os-panel:#172133;--os-border:#ffffff24}.settings-layout .settings-row{border-bottom:1px solid #ffffff20}.settings-layout .settings-sidebar{background:rgba(15,24,38,.85)}
 .hz-shell .openstroid-user-tier{color:#ecdbc0}.mantine-Drawer-content,.mantine-Drawer-header{background-color:#172234!important}.openstroid-login-logo{max-width:60px;max-height:60px}
 .horizon-rail button{content-visibility:auto;contain-intrinsic-size:160px 185px}
+.hz-brand{width:clamp(75px,8vw,145px);height:clamp(40px,7vh,76px);object-fit:contain}
+.hz-connecting{flex-direction:column;gap:.8rem;background:radial-gradient(ellipse at top right,#334564,#0d1421 75%);color:white}.hz-connecting img{width:125px}.hz-connecting p{font-size:1.3rem}.hz-connecting button{order:1;background:transparent;color:#fff;border:1px solid #ffffff70;border-radius:.5rem;padding:.65em 2em;cursor:pointer}
+.animated-modal-overlay .settings-modal{width:100vw;max-width:none;height:100dvh;max-height:none;border:0;border-radius:0;background:rgba(12,19,31,.91);padding:4vh 5vw;box-sizing:border-box}.settings-modal .settings-layout,.settings-modal .settings-sidebar,.settings-modal .settings-section,.settings-modal .settings-modal-header{background:transparent}

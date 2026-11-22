@@ -18,7 +18,7 @@ export function AuthenticatedLayout() {
   const cover = sessionStorage.getItem('nimbo:backdrop');
   return <div className="hz-shell">
     {!home && cover && <img src={cover} className="hz-backdrop" alt="" />}
-    <header className="hz-top"><strong>NimboPlay</strong>
+    <header className="hz-top"><img className="hz-brand" src="/nimbo-brand.png" alt="NimboPlay" />
       <nav aria-label="Boosteroid">
         <NavLink to="/my-games">Boosteroid</NavLink>
         <NavLink to="/library">Catálogo</NavLink>

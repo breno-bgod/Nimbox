@@ -34,7 +34,7 @@ replace("electron/main.ts", "  attachWindowLogging(window, 'main');", """  if (p
       try {
         // Wait for React to mount the login page or the signed-in home.
         await window.webContents.executeJavaScript(`new Promise(resolve => {
-          const mounted = () => document.querySelector('.openstroid-login-logo,.horizon-home');
+          const mounted = () => document.querySelector('.openstroid-login-logo,.horizon-home,.hz-connecting');
           if (mounted()) { resolve(true); return; }
           const observer = new MutationObserver(() => {
             if (mounted()) { observer.disconnect(); resolve(true); }
@@ -79,3 +79,5 @@ replace("src/pages/InstallPage.tsx", "                  Play\n", "              
 replace("src/pages/InstallPage.tsx", "                Install\n", "                Instalar\n")
 replace("src/pages/InstallPage.tsx", "                  Remove\n", "                  Remover\n")
 copyfile(assets / "nimbo-service.svg", root / "public/nimbo-service.svg")
+copyfile(assets.parents[1] / "assets/branding/nimboplay_internal.png", root / "public/nimbo-brand.png")
+replace("src/components/RequireAuth.tsx", '<Center h="100vh">', '<Center className="hz-connecting" h="100vh" role="status"><img src="/nimbo-brand.png" alt="NimboPlay" /><p>Conectando ao Boosteroid…</p><button onClick={() => window.close()}>Voltar</button>')
