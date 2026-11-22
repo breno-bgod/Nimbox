@@ -421,6 +421,19 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
         mouseCursorVisibleUntil_ = 0;
     }
     dirty_ = true;
+    if (serviceChooserOpen_) {
+        if (button == 1 && y >= 394 && y <= 798) {
+            const int target = (x >= 155 && x <= 895) ? 0
+                             : (x >= 1025 && x <= 1765) ? 1 : -1;
+            if (target >= 0) {
+                serviceChooserFocus_ = target;
+                serviceChooserOpen_ = false;
+                ev.action = target == 0
+                          ? Action::SelectXboxNative : Action::OpenBoosteroidNative;
+            }
+        }
+        return ev;
+    }
     if (!boosteroidNativeOpen_ && button == 1 &&
         ((screen_ == Screen::SignIn &&
           x >= 86 && x <= 296 && y >= 10 && y <= 125) ||
@@ -1592,6 +1605,17 @@ UiEvent AppUi::handle(const NavInput& in) {
 
 UiEvent AppUi::handleLocked(const NavInput& in) {
     UiEvent ev;
+    if (serviceChooserOpen_) {
+        if (in.left || in.l1) serviceChooserFocus_ = 0;
+        if (in.right || in.r1) serviceChooserFocus_ = 1;
+        if (in.accept) {
+            serviceChooserOpen_ = false;
+            ev.action = serviceChooserFocus_ == 0
+                      ? Action::SelectXboxNative : Action::OpenBoosteroidNative;
+        }
+        dirty_ = true;
+        return ev;
+    }
     if (boosteroidNativeOpen_) {
         if (boosteroidView_ == BoosteroidView::Streaming) {
             // Gameplay uses B/Circle normally. Only the explicit PSBox-style
