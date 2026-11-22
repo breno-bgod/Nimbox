@@ -56,6 +56,8 @@ struct Caps {
     bool window = false;      // the app is a window: it can go fullscreen (setFullscreen())
     bool (*launchOpenStroid)() = nullptr;
     bool (*serviceActive)() = nullptr;
+    // Windows-only helper: starts existing Boosteroid backend without a second menu.
+    bool (*launchBoosteroidBridge)(const std::string& secret) = nullptr;
 };
 Caps caps();
 // A desktop's window fullscreen or not (Settings > Display mode); nothing
