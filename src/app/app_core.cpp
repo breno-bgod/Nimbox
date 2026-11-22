@@ -21,6 +21,10 @@
 #include "app/shell.h"
 #include "app/stream_player.h"
 #include "app/stream_screen.h"
+#if defined(_WIN32)
+#include "app/boosteroid_control.h"
+#include "app/boosteroid_worker.h"
+#endif
 #include "app/web_server.h"
 #include "app/worker_internal.h"
 #include "display/display.h"
@@ -63,6 +67,10 @@ namespace xc::app {
 namespace {
 
 std::unique_ptr<ui::ImageCache> g_images;
+#if defined(_WIN32)
+std::unique_ptr<BoosteroidWorker> g_boosteroidWorker;
+std::string g_boosteroidKey;
+#endif
 crash::Previous g_lastCrash;
 std::string crashMarkerPath() { return platform::dataDir() + "/crash.marker"; }
 
@@ -195,6 +203,7 @@ private:
 // coreStartup(), carried from one pass to the next.
 struct Core {
     bool quitAsked_ = false;  // desktop: close confirmation on the home screen
+    bool xboxWorkerStarted_ = false;
     explicit Core(bool withDisplay) : haveDisplay(withDisplay) {}
     bool frame();
     void dispatchUiAction(const ui::UiEvent& ev);
@@ -274,6 +283,7 @@ ui::UiCaps uiCaps() {
     c.highRefresh = dc.highRefreshSwitch;
     c.console = sc.console;
     c.openUrl = sc.openUrl;
+    c.openStroid = sc.launchOpenStroid != nullptr;
     c.selfUpdate = sc.selfUpdate;
     c.desktopWindow = sc.window;
     c.trophies = sc.console;
@@ -1098,7 +1108,7 @@ bool coreStartup() {
     } else {
         if (g_autoplay.badCa) XC_LOGI("AUTOPLAY END: missing CA bundle, built-in copy %s", net::usingBuiltinCa() ? "used" : "NOT used");
         if (g_autoplay.testCa) net::addTrustedCa(platform::dataDir() + "/test-ca.pem");
-        startWorker();
+        g_ui->showServices();
     }
     g_core->streamScreen.emplace(fonts);
     g_core->streamScreen->setCaps(uiCaps());
@@ -1108,8 +1118,81 @@ bool coreStartup() {
 }
 
 void Core::dispatchUiAction(const ui::UiEvent& ev) {
+#if defined(_WIN32)
+    // Never send a Boosteroid menu action to the Xbox authentication,
+    // purchases, social or console worker. Unsupported actions stay local.
+    if (g_ui->boosteroidActive()) {
+        switch (ev.action) {
+            case ui::Action::ClaimFreeGame:
+            case ui::Action::ConsolesShown:
+            case ui::Action::PrefsChanged:
+            case ui::Action::StoreCountry:
+            case ui::Action::LoginCountry:
+            case ui::Action::CheckSignIn:
+            case ui::Action::RunNetworkTest:
+            case ui::Action::SyncTrophies:
+            case ui::Action::RemoveTrophies:
+                g_ui->showToast("Esta opção pertence ao Xbox Cloud Gaming.");
+                return;
+            default: break;
+        }
+    }
+#endif
     switch (ev.action) {
+        case ui::Action::SelectXbox:
+#if defined(_WIN32)
+            if (g_ui->boosteroidActive()) {
+                if (g_boosteroidWorker) g_boosteroidWorker->requestStop();
+                g_ui->setBoosteroidMode(false);
+            }
+#endif
+            if (!xboxWorkerStarted_) {
+                g_ui->showSplash(ui::tr(ui::Str::SigningIn));
+                startWorker();
+                xboxWorkerStarted_ = true;
+            } else {
+                g_ui->showHome();
+                int idle = kNone;
+                g_command.compare_exchange_strong(idle, kReloadLibrary);
+            }
+            break;
+        case ui::Action::LaunchOpenStroid: {
+#if defined(_WIN32)
+            if (g_boosteroidKey.empty()) g_boosteroidKey = boosteroid_control::newKey();
+            const auto launch = shell::caps().launchBoosteroidBridge;
+            if (g_boosteroidKey.empty() || !launch || !launch(g_boosteroidKey)) {
+                g_ui->showToast("Não foi possível iniciar o serviço Boosteroid.");
+                break;
+            }
+            g_ui->setBoosteroidMode(true);
+            g_ui->showSplash("Conectando ao Boosteroid...");
+            if (!g_boosteroidWorker) g_boosteroidWorker = std::make_unique<BoosteroidWorker>();
+            g_boosteroidWorker->start(g_boosteroidKey);
+#else
+            g_ui->showToast("Boosteroid indisponível neste dispositivo.");
+#endif
+            break;
+        }
+        case ui::Action::LeaveBoosteroid: {
+#if defined(_WIN32)
+            if (g_boosteroidWorker) g_boosteroidWorker->requestStop();
+            g_ui->setBoosteroidMode(false);
+            g_ui->showServices();
+#endif
+            break;
+        }
         case ui::Action::Play: {
+#if defined(_WIN32)
+            if (g_ui->boosteroidActive()) {
+                if (!g_boosteroidWorker) {
+                    g_ui->showError("O serviço Boosteroid não está conectado.");
+                } else {
+                    g_ui->showLaunching(ev.game, ui::tr(ui::Str::Connecting));
+                    g_boosteroidWorker->play(ev.game);
+                }
+                break;
+            }
+#endif
             {
                 std::lock_guard<std::mutex> lock(g_argMutex);
                 g_playTile = ev.game;
@@ -1129,16 +1212,38 @@ void Core::dispatchUiAction(const ui::UiEvent& ev) {
             break;
         }
         case ui::Action::SignOut:
+#if defined(_WIN32)
+            if (g_ui->boosteroidActive()) {
+                if (g_boosteroidWorker) g_boosteroidWorker->logout();
+                break;
+            }
+#endif
             g_cancel = true;
             g_command = kSignOut;
             break;
-        case ui::Action::Retry: g_command = kSignIn; break;
+        case ui::Action::Retry:
+#if defined(_WIN32)
+            if (g_ui->boosteroidActive()) {
+                g_ui->showSplash("Reconectando ao Boosteroid...");
+                if (g_boosteroidWorker) g_boosteroidWorker->start(g_boosteroidKey);
+                break;
+            }
+#endif
+            g_command = kSignIn;
+            break;
         case ui::Action::ConsolesShown: {
             int idle = kNone;
             g_command.compare_exchange_strong(idle, kConsoles);  // not over a pending command
             break;
         }
         case ui::Action::CancelLaunch: {
+#if defined(_WIN32)
+            if (g_ui->boosteroidActive()) {
+                if (g_boosteroidWorker) g_boosteroidWorker->cancelLaunch();
+                g_ui->showBoosteroidHome();
+                break;
+            }
+#endif
             // Not started yet: the command withdrawn, back to the game's page.
             int play = kPlay;
             if (g_playPending.exchange(false) && g_command.compare_exchange_strong(play, kNone)) {
@@ -1220,6 +1325,13 @@ void Core::dispatchUiAction(const ui::UiEvent& ev) {
             break;
         }
         case ui::Action::RefreshLibrary: {
+#if defined(_WIN32)
+            if (g_ui->boosteroidActive()) {
+                if (g_boosteroidWorker) g_boosteroidWorker->refresh();
+                g_ui->showToast("Atualizando catálogo Boosteroid...");
+                break;
+            }
+#endif
             XC_LOGI("library: manual refresh requested");
             g_command = kReloadLibrary;
             if (g_ui) {
@@ -1310,6 +1422,12 @@ void Core::dispatchUiAction(const ui::UiEvent& ev) {
 
 bool Core::frame() {
     if (!shell::pumpEvents() || quitAsked_) return false;
+    const auto serviceActive = shell::caps().serviceActive;
+    if (serviceActive && serviceActive()) {
+        crash::heartbeat();
+        platform::sleepMs(16);
+        return true;
+    }
     if (bool on; shell::fullscreenSwitched(on)) {
         // F11 / Alt+Enter on a desktop: the Display mode setting follows.
         {
@@ -1874,6 +1992,13 @@ void onSystemPressure(bool terminating) {
 }
 
 void coreShutdown() {
+#if defined(_WIN32)
+    // The Boosteroid adapter must stop before UI, network and image cache teardown.
+    if (g_boosteroidWorker) {
+        g_boosteroidWorker->stop();
+        g_boosteroidWorker.reset();
+    }
+#endif
     // Not on the PS5, whose loop never ends. Before the backends close, the
     // threads that use them stop: the worker leaves its loop (a stream
     // stopped and its xCloud session closed, so the account's slot is free;

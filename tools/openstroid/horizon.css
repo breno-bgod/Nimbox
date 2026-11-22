@@ -1,0 +1,382 @@
+.horizon-home{height:100dvh;box-sizing:border-box;position:relative;isolation:isolate;display:flex;flex-direction:column;justify-content:space-between;overflow:hidden;padding:4vh 5vw 7vh;color:white;background:#101721;font-family:system-ui,sans-serif}
+.horizon-art{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:-2;animation:horizon-in .23s ease-out}.horizon-home:before{content:'';position:absolute;inset:0;z-index:-1;background:linear-gradient(90deg,#080d19e8,transparent),linear-gradient(0deg,#080c16,transparent 65%,#080c1688)}
+.horizon-home header{display:flex;align-items:center;gap:2.5vw}.horizon-home header b{font-size:1.5rem}.horizon-home header button{margin-left:auto}.horizon-home button,.horizon-home a{cursor:pointer;color:white;background:transparent;border:0;font:inherit}.horizon-home section h1{font-size:clamp(2rem,5vw,5rem);line-height:1.08;max-width:70vw;margin:.2em 0 .5em}.horizon-home section button{background:#fff;color:#101721;padding:.75em 2em;border-radius:.7em;font-weight:650}
+.horizon-rail{display:flex;gap:1vw;overflow:auto;padding:.5em;scrollbar-width:thin}.horizon-rail button{flex:0 0 clamp(110px,13vw,245px);text-align:left;padding:.3em}.horizon-rail img{width:100%;aspect-ratio:1.5;object-fit:cover;border-radius:.55em}.horizon-rail span{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.horizon-rail button[aria-current=true] img{outline:3px solid white}.horizon-home :focus-visible{outline:2px solid white}
+@keyframes horizon-in{from{opacity:.3}to{opacity:1}}@media(prefers-reduced-motion:reduce){.horizon-art{animation:none}}
+
+.hz-shell{height:100dvh;position:relative;isolation:isolate;background:radial-gradient(ellipse at 75% 10%,#344967,#0d1421 76%);color:#fff;font-family:system-ui,sans-serif}
+.hz-backdrop{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.18;pointer-events:none}
+.hz-top{position:absolute;z-index:3;inset:0 0 auto;display:flex;align-items:center;gap:2vw;padding:2vh 5vw;background:linear-gradient(#080d19b0,transparent)}
+.hz-top strong{font-size:clamp(1rem,2vw,2rem)}.hz-top nav{display:flex;gap:2vw;align-items:center;margin:auto}
+.hz-top a,.hz-top button,.hz-return{color:white;text-decoration:none;background:transparent;border:0;font:inherit;cursor:pointer}
+.hz-top a{padding:.65em 0;border-bottom:2px solid transparent}.hz-top a.active{border-color:#f8e6c9}
+.hz-page{position:relative;height:100%;overflow:auto;box-sizing:border-box;padding:clamp(5rem,15vh,10rem) 5vw 5vh}.hz-page h1{font-size:clamp(2rem,4vw,4rem);margin:0 0 .55em}
+.hz-page .openstroid-game-grid{gap:clamp(10px,1.4vw,24px)}.hz-shell :focus-visible,.hz-return:focus-visible{outline:2px solid #fff;outline-offset:3px}
+.horizon-home{justify-content:space-around;padding:16vh 5vw 5vh}.horizon-rail{scrollbar-width:none;align-items:center}.horizon-rail button{min-width:0}.horizon-rail img{aspect-ratio:1;display:block}.horizon-rail span{margin-top:.5em}.horizon-home section button{background:#f4e6d0}
+.hz-return{position:fixed;top:2vh;left:4vw;z-index:100;padding:.65em}
+@media(max-width:760px){.hz-top{flex-wrap:wrap;gap:.5em;padding:1vh 3vw}.hz-top nav{order:1;width:100%;justify-content:space-between}.hz-page{padding-top:7.5rem}}
+
+.hz-shell ~ .settings-modal,.settings-modal-header,.settings-layout{--os-panel:#172133;--os-border:#ffffff24}.settings-layout .settings-row{border-bottom:1px solid #ffffff20}.settings-layout .settings-sidebar{background:rgba(15,24,38,.85)}
+.hz-shell .openstroid-user-tier{color:#ecdbc0}.mantine-Drawer-content,.mantine-Drawer-header{background-color:#172234!important}.openstroid-login-logo{max-width:60px;max-height:60px}
+.horizon-rail button{content-visibility:auto;contain-intrinsic-size:160px 185px}
+.hz-brand{width:clamp(75px,8vw,145px);height:clamp(40px,7vh,76px);object-fit:contain}
+.hz-connecting{flex-direction:column;gap:.8rem;background:radial-gradient(ellipse at top right,#334564,#0d1421 75%);color:white}.hz-connecting img{width:125px}.hz-connecting p{font-size:1.3rem}.hz-connecting button{order:1;background:transparent;color:#fff;border:1px solid #ffffff70;border-radius:.5rem;padding:.65em 2em;cursor:pointer}
+.animated-modal-overlay .settings-modal{width:100vw;max-width:none;height:100dvh;max-height:none;border:0;border-radius:0;background:rgba(12,19,31,.91);padding:4vh 5vw;box-sizing:border-box}.settings-modal .settings-layout,.settings-modal .settings-sidebar,.settings-modal .settings-section,.settings-modal .settings-modal-header{background:transparent}
+
+/* Horizon universal — camada de apresentação, sem alterações no motor OpenStroid. */
+/* Mesma linguagem visual para Home, catálogo, configuração e login. */
+:root {
+  --hz-deep: #080e19;
+  --hz-panel: #142031;
+  --hz-text: #f0f5fa;
+  --hz-muted: #aebdcd;
+  --hz-edge: rgba(221, 235, 247, .16);
+  --hz-select: #e6eff8;
+  --os-bg: var(--hz-deep);
+  --os-bg-soft: #0c1726;
+  --os-panel: var(--hz-panel);
+  --os-panel-2: #1b2a3c;
+  --os-card: rgba(22, 34, 50, .94);
+  --os-card-hover: #24364b;
+  --os-chip: #203145;
+  --os-border: var(--hz-edge);
+  --os-border-strong: rgba(236, 245, 252, .42);
+  --os-ink: var(--hz-text);
+  --os-ink-soft: var(--hz-muted);
+  --os-ink-muted: #8da3b8;
+  --os-accent: var(--hz-select);
+  --os-accent-on: #102235;
+  --os-accent-soft: rgba(230, 239, 248, .12);
+  --os-accent-border: rgba(230, 239, 248, .3);
+  --accent-rgb: 230, 239, 248;
+  --accent: var(--hz-select);
+  --accent-on: #102235;
+}
+html, body, #root { background: var(--hz-deep); }
+.hz-shell {
+  min-height: 100dvh;
+  height: 100dvh;
+  overflow: hidden;
+  background: radial-gradient(ellipse 65% 70% at 84% 4%, #263b55 0%, #0b1524 65%, #080e19 100%);
+  color: var(--hz-text);
+}
+.hz-backdrop { opacity: .15; }
+.hz-top {
+  z-index: 12;
+  position: absolute;
+  display: flex;
+  box-sizing: border-box;
+  height: clamp(86px, 12vh, 116px);
+  width: 100%;
+  padding: 18px 5.2vw;
+  align-items: center;
+  gap: clamp(14px, 1.6vw, 28px);
+  background: linear-gradient(180deg, rgba(6, 12, 22, .94), rgba(6, 12, 22, .58) 70%, transparent);
+}
+.hz-brand { flex: 0 0 auto; width: clamp(110px, 11vw, 184px); height: 78px; object-fit: contain; }
+.hz-current-service {
+  display: inline-flex;
+  padding: 6px 12px;
+  flex: 0 0 auto;
+  align-items: center;
+  border: 1px solid var(--hz-edge);
+  border-radius: 999px;
+  background: rgba(18, 34, 54, .72);
+  color: #e0e9f2;
+  font-size: clamp(12px, .82vw, 15px);
+  font-weight: 600;
+  letter-spacing: .035em;
+}
+.hz-top nav { margin: 0 auto; display: flex; align-items: center; gap: clamp(10px, 1.8vw, 35px); }
+.hz-top nav a {
+  display: inline-flex;
+  min-height: 42px;
+  align-items: center;
+  padding: 7px 2px 9px;
+  color: #b5c5d5;
+  font-weight: 550;
+  font-size: clamp(13px, .99vw, 18px);
+  text-decoration: none;
+  white-space: nowrap;
+  border-bottom: 2px solid transparent;
+}
+.hz-top nav a.active, .hz-top nav a[aria-current="page"] {
+  color: #fff;
+  border-bottom-color: var(--hz-select);
+}
+.hz-top nav a:hover { color: #fff; }
+.hz-top .openstroid-header-right { margin-left: 0; }
+.hz-top .openstroid-user-button {
+  border-radius: 12px;
+  min-height: 46px;
+  background: rgba(230, 239, 248, .05);
+  color: var(--hz-text);
+}
+.hz-top .openstroid-user-avatar {
+  width: 35px;
+  height: 35px;
+  border-radius: 50%;
+  background: #2d445c;
+  color: white;
+}
+.hz-top .openstroid-user-name { color: #f0f5fa; }
+.hz-top .openstroid-user-tier { color: #bfd0e0; }
+.hz-switch-service {
+  flex: 0 0 auto;
+  padding: 11px 15px;
+  border: 1px solid var(--hz-edge) !important;
+  border-radius: 10px;
+  color: #e7eef6;
+  background: rgba(21, 36, 54, .68) !important;
+  white-space: nowrap;
+}
+.hz-switch-service:hover { border-color: rgba(230, 239, 248, .5) !important; }
+.hz-front { min-height: 100dvh; height: 100dvh; }
+.horizon-home {
+  height: 100dvh;
+  min-height: 680px;
+  padding: 0;
+  background: #091321;
+}
+.horizon-art { object-position: center 32%; animation: horizon-in .22s ease-out; }
+.horizon-home:before {
+  background:
+    linear-gradient(90deg, rgba(7, 14, 26, .94) 0%, rgba(7, 14, 26, .62) 43%, rgba(7, 14, 26, .12) 85%),
+    linear-gradient(0deg, #080f1c 0%, rgba(8, 15, 28, .55) 28%, transparent 65%),
+    linear-gradient(180deg, rgba(6, 12, 22, .55), transparent 24%);
+}
+.horizon-home section {
+  position: absolute;
+  z-index: 1;
+  left: 5.3vw;
+  top: clamp(190px, 22vh, 300px);
+  max-width: min(1150px, 72vw);
+}
+.horizon-home section small {
+  font-size: clamp(14px, 1.25vw, 21px);
+  letter-spacing: .05em;
+  color: #c6d7e7;
+  font-weight: 600;
+}
+.horizon-home section h1 {
+  font-size: clamp(48px, 4.2vw, 80px);
+  line-height: 1.07;
+  letter-spacing: -.025em;
+  max-width: 100%;
+  margin: 8px 0 27px;
+  text-shadow: 0 4px 20px rgba(0, 0, 0, .25);
+}
+.horizon-home section > button {
+  min-height: 58px;
+  min-width: 205px;
+  padding: 12px 34px;
+  background: var(--hz-select);
+  color: #132639;
+  font-size: 19px;
+  font-weight: 700;
+  border-radius: 14px;
+}
+.horizon-home section > button:hover { background: #fff; }
+.horizon-home section > button:disabled { opacity: .55; cursor: progress; }
+.horizon-home [role="status"] {
+  max-width: min(600px, 55vw);
+  margin-top: 20px;
+  font-size: 15px;
+  color: #e5edf4;
+}
+.horizon-home [role="status"] button {
+  margin-left: 12px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.horizon-rail {
+  position: absolute;
+  z-index: 2;
+  box-sizing: border-box;
+  inset: auto 0 6.5vh;
+  width: 100%;
+  height: clamp(195px, 28vh, 320px);
+  padding: 20px max(5.2vw, 32px);
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  gap: clamp(14px, 1.2vw, 24px);
+  scroll-padding-inline: 46%;
+  scrollbar-width: none;
+}
+.horizon-rail button {
+  flex: 0 0 clamp(142px, 10.3vw, 220px);
+  padding: 5px;
+  border-radius: 16px;
+  text-align: center;
+  transition: transform .16s ease-out, opacity .16s ease-out;
+}
+.horizon-rail button img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 14px;
+  box-shadow: 0 12px 27px rgba(0,0,0,.38);
+}
+.horizon-rail button[aria-current="true"] { transform: scale(1.12); }
+.horizon-rail button[aria-current="true"] img {
+  outline: 3px solid #f1f6fa;
+  outline-offset: 4px;
+}
+.horizon-rail button span {
+  display: block;
+  margin-top: 12px;
+  font-weight: 600;
+  font-size: clamp(12px, .8vw, 15px);
+  text-overflow: ellipsis;
+}
+.horizon-rail button:not([aria-current="true"]) { opacity: .83; }
+.horizon-rail button:hover { opacity: 1; }
+.hz-page {
+  box-sizing: border-box;
+  min-height: 100dvh;
+  height: 100dvh;
+  overflow-y: auto;
+  padding: clamp(150px, 16vh, 184px) 5.2vw 7vh;
+  background: linear-gradient(180deg, rgba(9, 18, 31, .22), rgba(8, 14, 25, .72));
+}
+.hz-page > h1 {
+  font-size: clamp(36px, 3.1vw, 60px);
+  letter-spacing: -.025em;
+  margin: 0 0 28px;
+}
+.hz-page .openstroid-game-grid {
+  grid-template-columns: repeat(auto-fill, minmax(clamp(170px, 15vw, 235px), 1fr));
+  gap: clamp(16px, 1.4vw, 25px);
+}
+.hz-page .openstroid-game-card {
+  border: 1px solid rgba(209, 227, 243, .14);
+  border-radius: 15px;
+  background: rgba(22, 34, 50, .86);
+  overflow: hidden;
+}
+.hz-page .openstroid-game-card-media { aspect-ratio: 1; }
+.hz-page .openstroid-game-card:focus-within {
+  outline: 3px solid var(--hz-select);
+  outline-offset: 3px;
+}
+.hz-page .openstroid-card-action {
+  background: #e6eff8;
+  color: #142738;
+  box-shadow: 0 5px 16px rgba(0, 0, 0, .3);
+}
+.hz-page .openstroid-card-title { font-size: 15px; }
+.hz-page .openstroid-card-platform { color: #c2d1dd; }
+.hz-page .openstroid-toolbar,
+.hz-page .openstroid-catalog-actions { margin-bottom: 18px; }
+.hz-page .mantine-Input-input,
+.hz-page .mantine-Select-input,
+.hz-page .mantine-TextInput-input {
+  background: rgba(15, 27, 43, .8);
+  border-color: rgba(230, 239, 248, .16);
+  color: #f0f5fa;
+}
+.animated-modal-scrim {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  background: rgba(5, 11, 19, .84);
+}
+.animated-modal-overlay .settings-modal {
+  background: #0c1726;
+  border: 1px solid rgba(221, 235, 247, .17);
+  box-shadow: 0 18px 50px rgba(0,0,0,.4);
+}
+.settings-modal .settings-row { border-bottom-color: rgba(221,235,247,.14); }
+.settings-modal .settings-sidebar { background: rgba(13,25,42,.85); }
+/* Login styling only. The real QR, polling, account state and browser action stay untouched. */
+body:has(.openstroid-login-logo) [style*="min-height: 100vh"] {
+  background: radial-gradient(ellipse 78% 85% at 82% 5%, #263b55, #0b1423 70%, #080e19) !important;
+}
+body:has(.openstroid-login-logo) .mantine-Paper-root {
+  max-width: 930px;
+  margin-inline: auto;
+  background: rgba(15, 26, 42, .92) !important;
+  border: 1px solid var(--hz-edge) !important;
+  border-radius: 22px !important;
+  box-shadow: 0 22px 55px rgba(0,0,0,.25);
+}
+body:has(.openstroid-login-logo) .openstroid-login-logo {
+  width: 65px;
+  height: 65px;
+  max-width: 65px;
+  max-height: 65px;
+  filter: none;
+}
+body:has(.openstroid-login-logo) .mantine-Paper-root [style*="min-height: 360px"] {
+  background: rgba(10, 20, 34, .84) !important;
+  border: 1px solid rgba(230,239,248,.13) !important;
+  border-radius: 15px !important;
+}
+body:has(.openstroid-login-logo) .mantine-Paper-root img[alt="QR code"] {
+  width: min(100%, 300px) !important;
+  margin: auto;
+}
+body:has(.openstroid-login-logo) .mantine-Paper-root .mantine-Button-root {
+  border-radius: 11px;
+  min-height: 44px;
+}
+body:has(.openstroid-login-logo) .mantine-Paper-root .mantine-Title-root { color: #f1f6fa; }
+.hz-return {
+  position: fixed;
+  z-index: 20;
+  inset: 25px auto auto 5.3vw;
+  padding: 11px 16px;
+  background: rgba(20, 35, 52, .87);
+  border: 1px solid rgba(230, 239, 248, .22);
+  border-radius: 11px;
+}
+.hz-return:hover { background: #243a50; }
+.hz-shell :focus-visible, .hz-return:focus-visible,
+body:has(.openstroid-login-logo) :focus-visible {
+  outline: 3px solid #fff;
+  outline-offset: 3px;
+}
+@media(max-width: 1180px) {
+  .hz-top { gap: 12px; padding-inline: 3vw; }
+  .hz-current-service { display: none; }
+  .hz-top nav { gap: 14px; }
+  .hz-brand { width: 125px; }
+  .horizon-home section { max-width: 78vw; }
+}
+@media(max-width: 760px) {
+  .hz-top {
+    height: auto;
+    min-height: 112px;
+    padding: 10px 4vw;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: space-between;
+  }
+  .hz-brand { width: 108px; height: 48px; }
+  .hz-top nav {
+    width: 100%;
+    order: 4;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 18px;
+  }
+  .hz-top nav a { min-height: 30px; font-size: 13px; }
+  .hz-top .openstroid-header-right { margin-left: auto; }
+  .hz-top .openstroid-user-info { display: none; }
+  .hz-switch-service { font-size: 12px; padding: 8px; }
+  .horizon-home section { left: 6vw; top: 21vh; max-width: 88vw; }
+  .horizon-home section h1 { font-size: clamp(34px, 7vw, 52px); }
+  .horizon-home section > button { min-width: 154px; min-height: 48px; }
+  .horizon-rail { bottom: 5vh; padding-inline: 6vw; height: 220px; }
+  .horizon-rail button { flex-basis: 145px; }
+  .hz-page { padding: 155px 5vw 8vh; }
+  .hz-page .openstroid-game-grid {
+    grid-template-columns: repeat(auto-fill, minmax(144px, 1fr));
+  }
+  .hz-page > h1 { font-size: 34px; }
+  body:has(.openstroid-login-logo) .mantine-Paper-root { border-radius: 16px !important; }
+}
+@media(prefers-reduced-motion: reduce) {
+  .horizon-art { animation: none; }
+  .horizon-rail button, .hz-page .openstroid-game-card { transition: none; }
+}

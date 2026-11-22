@@ -241,6 +241,7 @@ target_link_libraries(xcloud_ui PUBLIC xcloud_core)
 # backends and shell (docs/multiplatform.md).
 add_library(xcloud_appcore OBJECT
     src/app/app_state.cpp
+    src/app/boosteroid_control.cpp
     src/app/app_core.cpp
     src/app/worker.cpp
     src/app/worker_stream.cpp
@@ -251,6 +252,10 @@ add_library(xcloud_appcore OBJECT
     src/app/stream_player.cpp
 )
 target_link_libraries(xcloud_appcore PUBLIC xcloud_stream xcloud_media xcloud_ui)
+# Boosteroid bridge is currently a Windows desktop-only process integration.
+if(WIN32)
+    target_sources(xcloud_appcore PRIVATE src/app/boosteroid_worker.cpp)
+endif()
 if(NOT MSVC)
     # Code every platform shares: its warnings show on every build and in CI.
     target_compile_options(xcloud_appcore PRIVATE -Wall -Wextra -Wno-unused-parameter)

@@ -226,6 +226,17 @@ jobs:
             XCLOUD_DATA_DIR="${{ runner.temp }}/psbox-data" \
             wine build-win/psbox.exe --selftest "$target_dir"
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Build bundled OpenStroid from the pinned submodule
+        working-directory: services/OpenStroid
+        run: |
+          python3 ../../tools/openstroid/prepare.py
+          npm ci
+          npm run build
+          npx --no-install electron-builder --win --x64 --dir -c.win.signAndEditExecutable=false
+          test -s dist-release/win-unpacked/OpenStroid.exe
       - name: Package (portable zip and sha256)
         run: bash tools/desktop/package-windows.sh build-win build-win/pkg
 
@@ -247,6 +258,22 @@ jobs:
           name: nimboplay-windows-selftest
           path: ${{ runner.temp }}/psbox-selftest
           if-no-files-found: ignore
+
+  windows-boosteroid-login:
+    needs: windows-app
+    runs-on: windows-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: nimboplay-windows-x86_64
+          path: portable
+      - name: Exercise the packaged login window on Windows
+        shell: pwsh
+        run: |
+          Expand-Archive (Get-ChildItem portable/*.zip).FullName -DestinationPath portable/app
+          ./tools/windows/test-boosteroid-login.ps1 portable/app/NimboPlay/NimboPlay.exe
 
   account-data:
     if: github.event_name == 'pull_request'

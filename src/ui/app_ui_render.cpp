@@ -401,6 +401,37 @@ void AppUi::drawSplash(Canvas& c, uint64_t nowMs) {
 
 void AppUi::drawSignIn(Canvas& c, uint64_t nowMs) {
     drawCollectionBackdrop(c, nowMs, focusedTile());
+    if (boosteroidSignIn_) {
+        constexpr int left = 180;
+        drawInternalBrand(c, left - 12, 113, 208, 113);
+        fonts_.bold.draw(c, "Entrar com Boosteroid", left, 260, 60, kWhite);
+        fonts_.regular.draw(c, "Use o QR Code ou abra a pagina no navegador.", left, 400, 30, kGray);
+        fonts_.semibold.draw(c, fonts_.semibold.fit(codeUrl_, 29, 950), left, 471, 29, kWhite);
+        fonts_.regular.draw(c, "O NimboPlay continua aberto durante o login.", left, 545, 25, kGray);
+        if (!codeUrl_.empty()) {
+            uint8_t qr[qrcodegen_BUFFER_LEN_MAX], tmp[qrcodegen_BUFFER_LEN_MAX];
+            if (qrcodegen_encodeText(codeUrl_.c_str(), tmp, qr, qrcodegen_Ecc_MEDIUM,
+                                     qrcodegen_VERSION_MIN, qrcodegen_VERSION_MAX,
+                                     qrcodegen_Mask_AUTO, true)) {
+                const int n = qrcodegen_getSize(qr);
+                constexpr int boxSize = 440;
+                const int module = std::max(1, (boxSize - 60) / (n + 2));
+                const int side = module * (n + 2);
+                Rect panel{1280, 300, side + 40, side + 40};
+                c.fillRect(panel, kWhite, 24);
+                const int ox = panel.x + 20 + module, oy = panel.y + 20 + module;
+                for (int yy = 0; yy < n; ++yy)
+                    for (int xx = 0; xx < n; ++xx)
+                        if (qrcodegen_getModule(qr, xx, yy))
+                            c.fillRect({ox + xx * module, oy + yy * module, module, module}, kBg);
+                fonts_.regular.draw(c, "Escaneie para entrar", panel.x, panel.y + panel.h + 26, 25, kGray);
+            }
+        }
+        drawSpinner(c, left + 18, 734, 14, nowMs);
+        fonts_.regular.draw(c, "Aguardando confirmacao da conta...", left + 54, 721, 26, kGray);
+        if (caps_.openUrl) drawHints(c, {{kIconCross, tr(Str::OpenInBrowser)}});
+        return;
+    }
     const int left = 180;
     drawInternalBrand(c, left - 12, 113, 208, 113);
     fonts_.bold.draw(c, tr(Str::SignInTitle), left, 260, 72, kWhite);
@@ -493,10 +524,12 @@ void AppUi::drawSignIn(Canvas& c, uint64_t nowMs) {
 
 void AppUi::drawTabs(Canvas& c) {
     // Make the full tab clickable while drawing only its label and active underline.
-    const char* labels[3] = {tr(Str::TabGamePass), tr(Str::YourGames), tr(Str::TabConsoles)};
+    const char* labels[3] = {boosteroidActive_ ? "Boosteroid" : tr(Str::TabGamePass),
+                             tr(Str::YourGames), tr(Str::TabConsoles)};
+    const int tabCount = boosteroidActive_ ? 2 : 3;
     constexpr int kPx = 22, kPad = 26, kGap = 12, kH = 44, kY = 50;
     int widths[3], total = 0;
-    for (int i = 0; i < 3; ++i) {
+    for (int i = 0; i < tabCount; ++i) {
         widths[i] = fonts_.semibold.measure(labels[i], kPx) + 2 * kPad;
         total += widths[i] + (i ? kGap : 0);
     }
@@ -507,7 +540,7 @@ void AppUi::drawTabs(Canvas& c) {
         fonts_.bold.draw(c, name, cx - fonts_.bold.measure(name, 16) / 2, fonts_.bold.centeredY(r.y, r.h, 16), 16, kGray);
     };
     shoulder(g_keyboardHints ? "Q" : buttonName(g_glyphStyle, PadButton::L1), x - 40);
-    for (int i = 0; i < 3; ++i) {
+    for (int i = 0; i < tabCount; ++i) {
         bool on = static_cast<int>(tab_) == i;
         Rect r{x, kY, widths[i], kH};
         if (on) {
@@ -2004,6 +2037,46 @@ void AppUi::render(Canvas& c, uint64_t nowMs) {
     dirty_ = false;
     switch (screen_) {
         case Screen::Splash: drawSplash(c, nowMs); break;
+        case Screen::Services: {
+            // The same Horizon canvas, typography, spacing and brand used by Xbox.
+            // This screen only draws the existing service selector; no provider logic.
+            c.gradientV({0,0,kW,kH}, rgba(33,49,70), rgba(7,13,23));
+            c.gradientH({1000,0,920,kH}, rgba(7,13,23,0), rgba(7,13,23,210));
+            c.fillRect({0,0,kW,122}, rgba(7,13,23,164));
+            drawInternalBrand(c,92,20,184,100);
+            fonts_.semibold.draw(c,"NIMBOPLAY  /  HORIZON",180,221,21,rgba(188,208,226));
+            fonts_.bold.draw(c,"Escolha seu serviço",180,269,64,kWhite);
+            fonts_.regular.draw(c,"Uma interface. Escolha a plataforma para continuar.",180,359,27,rgba(184,203,220));
+            for (int slot=0; slot<2; ++slot) {
+                // Keep the same hit boxes in app_ui_input.cpp: this is visual only.
+                Rect card{180+slot*800,430,760,190};
+                const bool focus = boosteroidSelected_ == (slot==1);
+                const bool available = slot==0 || caps_.openStroid;
+                c.fillRect({card.x+5,card.y+12,card.w,card.h},rgba(0,5,15,85),20);
+                c.fillRect(card,focus ? rgba(39,57,77) : rgba(18,30,47,232),20);
+                c.strokeRect(card,focus ? rgba(241,247,252) : rgba(199,221,238,67),focus ? 3 : 1,20);
+                if (focus) c.fillRect({card.x+24,card.y+30,5,card.h-60},rgba(233,243,252),3);
+                const int cx = card.x + 105, cy = card.y + 94;
+                c.fillCircle(cx,cy,53,rgba(220,235,246,22));
+                if (slot) {
+                    c.fillCircle(cx-19,cy+7,17,kWhite);
+                    c.fillCircle(cx+2,cy-10,24,kWhite);
+                    c.fillCircle(cx+23,cy+7,17,kWhite);
+                    c.fillRect({cx-20,cy+7,45,18},kWhite,8);
+                } else {
+                    c.fillCircle(cx,cy,34,kWhite);
+                    c.line(cx-21,cy-23,cx+22,cy+24,6,rgba(30,48,68));
+                    c.line(cx+21,cy-23,cx-22,cy+24,6,rgba(30,48,68));
+                }
+                const Color ink = available ? kWhite : rgba(174,185,198);
+                fonts_.bold.draw(c,slot ? "Boosteroid" : "Xbox Cloud Gaming",card.x+176,card.y+53,40,ink);
+                fonts_.regular.draw(c,slot
+                    ? (available ? "Entrar com Boosteroid" : "Indisponível neste dispositivo")
+                    : "Entrar com Xbox",card.x+176,card.y+117,25,available ? rgba(198,212,225) : rgba(145,156,169));
+            }
+            fonts_.regular.draw(c,"Trocar serviço na Home: LT + RB  /  Z + E",180,751,24,rgba(177,199,219));
+            break;
+        }
         case Screen::SignIn: drawSignIn(c, nowMs); break;
         case Screen::Home: drawHome(c, nowMs); break;
         case Screen::Details:
@@ -2055,6 +2128,10 @@ void AppUi::render(Canvas& c, uint64_t nowMs) {
         const int alpha = int(88 * (180 - (nowMs-viewEnteredAt_)) / 180);
         c.fillRect({0,0,kW,kH}, rgba(4,9,15,alpha));
         animating_ = true;
+    }
+    if (screen_ == Screen::Home && directory_.empty() && !searching_ && !profileOpen_ && !reportOpen_ && !quitPrompt_ && !updatePrompt_) {
+        c.fillRect({100,122,260,51},rgba(13,22,34,180),12);
+        fonts_.semibold.draw(c,"Trocar serviço",118,132,24,kWhite);
     }
     if (screen_ == Screen::Home && profileOpen_) drawProfilePanel(c);
     if (screen_ == Screen::Home && updatePrompt_) {

@@ -8,6 +8,13 @@
 
 namespace xc::ui {
 
+void AppUi::showServices() {
+    std::lock_guard<std::mutex> lock(mutex_);
+    servicesFromHome_ = screen_ == Screen::Home;
+    screen_ = Screen::Services;
+    dirty_ = true;
+}
+
 void AppUi::handleHome(const NavInput& in, UiEvent& ev) {
     if (!searching_ && !directory_.empty()) { handleDirectory(in, ev); return; }
     // The profile is a modal: never pass its input through to the carousel.
@@ -21,6 +28,14 @@ void AppUi::handleHome(const NavInput& in, UiEvent& ev) {
             profileOpen_ = false;
             dirty_ = true;
         }
+        return;
+    }
+    // The service selector belongs to the universal Horizon shell.
+    // Handle LT+RB before RB changes tabs (otherwise this shortcut is unreachable).
+    if (!searching_ && in.r1 && in.l2Analog > 0.5f) {
+        servicesFromHome_ = true;
+        screen_ = Screen::Services;
+        dirty_ = true;
         return;
     }
     // Library already owns R3 for sorting; leave that established action.
@@ -55,8 +70,9 @@ void AppUi::handleHome(const NavInput& in, UiEvent& ev) {
     }
     if (in.l1 || in.r1) {
         // Game Pass, Your games, My consoles, round.
-        int n = static_cast<int>(tab_) + (in.r1 ? 1 : 2);
-        tab_ = static_cast<Tab>(n % 3);
+        const int tabs = boosteroidActive_ ? 2 : 3;
+        int n = static_cast<int>(tab_) + (in.r1 ? 1 : tabs - 1);
+        tab_ = static_cast<Tab>(n % tabs);
         horizonBoundary_.reset();
         searching_ = false;
         dirty_ = true;
@@ -289,9 +305,8 @@ UiEvent AppUi::onMouseMove(float x, float y) {
     mouseCursorVisible_ = true;
     mouseCursorVisibleUntil_ = platform::nowMs() + 3000;
     dirty_ = true;
-    if (screen_ == Screen::Streaming || screen_ == Screen::Splash) {
-        return ev;
-    }
+    if (screen_ == Screen::Services) return ev;
+    if (screen_ == Screen::Streaming || screen_ == Screen::Splash) return ev;
     if (screen_ == Screen::Home && !searching_ && (!directory_.empty() || (onCatalogShelf() && !profileOpen_)) && !quitPrompt_ && !updatePrompt_) {
         auto& page = activeDirectory();
         if (page.kind == Directory::Friends) {
@@ -421,6 +436,19 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
         mouseCursorVisibleUntil_ = 0;
     }
     dirty_ = true;
+    if (screen_ == Screen::Home && directory_.empty() && !searching_ && !profileOpen_ && !reportOpen_ && !quitPrompt_ && !updatePrompt_ && button == 1 && x >= 100 && x < 360 && y >= 122 && y < 173) {
+        servicesFromHome_ = true;
+        screen_ = Screen::Services;
+        return ev;
+    }
+    if (screen_ == Screen::Services) {
+        if (button == 3) return handleLocked(NavInput{.back=true});
+        if (button == 1 && y >= 430 && y < 620 && x >= 180 && x < 1740 && (x < 940 || x >= 980)) {
+            boosteroidSelected_ = x >= 980;
+            return handleLocked(NavInput{.accept=true});
+        }
+        return ev;
+    }
     if (screen_ == Screen::Streaming || screen_ == Screen::Splash) {
         return ev;
     }
@@ -559,6 +587,13 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
         }
     }
 
+    if (screen_ == Screen::SignIn && boosteroidSignIn_) {
+        if (button == 1 && !codeUrl_.empty() && x >= 180 && x < 1740 && y >= 300 && y < 810) {
+            ev.action = Action::OpenUrl;
+            ev.url = codeUrl_;
+        }
+        return ev;
+    }
     if (screen_ == Screen::SignIn && !code_.empty()) {
         constexpr int left = 180;
         int panelW = std::max(400, static_cast<int>(code_.size()) * 82 + 64);
@@ -754,15 +789,17 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
 
     // Check top bar tabs
     if (screen_ == Screen::Home && !updatePrompt_ && !quitPrompt_ && !reportOpen_ && y >= 34 && y <= 110) {
-        const char* labels[3] = {tr(Str::TabGamePass), tr(Str::YourGames), tr(Str::TabConsoles)};
+        const char* labels[3] = {boosteroidActive_ ? "Boosteroid" : tr(Str::TabGamePass),
+                                 tr(Str::YourGames), tr(Str::TabConsoles)};
+        const int tabCount = boosteroidActive_ ? 2 : 3;
         constexpr int kPx = 22, kPad = 26, kGap = 12;
         int widths[3], total = 0;
-        for (int i = 0; i < 3; ++i) {
+        for (int i = 0; i < tabCount; ++i) {
             widths[i] = fonts_.semibold.measure(labels[i], kPx) + 2 * kPad;
             total += widths[i + 0] + (i ? kGap : 0);
         }
         int tabX = (kW - total) / 2;
-        for (int i = 0; i < 3; ++i) {
+        for (int i = 0; i < tabCount; ++i) {
             if (x >= tabX - 8 && x < tabX + widths[i] + 8) {
                 tab_ = static_cast<Tab>(i);
                 searching_ = false;
@@ -1546,6 +1583,17 @@ UiEvent AppUi::handle(const NavInput& in) {
 
 UiEvent AppUi::handleLocked(const NavInput& in) {
     UiEvent ev;
+    if (screen_ == Screen::Services) {
+        if (in.left || in.right) { boosteroidSelected_ = in.right; dirty_ = true; }
+        if ((in.back || (in.accept && !boosteroidSelected_)) && servicesFromHome_) {
+            screen_ = Screen::Home;
+            dirty_ = true;
+        } else if (in.accept) {
+            if (!boosteroidSelected_) ev.action = Action::SelectXbox;
+            else if (caps_.openStroid) ev.action = Action::LaunchOpenStroid;
+        }
+        return ev;
+    }
     if (screen_ == Screen::Splash) {
         return ev;
     }
@@ -1664,6 +1712,10 @@ UiEvent AppUi::handleLocked(const NavInput& in) {
             handleHome(in, ev);
             break;
         case Screen::SignIn:
+            if (boosteroidSignIn_ && in.back) {
+                ev.action = Action::LeaveBoosteroid;
+                break;
+            }
             // Desktop or Android: Cross/A opens the sign-in page in the browser.
             if (in.accept && (caps_.openUrl
 #if defined(__ANDROID__)
