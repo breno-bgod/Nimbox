@@ -1118,6 +1118,26 @@ bool coreStartup() {
 }
 
 void Core::dispatchUiAction(const ui::UiEvent& ev) {
+#if defined(_WIN32)
+    // Never send a Boosteroid menu action to the Xbox authentication,
+    // purchases, social or console worker. Unsupported actions stay local.
+    if (g_ui->boosteroidActive()) {
+        switch (ev.action) {
+            case ui::Action::ClaimFreeGame:
+            case ui::Action::ConsolesShown:
+            case ui::Action::PrefsChanged:
+            case ui::Action::StoreCountry:
+            case ui::Action::LoginCountry:
+            case ui::Action::CheckSignIn:
+            case ui::Action::RunNetworkTest:
+            case ui::Action::SyncTrophies:
+            case ui::Action::RemoveTrophies:
+                g_ui->showToast("Esta opção pertence ao Xbox Cloud Gaming.");
+                return;
+            default: break;
+        }
+    }
+#endif
     switch (ev.action) {
         case ui::Action::SelectXbox:
 #if defined(_WIN32)
@@ -1192,10 +1212,25 @@ void Core::dispatchUiAction(const ui::UiEvent& ev) {
             break;
         }
         case ui::Action::SignOut:
+#if defined(_WIN32)
+            if (g_ui->boosteroidActive()) {
+                if (g_boosteroidWorker) g_boosteroidWorker->logout();
+                break;
+            }
+#endif
             g_cancel = true;
             g_command = kSignOut;
             break;
-        case ui::Action::Retry: g_command = kSignIn; break;
+        case ui::Action::Retry:
+#if defined(_WIN32)
+            if (g_ui->boosteroidActive()) {
+                g_ui->showSplash("Reconectando ao Boosteroid...");
+                if (g_boosteroidWorker) g_boosteroidWorker->start(g_boosteroidKey);
+                break;
+            }
+#endif
+            g_command = kSignIn;
+            break;
         case ui::Action::ConsolesShown: {
             int idle = kNone;
             g_command.compare_exchange_strong(idle, kConsoles);  // not over a pending command
