@@ -198,7 +198,10 @@ void NativeWorker::run() {
             }
             const int64_t gameId = launchGame_.exchange(0);
             if (gameId > 0) {
-                cancelStream_ = false;
+                // A cancel may arrive between the UI dispatch and this
+                // worker consuming the queued game id. Never clear it here
+                // and accidentally allocate a machine after the user left.
+                if (cancelStream_.exchange(false)) continue;
                 std::string launchFailure;
 #ifndef _WIN32
                 ui_.setBoosteroidNativeConnecting("Solicitando máquina Boosteroid...");
