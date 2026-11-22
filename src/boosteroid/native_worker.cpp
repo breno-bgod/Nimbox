@@ -3,6 +3,7 @@
 #include "boosteroid/native_worker.h"
 
 #include "boosteroid/native_client.h"
+#include "app/app_state.h"
 #include "ui/app_ui.h"
 #include "util/log.h"
 
@@ -69,7 +70,9 @@ bool NativeWorker::pause(int milliseconds) {
 
 void NativeWorker::run() {
     platform::setThreadAffinity(platform::ThreadRole::Worker, "boosteroid_native");
-    NativeClient client;
+    // Keep each PS5 pad user signed into their own Boosteroid account,
+    // just as the existing Xbox account manager does.
+    NativeClient client(app::userFilePath("boosteroid_account", "boosteroid_account.json"));
     bool authenticated = client.restoreSession();
     if (authenticated) {
         Profile profile;
