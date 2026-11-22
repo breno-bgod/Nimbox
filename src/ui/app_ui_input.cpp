@@ -421,6 +421,12 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
         mouseCursorVisibleUntil_ = 0;
     }
     dirty_ = true;
+    if (!boosteroidNativeOpen_ && button == 1 &&
+        (screen_ == Screen::SignIn || screen_ == Screen::Home) &&
+        x >= 86 && x <= 296 && y >= 10 && y <= 125) {
+        ev.action = Action::OpenBoosteroidNative;
+        return ev;
+    }
     if (boosteroidNativeOpen_) {
         if (button != 1) return ev;
         if (y > 990) {
