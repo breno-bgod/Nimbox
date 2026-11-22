@@ -98,3 +98,77 @@ replace("src/pages/InstallPage.tsx", "                  Remove\n", "            
 copyfile(assets / "nimbo-service.svg", root / "public/nimbo-service.svg")
 copyfile(assets.parents[1] / "assets/branding/nimboplay_internal.png", root / "public/nimbo-brand.png")
 replace("src/components/RequireAuth.tsx", '<Center h="100vh">', '<Center className="hz-connecting" h="100vh" role="status"><img src="/nimbo-brand.png" alt="NimboPlay" /><p>Conectando ao Boosteroid…</p><button onClick={() => window.close()}>Voltar</button>')
+
+
+# Native NimboPlay control-plane mode: keep the proven OpenStroid API and
+# player, but do not open its separate catalog/login window.
+copyfile(assets / "nimboBridge.ts", root / "electron/nimboBridge.ts")
+replace("electron/main.ts",
+        "import { registerAuthSessionIpc }",
+        "import { startNimboBridge } from './nimboBridge.js';\nimport { registerAuthSessionIpc }")
+replace("electron/main.ts", "let bridgePort = 3001;",
+        """const nimboBridgeArg = process.argv.find(arg => arg.startsWith('--nimbo-bridge='));
+let nimboControlServer: import('node:http').Server | null = null;
+let bridgePort = 3001;""")
+replace("electron/main.ts", "    show: !process.argv.includes('--nimbo-embedded'),",
+        "    show: !process.argv.includes('--nimbo-embedded') && !nimboBridgeArg,")
+replace("electron/main.ts", "    frame: !process.argv.includes('--nimbo-embedded'),",
+        "    frame: !process.argv.includes('--nimbo-embedded') && !nimboBridgeArg,")
+replace("electron/main.ts", "    skipTaskbar: process.argv.includes('--nimbo-embedded'),",
+        "    skipTaskbar: process.argv.includes('--nimbo-embedded') || Boolean(nimboBridgeArg),")
+replace("electron/main.ts", "  attachWindowLogging(window, 'main');",
+        """  if (nimboBridgeArg) {
+    // Hidden until gameplay: the NimboPlay/SDL Horizon owns all menu surfaces.
+    window.webContents.on('page-title-updated', event => event.preventDefault());
+    window.hookWindowMessage(0x8000 + 125, () => {
+      window.show();
+      window.focus();
+    });
+    window.webContents.on('did-finish-load', () => {
+      if (window.webContents.getURL().includes('/stream')) {
+        window.setTitle('NimboPlay.Boosteroid.Ready');
+      }
+    });
+  }
+  attachWindowLogging(window, 'main');""")
+replace("electron/main.ts",
+        "  void window.loadURL(\`http://127.0.0.1:\${bridgePort}\`);\n}",
+        "  void window.loadURL(\`http://127.0.0.1:\${bridgePort}\`);\n  return window;\n}")
+replace("electron/main.ts",
+        "  createMainWindow();\n\n  app.on('activate',",
+        """  if (nimboBridgeArg) {
+    nimboControlServer = await startNimboBridge({
+      key: nimboBridgeArg.substring('--nimbo-bridge='.length),
+      backendPort: bridgePort,
+      sessionStore: authSessionStore,
+      launchExistingPlayer: async launch => {
+        const window = createMainWindow();
+        await new Promise<void>((resolve, reject) => {
+          const timeout = setTimeout(() => reject(new Error('Player window did not load')), 15000);
+          window.webContents.once('did-finish-load', () => {
+            clearTimeout(timeout);
+            resolve();
+          });
+          window.webContents.once('did-fail-load', (_event, code, description) => {
+            clearTimeout(timeout);
+            reject(new Error('Player window load failed: ' + code + ' ' + description));
+          });
+        });
+        if (window.isDestroyed()) throw new Error('Player window closed');
+        // Invoke the original authenticated Electron IPC player entry point.
+        await window.webContents.executeJavaScript(
+          'window.openStroid.openStream(' + JSON.stringify(launch) + ')',
+        );
+      },
+    });
+  } else {
+    createMainWindow();
+  }
+
+  app.on('activate',""")
+replace("electron/main.ts",
+        "    if (BrowserWindow.getAllWindows().length === 0) {",
+        "    if (!nimboBridgeArg && BrowserWindow.getAllWindows().length === 0) {")
+replace("electron/main.ts",
+        "  app.on('before-quit', () => {\n    server.close();",
+        "  app.on('before-quit', () => {\n    nimboControlServer?.close();\n    server.close();")
