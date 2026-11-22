@@ -21,9 +21,10 @@ public:
     void refresh();
     void play(const ui::GameTile& tile);
     void cancelLaunch();
+    void logout();
 
 private:
-    enum class Command { None, Refresh, Play, Cancel };
+    enum class Command { None, Refresh, Play, Cancel, Logout };
     std::atomic<bool> stopping_{false};
     std::atomic<Command> command_{Command::None};
     std::thread thread_;
