@@ -262,6 +262,7 @@ add_library(xcloud_appcore OBJECT
     src/app/app_state.cpp
     # A separate native Boosteroid worker, compiled for PS5 and Android too.
     src/boosteroid/native_worker.cpp
+    src/boosteroid/native_playback.cpp
     src/app/app_core.cpp
     src/app/worker.cpp
     src/app/worker_stream.cpp
