@@ -448,7 +448,7 @@ void AppUi::drawChat(Canvas& c, const std::string& name) {
     for (int i=int(messages.size())-1-chat_.historyOffset;i>=0 && bottom>top;--i) {
         const auto& msg = messages[i];
         const bool mine = msg.sender != chat_.peer;
-        bubble(msg.text.empty() ? tr(Str::ChatUnsupported) : msg.text,mine ? tr(Str::ChatSelf) : name,mine);
+        bubble(msg.text.empty() ? tr(Str::ChatUnsupported) : msg.text,mine ? (msg.timestamp.empty() ? tr(Str::ChatUnconfirmed) : tr(Str::ChatSelf)) : name,mine);
     }
     c.clearClip();
     if (chat_.readFailed || (messages.empty() && !pending)) {
@@ -499,7 +499,7 @@ void AppUi::drawChat(Canvas& c, const std::string& name) {
 
 void AppUi::handleDirectory(const NavInput& in, UiEvent& ev) {
     auto& p = activeDirectory();
-    if (in.back && p.kind == Directory::Chat && (chat_.keyboardOpen || chat_.composing)) {
+    if (in.back && p.kind == Directory::Chat && chat_.keyboardOpen) {
         chat_.keyboardOpen = chat_.composing = false; dirty_ = true; return;
     }
     if (in.back) { backDirectory(); return; }
