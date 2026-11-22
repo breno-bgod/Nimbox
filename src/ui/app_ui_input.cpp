@@ -437,8 +437,10 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
     // A visible, mouse/touch-accessible service switch on the Xbox
     // login and Home surfaces. Do not start either provider on hover.
     if (!boosteroidNativeOpen_ && button == 1 &&
-        (screen_ == Screen::SignIn || screen_ == Screen::Home) &&
-        x >= 1550 && x <= 1850 && y >= 15 && y <= 130) {
+        ((screen_ == Screen::Home &&
+          x >= 380 && x <= 660 && y >= 42 && y <= 124) ||
+         (screen_ == Screen::SignIn &&
+          x >= 700 && x <= 1110 && y >= 980 && y <= 1060))) {
         ev.action = Action::ShowServiceChooser;
         return ev;
     }
