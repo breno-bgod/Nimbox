@@ -44,6 +44,7 @@ add_library(xcloud_core STATIC
     src/boosteroid/native_contract.cpp
     src/boosteroid/native_client.cpp
     src/boosteroid/native_session.cpp
+    src/boosteroid/control_input.cpp
     src/util/json.cpp
     src/util/log.cpp
     src/util/fs.cpp
