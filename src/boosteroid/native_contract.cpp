@@ -86,13 +86,20 @@ Game project(const json::Value& raw) {
     return result;
 }
 
-const json::Value& gameArray(const json::Value& response) {
+const json::Value& gameArray(const json::Value& response, int depth = 0) {
     if (response.isArray()) return response;
-    if (response["games"].isArray()) return response["games"];
-    if (response["result"].isArray()) return response["result"];
-    if (response["result"]["games"].isArray()) return response["result"]["games"];
-    if (response["data"]["games"].isArray()) return response["data"]["games"];
-    return response["games"]; // null => no results
+    if (!response.isObject() || depth >= 5) return response["games"];
+    // Boosteroid Android TV commonly wraps the installed application list
+    // under data/result, and the response schema varies by service rollout.
+    for (const char* key : {"games", "applications", "items", "list", "data", "result"}) {
+        const auto& value = response[key];
+        if (value.isArray()) return value;
+        if (value.isObject()) {
+            const auto& nested = gameArray(value, depth + 1);
+            if (nested.isArray()) return nested;
+        }
+    }
+    return response["games"];
 }
 } // namespace
 
