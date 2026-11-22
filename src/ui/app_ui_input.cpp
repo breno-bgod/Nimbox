@@ -1598,7 +1598,7 @@ UiEvent AppUi::handleLocked(const NavInput& in) {
     }
     if ((screen_ == Screen::Home || screen_ == Screen::SignIn ||
          screen_ == Screen::Splash || screen_ == Screen::Error) &&
-        in.l2 && in.r1) {
+        in.l2Analog > 0.55f && in.r1) {
         ev.action = Action::OpenBoosteroidNative;
         return ev;
     }
