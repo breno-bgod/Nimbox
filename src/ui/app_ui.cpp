@@ -139,8 +139,22 @@ void AppUi::showSignIn(const std::string& code, const std::string& url) {
     dirty_ = true;
 }
 
+void AppUi::showServiceChooser() {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (screen_ == Screen::Streaming || boosteroidNativeOpen_) return;
+    serviceChooserOpen_ = true;
+    serviceChooserFocus_ = 0;
+    dirty_ = true;
+}
+
+bool AppUi::serviceChooserOpen() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return serviceChooserOpen_;
+}
+
 void AppUi::openBoosteroidNative() {
     std::lock_guard<std::mutex> lock(mutex_);
+    serviceChooserOpen_ = false;
     boosteroidNativeOpen_ = true;
     dirty_ = true;
 }
@@ -148,6 +162,9 @@ void AppUi::openBoosteroidNative() {
 void AppUi::closeBoosteroidNative() {
     std::lock_guard<std::mutex> lock(mutex_);
     boosteroidNativeOpen_ = false;
+    // Return to service selection, not automatically into the Xbox login.
+    serviceChooserOpen_ = true;
+    serviceChooserFocus_ = 1;
     dirty_ = true;
 }
 
