@@ -220,7 +220,9 @@ void NativeWorker::run() {
                             session, playback.mediaSink(), cancelStream_,
                             [this](input::ControllerState& pad) {
                                 return padSnapshot(pad);
-                            }, progress, gatewayError);
+                            }, progress, gatewayError, [&playback] {
+                                return playback.firstFramePresented();
+                            });
                         playback.stop();
                         if (!connected && !cancelStream_ && !stop_) {
                             ui_.setBoosteroidNativeStatus(gatewayError.empty()
