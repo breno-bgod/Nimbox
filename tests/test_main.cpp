@@ -309,7 +309,7 @@ static void testBoosteroidNativeHorizonUi() {
     ui.setBoosteroidNativeConnecting("Solicitando máquina...");
     xc::ui::NavInput leave;
     leave.back = true;
-    CHECK(ui.handle(leave).action == xc::ui::Action::CancelBoosteroidNative);
+    CHECK(ui.handle(leave).action == xc::ui::Action::LeaveBoosteroidNative);
     ui.setBoosteroidNativeStreaming();
     CHECK(ui.boosteroidNativeStreaming());
     CHECK(ui.handle(leave).action == xc::ui::Action::None); // Circle belongs to the game
