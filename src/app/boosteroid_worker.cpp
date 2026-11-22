@@ -49,6 +49,7 @@ bool BoosteroidWorker::login(const std::string& key) {
         if (active()) g_ui->showError("Não foi possível iniciar o login Boosteroid.");
         return false;
     }
+    XC_LOGI("Boosteroid: native Horizon QR login started");
     if (active()) g_ui->showBoosteroidSignIn(url);
     for (int i = 0; i < 300 && active(); ++i) {
         for (int j = 0; j < 15 && active(); ++j) platform::sleepMs(100);
@@ -73,6 +74,8 @@ bool BoosteroidWorker::loadCatalog(const std::string& key) {
         return false;
     }
     auto catalog = boosteroid_horizon::project(response.data["installed"], response.data["catalog"]);
+    XC_LOGI("Boosteroid: Horizon catalog prepared (%zu installed, %zu catalog)",
+            catalog.installed.size(), catalog.catalog.size());
     if (!active()) return false;
     g_ui->setBoosteroidCatalog(std::move(catalog.rows), std::move(catalog.installed),
                               std::move(catalog.catalog));
@@ -131,6 +134,7 @@ void BoosteroidWorker::run(const std::string& key) {
         g_ui->showError("O serviço Boosteroid não iniciou. Tente novamente.");
         return;
     }
+    XC_LOGI("Boosteroid: background helper ready (Horizon remains native)");
     auto status = boosteroid_control::request(key, "GET", "/status");
     if (!status.ok()) {
         if (active()) g_ui->showError("O Boosteroid não respondeu.");
