@@ -100,6 +100,12 @@ void NativeWorker::run() {
     }
 
     while (!stop_) {
+        // Background xCloud and Horizon must remain responsive after leaving
+        // the Boosteroid page: no QR polling or machine allocation off-screen.
+        if (paused_) {
+            if (!pause(100)) return;
+            continue;
+        }
         if (!authenticated) {
             DeviceAuthorization qr;
             ui_.setBoosteroidNativeStatus("Preparando autenticação QR...");
@@ -112,13 +118,14 @@ void NativeWorker::run() {
             // The Android TV device authorization expires after roughly 5 min.
             // Ask at the server's pace and never busy-loop or block the Horizon.
             const uint64_t endAt = platform::nowMs() + 300000;
-            while (!stop_ && platform::nowMs() < endAt) {
+            while (!stop_ && !paused_ && platform::nowMs() < endAt) {
                 if (logout_.exchange(false)) {
                     client.logout();
                     break;
                 }
                 if (refresh_.exchange(false)) break;
                 if (!pause(qr.pollIntervalMs)) return;
+                if (paused_) break;
                 const LoginResult result = client.pollDeviceLogin();
                 if (result == LoginResult::Authorized) {
                     authenticated = true;
@@ -191,6 +198,10 @@ void NativeWorker::run() {
             if (!pause(3500)) return;
         }
         while (!stop_) {
+            if (paused_) {
+                if (!pause(100)) return;
+                continue;
+            }
             if (logout_.exchange(false)) {
                 client.logout();
                 authenticated = false;
