@@ -118,6 +118,10 @@ bool publicAuthorization(const json::Value& response, DeviceAuthorization& outpu
     return true;
 }
 
+bool catalogHasGameArray(const json::Value& response) {
+    return gameArray(response).isArray();
+}
+
 std::vector<Game> publicGames(const json::Value& response) {
     const auto& source = gameArray(response);
     std::vector<Game> games;
