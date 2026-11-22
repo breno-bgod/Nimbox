@@ -10,7 +10,9 @@
 #include "boosteroid/native_contract.h"
 #include "net/http.h"
 
+#include <atomic>
 #include <cstdint>
+#include <functional>
 #include <string>
 #include <vector>
 
@@ -26,6 +28,15 @@ struct Profile {
     std::string id;
     std::string nickname;
     std::string avatarUrl;
+};
+
+// Kept in the provider session only. Signed gateway URL and tokens must never
+// be copied into UI model, logs, bug reports or the Xbox stream.
+struct NativeStreamSession {
+    std::string sessionId;
+    std::string assignedGateway;
+    std::string signedQuery;
+    std::string codec = "h264";
 };
 
 // Use from a worker thread, never SDL/UI render thread.
@@ -46,6 +57,13 @@ public:
 
     bool getProfile(Profile& profile);
     bool getInstalledGames(std::vector<Game>& out, int page = 1, int pageSize = 50);
+    // Calls native Android TV enqueue/queue/start/session-details operations.
+    // Only call after the native media transport can consume the session.
+    // This is currently NOT invoked by Horizon's disabled Play action.
+    bool startStreamingSession(int64_t gameId, NativeStreamSession& session,
+                               const std::atomic<bool>* cancel = nullptr,
+                               const std::function<void(const std::string&)>& progress = {});
+    bool stopStreamingSession();
     // Explicit sign-out; also clears the encrypted account cache.
     void logout();
     ApiError error() const { return error_; }
