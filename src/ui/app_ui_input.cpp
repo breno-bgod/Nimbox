@@ -434,14 +434,12 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
         }
         return ev;
     }
+    // A visible, mouse/touch-accessible service switch on the Xbox
+    // login and Home surfaces. Do not start either provider on hover.
     if (!boosteroidNativeOpen_ && button == 1 &&
-        ((screen_ == Screen::SignIn &&
-          x >= 86 && x <= 296 && y >= 10 && y <= 125) ||
-         // Android/touch can open the visible Boosteroid shortcut on Home
-         // without a physical L2/R1 controller or taking over the logo.
-         (screen_ == Screen::Home &&
-          x >= 380 && x <= 660 && y >= 42 && y <= 124))) {
-        ev.action = Action::OpenBoosteroidNative;
+        (screen_ == Screen::SignIn || screen_ == Screen::Home) &&
+        x >= 1550 && x <= 1850 && y >= 15 && y <= 130) {
+        ev.action = Action::ShowServiceChooser;
         return ev;
     }
     if (boosteroidNativeOpen_) {
@@ -459,7 +457,11 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
                       : x < 1300 ? Action::RefreshBoosteroidNative
                                  : Action::LogoutBoosteroidNative;
         } else if (boosteroidView_ == BoosteroidView::Login &&
-                   y >= 230 && y < 850 && caps_.openUrl) {
+                   button == 1 && caps_.openUrl &&
+                   !boosteroidUrl_.empty() && x >= 130 && x <= 1100 &&
+                   y >= 720 && y <= 840) {
+            // The same device-authorization URL used by the QR code:
+            // open the platform browser, never collect credentials here.
             ev.action = Action::OpenUrl;
             ev.url = boosteroidUrl_;
         } else if (boosteroidView_ == BoosteroidView::Catalog && y >= 290 && y < 935) {
@@ -1659,7 +1661,7 @@ UiEvent AppUi::handleLocked(const NavInput& in) {
     if ((screen_ == Screen::Home || screen_ == Screen::SignIn ||
          screen_ == Screen::Splash || screen_ == Screen::Error) &&
         in.l2Analog > 0.55f && in.r1) {
-        ev.action = Action::OpenBoosteroidNative;
+        ev.action = Action::ShowServiceChooser;
         return ev;
     }
     if (screen_ == Screen::Splash) {
