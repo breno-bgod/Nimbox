@@ -324,7 +324,11 @@ static void testBoosteroidNativeHorizonUi() {
     shortcut.l2Analog = 0.9f;
     shortcut.r1 = true;
     const auto enter = ui.handle(shortcut);
-    CHECK(enter.action == xc::ui::Action::OpenBoosteroidNative);
+    CHECK(enter.action == xc::ui::Action::ShowServiceChooser);
+    ui.showServiceChooser();
+    CHECK(ui.serviceChooserOpen());
+    CHECK(ui.onMouseDown(1310, 530, 1).action ==
+          xc::ui::Action::OpenBoosteroidNative);
     ui.openBoosteroidNative();
     CHECK(ui.boosteroidNativeOpen());
 
@@ -359,10 +363,18 @@ static void testBoosteroidNativeHorizonUi() {
     CHECK(!ui.boosteroidNativeOpen());
     CHECK(ui.screen() == xc::ui::Screen::SignIn); // original Xbox state intact
     ui.showHome();
-    CHECK(ui.onMouseDown(460, 90, 1).action ==
-          xc::ui::Action::OpenBoosteroidNative); // Android Home shortcut
+    // Returning from Boosteroid opens the chooser; select Xbox to
+    // recover the original Home without starting another Xbox worker.
+    CHECK(ui.serviceChooserOpen());
+    CHECK(ui.onMouseDown(400, 530, 1).action ==
+          xc::ui::Action::SelectXboxNative);
+    CHECK(ui.onMouseDown(1650, 90, 1).action ==
+          xc::ui::Action::ShowServiceChooser); // visible Horizon switch
+    ui.showServiceChooser();
     CHECK(ui.onMouseDown(120, 100, 1).action ==
-          xc::ui::Action::None); // untouched Xbox wordmark hit area
+          xc::ui::Action::None); // wordmark is not a service switch
+    CHECK(ui.onMouseDown(1310, 530, 1).action ==
+          xc::ui::Action::OpenBoosteroidNative);
 }
 
 static void testBoosteroidNativeHttpsClient() {
