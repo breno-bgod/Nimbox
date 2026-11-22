@@ -9,6 +9,8 @@
 
 #include <algorithm>
 #include <array>
+#include <cctype>
+#include <initializer_list>
 #include <cstdio>
 #include <limits>
 #include <string_view>
