@@ -10,7 +10,6 @@
 #include <mbedtls/error.h>
 #include <mbedtls/net_sockets.h>
 #include <mbedtls/sha1.h>
-#include <mbedtls/net_sockets.h>
 #include <mbedtls/entropy.h>
 
 
@@ -27,11 +26,19 @@
 #include <cctype>
 #include <chrono>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <sstream>
 
 extern const unsigned char xc_builtin_ca_bundle[];
 extern const std::size_t xc_builtin_ca_bundle_size;
+
+#ifndef MBEDTLS_ERR_NET_SEND_FAILED
+#define MBEDTLS_ERR_NET_SEND_FAILED -0x004E
+#endif
+#ifndef MBEDTLS_ERR_NET_RECV_FAILED
+#define MBEDTLS_ERR_NET_RECV_FAILED -0x004C
+#endif
 
 namespace xc::boosteroid {
 
@@ -196,6 +203,13 @@ bool WssClient::connect(const std::string& hostAndPort,
     const std::string path = requestedPath.empty()
         ? "/"
         : (requestedPath.front() == '/' ? requestedPath : "/" + requestedPath);
+    // Both values become literal HTTP header/request-line bytes.
+    if (host.empty() || host.size() > 253 || path.size() > 8192 ||
+        host.find_first_not_of("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-") != std::string::npos ||
+        path.find_first_of("\r\n") != std::string::npos) {
+        error = "Host ou caminho WebSocket inválido.";
+        return false;
+    }
 
     static constexpr char kPersonalization[] = "nimboplay-boosteroid-wss";
     mbedtls_entropy_add_source(&entropy_, platform_entropy, nullptr, 32,
