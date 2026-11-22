@@ -39,9 +39,10 @@ public:
     };
     using PadSnapshot = std::function<bool(input::ControllerState&)>;
     using Progress = std::function<void(const std::string&)>;
+    using PictureReady = std::function<bool()>;
     bool run(const NativeStreamSession& session, const EncodedMediaSink& sink,
              const std::atomic<bool>& cancel, PadSnapshot pad, Progress progress,
-             std::string& error);
+             std::string& error, PictureReady pictureReady = {});
     const Stats& stats() const { return stats_; }
 private:
     Stats stats_;
