@@ -11,7 +11,7 @@ Não substituir autenticação, catálogo, comunicação, controles, decodifica�
 - O seletor de serviço já é renderizado pela UI nativa (`Screen::Services`).
 - **Correção inicial:** o atalho LT+RB do seletor precisa ser processado antes de RB alternar abas. A Home existente do Xbox permanece intacta.
 - O pacote Windows ainda inicia `OpenStroid.exe` como processo Electron e ainda expõe `HorizonHome.tsx`/`HorizonLayout.tsx`. **São provisórios; não são o Horizon universal.**
-- A conexão real do login e da sessão Boosteroid à interface nativa ainda é uma pendência. Não considerar a integração concluída enquanto a segunda interface continuar visível.
+- A ponte de login, catálogo e comandos para o Horizon C++ foi adicionada à branch experimental. Ainda precisa de validação real no Windows antes de ser considerada concluída.
 
 ## Contrato de integração a implementar
 
@@ -78,3 +78,31 @@ O fluxo atual Boosteroid **ainda é diferente**:
 5. **Recuperação:** timeouts limitados, indicação de progresso, saída segura se Electron não responder, teste de login QR real e abertura de jogo. O teste atual só confirma abertura/retorno de janela.
 
 **Estado da etapa:** projeção implementada no código-fonte; canal autenticado, publicação na UI e roteamento de ações ainda pendentes. Esta etapa não altera o comportamento em execução.
+
+
+## Integração nativa experimental implementada no PR #32
+
+Uma primeira ponte **executável** liga o Boosteroid ao mesmo Horizon C++ do Xbox,
+mas ainda depende de validação em um Windows real:
+
+- `src/app/boosteroid_control.{h,cpp}`: cliente HTTP local isolado, usando
+  sockets do projeto; não modifica o cliente HTTPS/Xbox.
+- `src/app/boosteroid_worker.{h,cpp}`: worker separado da renderização para
+  consultar login, biblioteca e despachar comandos.
+- `tools/openstroid/nimboBridge.ts`: controle em `127.0.0.1` com segredo
+  aleatório por processo. Credenciais, cookies e payload de streaming
+  ficam somente no OpenStroid; dados públicos chegam ao Horizon.
+- `tools/openstroid/prepare.py`: inicia OpenStroid em modo `--nimbo-bridge`,
+  sem segunda interface de Home/login. A janela Electron aparece apenas
+  quando a reprodução pelo motor existente começa.
+- `AppUi`: mostra QR Code e catálogo Boosteroid no Horizon C++ e preserva
+  os dados Xbox ao trocar de serviço.
+- `tools/windows/test-boosteroid-login.ps1`: teste de fumaça para garantir
+  que o NimboPlay responde e nenhuma segunda Home é exibida. Não simula
+  autenticação real de conta Boosteroid.
+
+**Pendente:** validação de CI, login QR real, catálogo, play, cancelamento,
+controle, saída do streaming e alternância de serviços. Somente Windows
+possui esse backend atualmente; não anunciar PS5/Android/Linux.
+
+Não mesclar o PR na `main` antes desses testes.
