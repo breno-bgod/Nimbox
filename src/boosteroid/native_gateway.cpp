@@ -15,6 +15,9 @@
 #include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <cstdio>
+#include <exception>
+#include <initializer_list>
 #include <condition_variable>
 #include <mutex>
 #include <string>
