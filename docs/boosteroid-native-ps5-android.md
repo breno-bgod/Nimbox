@@ -1,9 +1,9 @@
 # NimboPlay — Provedor Boosteroid nativo (PS5 e Android)
 
-**Estado:** pesquisa aplicada + primeira interface C++ portável e testes offline.
+**Estado:** cliente HTTPS nativo, login QR e biblioteca Horizon em implementação experimental; transporte ainda pendente.
 **Branch:** `experiment/boosteroid-native-ps5-android`, baseada na `main`.
 **Objetivo:** usar o Horizon e o pipeline de decodificação/entrada existentes, sem Electron, para conectar o serviço Boosteroid em PS5 e Android.
-**Não é gameplay funcional:** a camada de rede/autenticação/transportes nativos ainda não está ligada.
+**Não é gameplay funcional:** login e catálogo estão ligados ao app; reprodução e sinalização Boosteroid ainda faltam.
 
 ## Referências verificadas e seu papel
 
@@ -32,8 +32,25 @@ Por isso, esta branch nasce da **main**, isolada do PR #32. Não modifica `GssvC
 - `CMakeLists.txt`: compila o módulo no `xcloud_core` para todos os destinos, inclusive **Android e PS5**, sem ativar o serviço ainda.
 - `tests/test_main.cpp`: testes de QR com URL HTTPS, bibliotecas/IDs duplicados, não exportação de `sessionHandoff`, H.264, Opus e transições de estado.
 
-**Limite:** compilar a interface para PS5 não demonstra que a autenticação, o transporte ou o decoder no hardware funcionem. A CI não compila ebooot PS5 sem toolchain; validar Android não substitui teste de dispositivo.
+**Limite:** compilar a interface para PS5 não demonstra que a autenticação, o transporte ou o decoder no hardware funcionem. A CI não compila um eboot PS5 sem toolchain; validar Android não substitui teste de dispositivo.
 
+## Integração experimental de login QR e biblioteca
+
+- **Cliente nativo:** src/boosteroid/native_client.h/.cpp usa o HTTPS
+  existente do PSBox para o fluxo Android TV do Boosteroid, QR de autorização,
+  perfil e jogos instalados. Sessão criptografada com auth::sealAccount.
+- **Worker nativo:** src/boosteroid/native_worker.h/.cpp consulta login,
+  perfil e biblioteca fora da renderização, com limites de polling e logout.
+- **Horizon compartilhado:** tela QR e catálogo desenhados em C++, sem
+  substituir a Home Xbox. O modo é uma superfície independente e segura.
+- **Acesso experimental:** segurar L2 e apertar R1 na Home/tela de login,
+  ou tocar a marca NimboPlay no Android. Círculo volta; Triângulo atualiza;
+  R3 sai da conta Boosteroid. PS5 exibe o QR sem navegador.
+- **Sem falso Jogar:** as capas são visíveis, mas o botão de streaming
+  permanece bloqueado até haver uma sessão e player nativos confirmados.
+
+Base técnica de protocolo: ZERODROID 0.8.2, Apache-2.0, cliente Android TV.
+Compilação e testes simulados não confirmam conta real, máquina ou gameplay.
 ## Etapas de integração, em ordem
 
 1. **Autenticação independente de Electron:** estudar o cliente nativo ZERODROID e o fluxo de dispositivo do OpenStroid; implementar HTTP seguro sobre `xc::net` existente, persistência privada por plataforma, refresh e QR dentro do Horizon. Nenhum token no `ui::AppUi`.
