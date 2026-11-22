@@ -19,6 +19,7 @@ enum class Transport { WebRtcH264Opus, AndroidTvUdpH264Opus };
 enum class State {
     Disabled, Authorizing, Authorized, CatalogReady, Launching, Streaming, Failed
 };
+enum class Failure { None, Authorization, Catalog, Transport, Playback, Unsupported };
 
 struct DeviceAuthorization {
     std::string validationUrl; // Public HTTPS URL for a device-code/QR flow.
@@ -59,18 +60,18 @@ bool deliverOpus(const EncodedMediaSink& sink, const uint8_t* packet,
 class SessionState {
 public:
     State state() const { return state_; }
-    const std::string& error() const { return error_; }
+    Failure failure() const { return failure_; }
     bool beginAuthorization();
     bool authorizationApproved();
     bool catalogLoaded();
     bool beginLaunch();
     bool streamAttached();
     bool streamStopped();
-    void fail(std::string reason);
+    void fail(Failure reason);
     void reset();
 private:
     State state_ = State::Disabled;
-    std::string error_;
+    Failure failure_ = Failure::None;
 };
 
 } // namespace xc::boosteroid
