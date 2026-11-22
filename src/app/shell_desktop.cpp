@@ -54,7 +54,7 @@ void updateServiceView() {
     if (!serviceProcess) return;
     int exitCode = 0;
     if (SDL_WaitProcess(serviceProcess,false,&exitCode)) {
-        if (exitCode) platform::notify("OpenStroid foi encerrado. Você pode tentar novamente.");
+        if (exitCode) platform::notify("NimboPlay: o serviço Boosteroid foi encerrado. Você pode tentar novamente.");
         SDL_DestroyProcess(serviceProcess);
         serviceProcess = nullptr;
         serviceView = nullptr;
