@@ -1120,12 +1120,19 @@ bool coreStartup() {
 
 void Core::dispatchUiAction(const ui::UiEvent& ev) {
     switch (ev.action) {
+        case ui::Action::ShowServiceChooser:
+            // The worker remains alive: choosing another service must never
+            // destroy the established Xbox runtime or its authenticated state.
+            g_ui->showServiceChooser();
+            break;
         case ui::Action::SelectXboxNative:
             if (!g_xboxWorkerStarted) {
                 g_ui->showSplash(ui::tr(ui::Str::SigningIn));
                 startWorker();
                 g_xboxWorkerStarted = true;
             }
+            // If the Xbox worker was already active, the chooser itself
+            // closed when Xbox was selected. Keep the underlying Home/login.
             break;
         case ui::Action::OpenBoosteroidNative: {
             g_ui->openBoosteroidNative();
