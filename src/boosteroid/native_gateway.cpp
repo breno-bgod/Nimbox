@@ -159,7 +159,7 @@ std::string deviceStatusReply() {
 
 bool NativeGateway::run(const NativeStreamSession& session, const EncodedMediaSink& sink,
                         const std::atomic<bool>& cancel, PadSnapshot pad,
-                        Progress progress, std::string& error) {
+                        Progress progress, std::string& error, PictureReady pictureReady) {
     stats_ = {};
     error.clear();
     if (!sink.h264AnnexB || !sink.opus) {
@@ -402,14 +402,16 @@ bool NativeGateway::run(const NativeStreamSession& session, const EncodedMediaSi
             nextInput = now + 33;
         }
         if (peerFailed) { error = "Falha na conexão WebRTC do gateway."; break; }
-        if (frameCount > 0 && opusCount > 0 && !completed) {
+        if (!completed &&
+            (pictureReady ? pictureReady() : frameCount > 0)) {
             completed = true;
-            if (progress) progress("Vídeo e áudio Boosteroid recebidos.");
+            if (progress) progress("Primeiro quadro Boosteroid exibido.");
         }
     }
     if (!completed && error.empty())
         error = sawNativeUdp ? "Gateway solicitou transporte UDP nativo ainda não habilitado."
-                             : "Não chegou vídeo H264 e áudio Opus antes do limite.";
+              : frameCount > 0 ? "Vídeo H264 recebido, mas nenhum quadro pôde ser exibido."
+                               : "Nenhum quadro Boosteroid chegou antes do limite.";
 
     // Tell the gateway we're leaving the game, independently from Xbox.
     if (control.connected()) {
