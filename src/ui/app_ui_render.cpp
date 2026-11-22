@@ -19,10 +19,13 @@ void AppUi::drawPads(Canvas& c) {
 
 bool AppUi::needsRedraw(uint64_t nowMs) const {
     std::lock_guard<std::mutex> lock(mutex_);
-    if (boosteroidNativeOpen_)
+    if (boosteroidNativeOpen_) {
+        if (boosteroidView_ == BoosteroidView::Streaming) return false;
         return dirty_ || (boosteroidView_ == BoosteroidView::Loading ||
-                          boosteroidView_ == BoosteroidView::Login) &&
+                          boosteroidView_ == BoosteroidView::Login ||
+                          boosteroidView_ == BoosteroidView::Connecting) &&
                              nowMs - lastRender_ >= 33;
+    }
     if (screen_ == Screen::Streaming) return false;
     if (dirty_ || animating_) return true;
     if (mouseCursorVisible_ && nowMs >= mouseCursorVisibleUntil_) return true;
@@ -445,6 +448,16 @@ void AppUi::drawBoosteroidNative(Canvas& c, uint64_t nowMs) {
         }
         drawSpinner(c, 158, 670, 14, nowMs);
         fonts_.regular.draw(c, "Aguardando autenticação...", 192, 659, 25, kGray);
+    } else if (boosteroidView_ == BoosteroidView::Connecting) {
+        drawCentered(c, fonts_.bold, "Iniciando jogo no Boosteroid", 370, 48, kWhite);
+        drawCentered(c, fonts_.regular,
+                     fonts_.regular.fit(boosteroidStatus_, 26, 1300),
+                     475, 26, kGray);
+        drawSpinner(c, kW * 0.5f, 630, 24, nowMs);
+        drawCentered(c, fonts_.regular,
+                     "Círculo: cancelar conexão", 770, 23, kGray);
+    } else if (boosteroidView_ == BoosteroidView::Streaming) {
+        // The video decoder owns the screen; the main loop skips this frame.
     } else if (boosteroidView_ == BoosteroidView::Catalog) {
         fonts_.semibold.draw(c, boosteroidProfile_.empty()
             ? "Minha biblioteca Boosteroid" : "Jogos de " + boosteroidProfile_,
@@ -478,7 +491,7 @@ void AppUi::drawBoosteroidNative(Canvas& c, uint64_t nowMs) {
         }
         fonts_.regular.draw(c,
             boosteroidStatus_ == "Biblioteca Boosteroid" || boosteroidStatus_.empty()
-            ? "Reprodução nativa ainda em validação no PS5 e Android."
+            ? "Experiência nativa experimental: confirme o stream no seu aparelho."
             : fonts_.regular.fit(boosteroidStatus_, 22, 1500),
             86, 957, 22, kGray);
     } else {
