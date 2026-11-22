@@ -8,6 +8,13 @@
 
 namespace xc::ui {
 
+void AppUi::showServices() {
+    std::lock_guard<std::mutex> lock(mutex_);
+    servicesFromHome_ = screen_ == Screen::Home;
+    screen_ = Screen::Services;
+    dirty_ = true;
+}
+
 void AppUi::handleHome(const NavInput& in, UiEvent& ev) {
     if (!searching_ && !directory_.empty()) { handleDirectory(in, ev); return; }
     // The profile is a modal: never pass its input through to the carousel.
@@ -77,6 +84,12 @@ void AppUi::handleHome(const NavInput& in, UiEvent& ev) {
                 openDetails(*tile);
             }
         }
+        return;
+    }
+    if (in.r1 && in.l2Analog > 0.5f && !searching_) {
+        servicesFromHome_ = true;
+        screen_ = Screen::Services;
+        dirty_ = true;
         return;
     }
     if (in.l3 && !searching_) {
@@ -289,9 +302,20 @@ UiEvent AppUi::onMouseMove(float x, float y) {
     mouseCursorVisible_ = true;
     mouseCursorVisibleUntil_ = platform::nowMs() + 3000;
     dirty_ = true;
-    if (screen_ == Screen::Streaming || screen_ == Screen::Splash) {
+    if (screen_ == Screen::Home && directory_.empty() && !searching_ && !profileOpen_ && !reportOpen_ && !quitPrompt_ && !updatePrompt_ && button == 1 && x >= 100 && x < 360 && y >= 122 && y < 173) {
+        servicesFromHome_ = true;
+        screen_ = Screen::Services;
         return ev;
     }
+    if (screen_ == Screen::Services) {
+        if (button == 3) return handleLocked(NavInput{.back=true});
+        if (button == 1 && y >= 430 && y < 620 && x >= 180 && x < 1740 && (x < 940 || x >= 980)) {
+            boosteroidSelected_ = x >= 980;
+            return handleLocked(NavInput{.accept=true});
+        }
+        return ev;
+    }
+    if (screen_ == Screen::Streaming || screen_ == Screen::Splash) return ev;
     if (screen_ == Screen::Home && !searching_ && (!directory_.empty() || (onCatalogShelf() && !profileOpen_)) && !quitPrompt_ && !updatePrompt_) {
         auto& page = activeDirectory();
         if (page.kind == Directory::Friends) {
@@ -1546,6 +1570,17 @@ UiEvent AppUi::handle(const NavInput& in) {
 
 UiEvent AppUi::handleLocked(const NavInput& in) {
     UiEvent ev;
+    if (screen_ == Screen::Services) {
+        if (in.left || in.right) { boosteroidSelected_ = in.right; dirty_ = true; }
+        if ((in.back || (in.accept && !boosteroidSelected_)) && servicesFromHome_) {
+            screen_ = Screen::Home;
+            dirty_ = true;
+        } else if (in.accept) {
+            if (!boosteroidSelected_) ev.action = Action::SelectXbox;
+            else if (caps_.openStroid) ev.action = Action::LaunchOpenStroid;
+        }
+        return ev;
+    }
     if (screen_ == Screen::Splash) {
         return ev;
     }

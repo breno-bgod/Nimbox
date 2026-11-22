@@ -244,7 +244,24 @@ void beforeShutdown() {
     input::sdlInputShutdown();
 }
 
-Caps caps() { return {false, true, false, true}; }
+Caps caps() {
+    Caps result{false, true, false, true};
+#ifdef _WIN32
+    result.launchOpenStroid = []() {
+        const char* base = SDL_GetBasePath();
+        if (!base) return false;
+        const std::string path = std::string(base) + "OpenStroid/OpenStroid.exe";
+        const char* args[] = {path.c_str(), nullptr};
+        static SDL_Process* process = nullptr;
+        if (process && !SDL_WaitProcess(process, false, nullptr)) return false;
+        if (process) SDL_DestroyProcess(process);
+        process = SDL_CreateProcess(args, false);
+        if (!process) return false;
+        return true;
+    };
+#endif
+    return result;
+}
 
 void setFullscreen(bool on) { display::sdlSetFullscreen(on); }
 

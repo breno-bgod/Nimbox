@@ -226,6 +226,16 @@ jobs:
             XCLOUD_DATA_DIR="${{ runner.temp }}/psbox-data" \
             wine build-win/psbox.exe --selftest "$target_dir"
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Build bundled OpenStroid from the pinned submodule
+        working-directory: services/OpenStroid
+        run: |
+          npm ci
+          npm run build
+          npx --no-install electron-builder --win --x64 --dir -c.win.signAndEditExecutable=false
+          test -s dist-release/win-unpacked/OpenStroid.exe
       - name: Package (portable zip and sha256)
         run: bash tools/desktop/package-windows.sh build-win build-win/pkg
 

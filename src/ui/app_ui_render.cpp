@@ -2004,6 +2004,21 @@ void AppUi::render(Canvas& c, uint64_t nowMs) {
     dirty_ = false;
     switch (screen_) {
         case Screen::Splash: drawSplash(c, nowMs); break;
+        case Screen::Services: {
+            drawCollectionBackdrop(c,nowMs,nullptr);
+            drawInternalBrand(c,166,110,208,113);
+            fonts_.bold.draw(c,"Escolha seu serviço",180,290,64,kWhite);
+            for (int slot=0; slot<2; ++slot) {
+                Rect card{180+slot*800,430,760,190};
+                bool focus = boosteroidSelected_ == (slot==1);
+                c.fillRect(card,focus ? rgba(50,71,90) : rgba(25,34,47),18);
+                if (focus) c.strokeRect(card,kWhite,3,18);
+                fonts_.bold.draw(c,slot ? "Boosteroid" : "Xbox Cloud Gaming",card.x+40,465,42,kWhite);
+                fonts_.regular.draw(c,slot ? (caps_.openStroid ? "Entrar com OpenStroid" : "Indisponível neste dispositivo") : "Entrar com Xbox",card.x+40,545,28,kGray);
+            }
+            fonts_.regular.draw(c,"Trocar de serviço na Home: LT + RB  /  Z + E",180,740,25,kGray);
+            break;
+        }
         case Screen::SignIn: drawSignIn(c, nowMs); break;
         case Screen::Home: drawHome(c, nowMs); break;
         case Screen::Details:
@@ -2054,6 +2069,14 @@ void AppUi::render(Canvas& c, uint64_t nowMs) {
         nowMs >= viewEnteredAt_ && nowMs-viewEnteredAt_ < 180) {
         const int alpha = int(88 * (180 - (nowMs-viewEnteredAt_)) / 180);
         c.fillRect({0,0,kW,kH}, rgba(4,9,15,alpha));
+        animating_ = true;
+    }
+    if (screen_ == Screen::Home && directory_.empty() && !searching_ && !profileOpen_ && !reportOpen_ && !quitPrompt_ && !updatePrompt_) {
+        c.fillRect({100,122,260,51},rgba(13,22,34,180),12);
+        fonts_.semibold.draw(c,"Trocar serviço",118,132,24,kWhite);
+    }
+    if (screen_ == Screen::Services && !nimboxReducedMotion_ && nowMs >= viewEnteredAt_ && nowMs-viewEnteredAt_ < 220) {
+        c.fillRect({0,0,kW,kH},rgba(4,10,19,int(170*(220-(nowMs-viewEnteredAt_))/220)));
         animating_ = true;
     }
     if (screen_ == Screen::Home && profileOpen_) drawProfilePanel(c);

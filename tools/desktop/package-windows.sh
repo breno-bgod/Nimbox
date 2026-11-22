@@ -62,6 +62,8 @@ if [[ ! -f "$pkgdir/SDL3.dll" ]]; then
     cp "$sdl" "$pkgdir/SDL3.dll"
 fi
 
+cp -a "$root/services/OpenStroid/dist-release/win-unpacked" "$pkgdir/OpenStroid"
+cp "$root/services/OpenStroid/LICENSE" "$pkgdir/licenses/OpenStroid-LICENSE"
 echo "== create zip ($zipfile)"
 rm -f "$zipfile" "$shafile"
 python3 - << PY

@@ -54,6 +54,7 @@ struct Caps {
     bool openUrl = false;     // openUrl() works: a link on screen opens in the browser
     bool selfUpdate = false;  // canSelfUpdate()
     bool window = false;      // the app is a window: it can go fullscreen (setFullscreen())
+    bool (*launchOpenStroid)() = nullptr;
 };
 Caps caps();
 // A desktop's window fullscreen or not (Settings > Display mode); nothing

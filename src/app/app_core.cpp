@@ -274,6 +274,7 @@ ui::UiCaps uiCaps() {
     c.highRefresh = dc.highRefreshSwitch;
     c.console = sc.console;
     c.openUrl = sc.openUrl;
+    c.openStroid = sc.launchOpenStroid != nullptr;
     c.selfUpdate = sc.selfUpdate;
     c.desktopWindow = sc.window;
     c.trophies = sc.console;
@@ -1098,7 +1099,7 @@ bool coreStartup() {
     } else {
         if (g_autoplay.badCa) XC_LOGI("AUTOPLAY END: missing CA bundle, built-in copy %s", net::usingBuiltinCa() ? "used" : "NOT used");
         if (g_autoplay.testCa) net::addTrustedCa(platform::dataDir() + "/test-ca.pem");
-        startWorker();
+        g_ui->showServices();
     }
     g_core->streamScreen.emplace(fonts);
     g_core->streamScreen->setCaps(uiCaps());
@@ -1109,6 +1110,15 @@ bool coreStartup() {
 
 void Core::dispatchUiAction(const ui::UiEvent& ev) {
     switch (ev.action) {
+        case ui::Action::SelectXbox:
+            g_ui->showSplash(ui::tr(ui::Str::SigningIn));
+            startWorker();
+            break;
+        case ui::Action::LaunchOpenStroid: {
+            auto launch = shell::caps().launchOpenStroid;
+            if (!launch || !launch()) g_ui->showToast("OpenStroid indisponível neste dispositivo");
+            break;
+        }
         case ui::Action::Play: {
             {
                 std::lock_guard<std::mutex> lock(g_argMutex);
