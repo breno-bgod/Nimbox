@@ -195,10 +195,19 @@ bool NativeGateway::run(const NativeStreamSession& session, const EncodedMediaSi
         std::vector<rtc::Candidate> values;
     };
     const auto gathered = std::make_shared<LocalCandidates>();
-    stream::VideoReceiveStats receiveStats;
-    std::atomic<uint64_t> frameCount{0}, opusCount{0};
-    std::atomic<bool> peerConnected{false}, peerFailed{false};
-    std::atomic<bool> gatheringDone{false};
+    auto receiveStats = std::make_shared<stream::VideoReceiveStats>();
+    struct PeerSignals {
+        std::atomic<bool> connected{false}, failed{false}, gatheringDone{false};
+    };
+    const auto signals = std::make_shared<PeerSignals>();
+    struct MediaGuard {
+        std::mutex mutex;
+        bool active = true;
+        EncodedMediaSink sink;
+        std::atomic<uint64_t> frames{0}, opus{0};
+    };
+    const auto mediaGuard = std::make_shared<MediaGuard>();
+    mediaGuard->sink = sink;
     ControllerMapper mapper;
     int controllerId = 0;
     const std::string peerId = makeUuid();
@@ -243,38 +252,48 @@ bool NativeGateway::run(const NativeStreamSession& session, const EncodedMediaSi
                 std::lock_guard<std::mutex> lock(gathered->mutex);
                 gathered->values.push_back(std::move(candidate));
             });
-            peer->onGatheringStateChange([&](rtc::PeerConnection::GatheringState state) {
+            peer->onGatheringStateChange([signals](rtc::PeerConnection::GatheringState state) {
                 if (state == rtc::PeerConnection::GatheringState::Complete)
-                    gatheringDone = true;
+                    signals->gatheringDone = true;
             });
-            peer->onStateChange([&](rtc::PeerConnection::State state) {
-                if (state == rtc::PeerConnection::State::Connected) peerConnected = true;
+            peer->onStateChange([signals](rtc::PeerConnection::State state) {
+                if (state == rtc::PeerConnection::State::Connected) signals->connected = true;
                 if (state == rtc::PeerConnection::State::Failed ||
-                    state == rtc::PeerConnection::State::Closed) peerFailed = true;
+                    state == rtc::PeerConnection::State::Closed) signals->failed = true;
             });
             rtc::Description::Audio a("0", rtc::Description::Direction::RecvOnly);
             a.addOpusCodec(111);
             audio = peer->addTrack(a);
             audio->setMediaHandler(std::make_shared<rtc::OpusRtpDepacketizer>());
-            audio->onFrame([&](rtc::binary data, rtc::FrameInfo info) {
-                if (deliverOpus(sink, reinterpret_cast<const uint8_t*>(data.data()),
-                                data.size(), info.timestamp)) ++opusCount;
+            audio->onFrame([mediaGuard](rtc::binary data, rtc::FrameInfo info) {
+                std::lock_guard<std::mutex> lock(mediaGuard->mutex);
+                if (!mediaGuard->active) return;
+                if (deliverOpus(mediaGuard->sink,
+                                reinterpret_cast<const uint8_t*>(data.data()),
+                                data.size(), info.timestamp)) ++mediaGuard->opus;
             });
 
             rtc::Description::Video v("1", rtc::Description::Direction::RecvOnly);
             v.addH264Codec(100, "level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=64002a");
             v.addH264Codec(102, "level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=42e01f");
             video = peer->addTrack(v);
-            auto receiver = std::make_shared<stream::H264Receiver>([] {}, receiveStats);
+            // The jitter receiver may outlive the PeerConnection's onFrame
+            // callback, so its statistics must outlive the receiver itself.
+            auto receiver = std::shared_ptr<stream::H264Receiver>(
+                new stream::H264Receiver([] {}, *receiveStats),
+                [receiveStats](stream::H264Receiver* p) { delete p; });
             video->setMediaHandler(receiver);
-            video->onFrame([&, receiver](rtc::binary data, rtc::FrameInfo info) {
-                if (deliverH264(sink, reinterpret_cast<const uint8_t*>(data.data()),
-                                data.size(), info.timestamp)) ++frameCount;
+            video->onFrame([mediaGuard, receiver](rtc::binary data, rtc::FrameInfo info) {
+                std::lock_guard<std::mutex> lock(mediaGuard->mutex);
+                if (!mediaGuard->active) return;
+                if (deliverH264(mediaGuard->sink,
+                                reinterpret_cast<const uint8_t*>(data.data()),
+                                data.size(), info.timestamp)) ++mediaGuard->frames;
             });
 
             peer->setLocalDescription(rtc::Description::Type::Offer);
             const uint64_t gatherDeadline = platform::nowMs() + 12000;
-            while (!gatheringDone && !cancel && platform::nowMs() < gatherDeadline)
+            while (!signals->gatheringDone && !cancel && platform::nowMs() < gatherDeadline)
                 platform::sleepMs(30);
             if (cancel) return false;
             auto local = peer->localDescription();
@@ -370,7 +389,7 @@ bool NativeGateway::run(const NativeStreamSession& session, const EncodedMediaSi
             control.send_text("{\"type\":\"controller\",\"action\":\"connected\",\"name\":\"1\"}");
             nextControllerHello = now + 2000;
         }
-        if (peerConnected && !readyAnnounced) {
+        if (signals->connected && !readyAnnounced) {
             readyAnnounced = true;
             control.send_text("{\"type\":\"settings\",\"action\":\"ready\"}");
             control.send_text("{\"type\":\"stream\",\"action\":\"page\",\"is_visible\":true}");
@@ -401,7 +420,7 @@ bool NativeGateway::run(const NativeStreamSession& session, const EncodedMediaSi
             }
             nextInput = now + 33;
         }
-        if (peerFailed) { error = "Falha na conexão WebRTC do gateway."; break; }
+        if (signals->failed) { error = "Falha na conexão WebRTC do gateway."; break; }
         if (!completed &&
             (pictureReady ? pictureReady() : frameCount > 0)) {
             completed = true;
@@ -410,7 +429,7 @@ bool NativeGateway::run(const NativeStreamSession& session, const EncodedMediaSi
     }
     if (!completed && error.empty())
         error = sawNativeUdp ? "Gateway solicitou transporte UDP nativo ainda não habilitado."
-              : frameCount > 0 ? "Vídeo H264 recebido, mas nenhum quadro pôde ser exibido."
+              : mediaGuard->frames > 0 ? "Vídeo H264 recebido, mas nenhum quadro pôde ser exibido."
                                : "Nenhum quadro Boosteroid chegou antes do limite.";
 
     // Tell the gateway we're leaving the game, independently from Xbox.
@@ -424,14 +443,20 @@ bool NativeGateway::run(const NativeStreamSession& session, const EncodedMediaSi
         }
         control.send_text("{\"type\":\"settings\",\"action\":\"terminating\"}");
     }
-    // Ensure callbacks cannot outlive the captured sink/frame counters.
+    // Wait for any in-flight frame delivery before the NativePlayback sink
+    // can be destroyed. RTC threads retain only a shared guard, never
+    // references to this stack or to the Xbox player.
+    {
+        std::lock_guard<std::mutex> lock(mediaGuard->mutex);
+        mediaGuard->active = false;
+    }
     if (video) video->onFrame(nullptr);
     if (audio) audio->onFrame(nullptr);
     if (peer) peer->close();
     control.close();
-    stats_.connected = completed && peerConnected;
-    stats_.h264Frames = frameCount;
-    stats_.opusPackets = opusCount;
+    stats_.connected = completed && signals->connected;
+    stats_.h264Frames = mediaGuard->frames;
+    stats_.opusPackets = mediaGuard->opus;
     stats_.controllerId = controllerId;
     return completed;
 }
