@@ -429,6 +429,11 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
     }
     if (boosteroidNativeOpen_) {
         if (button != 1) return ev;
+        if (boosteroidView_ == BoosteroidView::Streaming ||
+            boosteroidView_ == BoosteroidView::Connecting) {
+            if (y > 990 && x < 660) ev.action = Action::CancelBoosteroidNative;
+            return ev;
+        }
         if (y > 990) {
             ev.action = x < 660 ? Action::LeaveBoosteroidNative
                       : x < 1300 ? Action::RefreshBoosteroidNative
@@ -443,8 +448,13 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
             if (x >= 86 && col >= 0 && col < 5 && row >= 0 && row < 2) {
                 const int index = (boosteroidFocus_ / 10) * 10 + row * 5 + col;
                 if (index < static_cast<int>(boosteroidGames_.size())) {
-                    boosteroidFocus_ = index;
-                    dirty_ = true;
+                    if (index == boosteroidFocus_) {
+                        ev.action = Action::StartBoosteroidNative;
+                        ev.game = boosteroidGames_[static_cast<size_t>(index)];
+                    } else {
+                        boosteroidFocus_ = index;
+                        dirty_ = true;
+                    }
                 }
             }
         }
@@ -1576,6 +1586,18 @@ UiEvent AppUi::handle(const NavInput& in) {
 UiEvent AppUi::handleLocked(const NavInput& in) {
     UiEvent ev;
     if (boosteroidNativeOpen_) {
+        if (boosteroidView_ == BoosteroidView::Streaming) {
+            // Gameplay uses B/Circle normally. Only the explicit PSBox-style
+            // Options + Touchpad chord asks to end a Boosteroid session.
+            if (in.options && in.touchpad)
+                ev.action = Action::CancelBoosteroidNative;
+            return ev;
+        }
+        if (boosteroidView_ == BoosteroidView::Connecting) {
+            if (in.back || (in.options && in.touchpad))
+                ev.action = Action::CancelBoosteroidNative;
+            return ev;
+        }
         if (in.back) ev.action = Action::LeaveBoosteroidNative;
         else if (in.triangle) ev.action = Action::RefreshBoosteroidNative;
         else if (in.r3) ev.action = Action::LogoutBoosteroidNative;
@@ -1595,8 +1617,8 @@ UiEvent AppUi::handleLocked(const NavInput& in) {
                     dirty_ = true;
                 }
                 if (in.accept) {
-                    boosteroidStatus_ = "O player Boosteroid ainda não está pronto para jogar.";
-                    dirty_ = true;
+                    ev.action = Action::StartBoosteroidNative;
+                    ev.game = boosteroidGames_[static_cast<size_t>(boosteroidFocus_)];
                 }
             }
         }
