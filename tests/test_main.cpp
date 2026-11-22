@@ -119,6 +119,41 @@ static int g_failures = 0;
         }                                                                    \
     } while (0)
 
+static void testBoosteroidNativeHorizonUi() {
+    // Boosteroid is an overlay: every Xbox state update is preserved beneath.
+    xc::ui::Fonts fonts;
+    xc::ui::ImageCache cache([] {}, 10u << 20);
+    xc::ui::AppUi ui(fonts, cache);
+    ui.showSignIn("ABCDEFGH", "https://www.microsoft.com/link");
+    xc::ui::NavInput shortcut;
+    shortcut.l2Analog = 0.9f;
+    shortcut.r1 = true;
+    const auto enter = ui.handle(shortcut);
+    CHECK(enter.action == xc::ui::Action::OpenBoosteroidNative);
+    ui.openBoosteroidNative();
+    CHECK(ui.boosteroidNativeOpen());
+
+    ui.setBoosteroidNativeLogin("https://cloud.boosteroid.com/device?code=ABC");
+    xc::ui::Canvas frame(1920, 1080, xc::ui::rgba(8, 18, 29));
+    ui.render(frame, 1000); // QR rendering must be independent of Xbox sign-in
+
+    xc::ui::GameTile tile;
+    tile.productId = "boosteroid:42";
+    tile.name = "Test catalog game";
+    tile.playable = false;
+    ui.setBoosteroidNativeCatalog({tile}, "Conta");
+    ui.render(frame, 1200);
+    xc::ui::NavInput choose;
+    choose.accept = true;
+    CHECK(ui.handle(choose).action == xc::ui::Action::None);
+    xc::ui::NavInput leave;
+    leave.back = true;
+    CHECK(ui.handle(leave).action == xc::ui::Action::LeaveBoosteroidNative);
+    ui.closeBoosteroidNative();
+    CHECK(!ui.boosteroidNativeOpen());
+    CHECK(ui.screen() == xc::ui::Screen::SignIn); // original Xbox state intact
+}
+
 static void testBoosteroidNativeHttpsClient() {
     using namespace xc::boosteroid;
     int pollCount = 0, profileCount = 0, catalogCount = 0;
@@ -12208,6 +12243,7 @@ int main() {
     testStrings();
     testRegions();
     testPrices();
+    testBoosteroidNativeHorizonUi();
     testBoosteroidNativeHttpsClient();
     testBoosteroidNativeContract();
     testJson();
