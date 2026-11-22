@@ -421,6 +421,29 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
         mouseCursorVisibleUntil_ = 0;
     }
     dirty_ = true;
+    if (boosteroidNativeOpen_) {
+        if (button != 1) return ev;
+        if (y > 990) {
+            ev.action = x < 660 ? Action::LeaveBoosteroidNative
+                      : x < 1300 ? Action::RefreshBoosteroidNative
+                                 : Action::LogoutBoosteroidNative;
+        } else if (boosteroidView_ == BoosteroidView::Login &&
+                   y >= 230 && y < 850 && caps_.openUrl) {
+            ev.action = Action::OpenUrl;
+            ev.url = boosteroidUrl_;
+        } else if (boosteroidView_ == BoosteroidView::Catalog && y >= 290 && y < 935) {
+            const int col = (static_cast<int>(x) - 86) / 355;
+            const int row = (static_cast<int>(y) - 290) / 338;
+            if (x >= 86 && col >= 0 && col < 5 && row >= 0 && row < 2) {
+                const int index = (boosteroidFocus_ / 10) * 10 + row * 5 + col;
+                if (index < static_cast<int>(boosteroidGames_.size())) {
+                    boosteroidFocus_ = index;
+                    dirty_ = true;
+                }
+            }
+        }
+        return ev;
+    }
     if (screen_ == Screen::Streaming || screen_ == Screen::Splash) {
         return ev;
     }
@@ -1546,6 +1569,39 @@ UiEvent AppUi::handle(const NavInput& in) {
 
 UiEvent AppUi::handleLocked(const NavInput& in) {
     UiEvent ev;
+    if (boosteroidNativeOpen_) {
+        if (in.back) ev.action = Action::LeaveBoosteroidNative;
+        else if (in.triangle) ev.action = Action::RefreshBoosteroidNative;
+        else if (in.r3) ev.action = Action::LogoutBoosteroidNative;
+        else if (boosteroidView_ == BoosteroidView::Login && in.accept && caps_.openUrl) {
+            ev.action = Action::OpenUrl;
+            ev.url = boosteroidUrl_;
+        } else if (boosteroidView_ == BoosteroidView::Catalog) {
+            const int count = static_cast<int>(boosteroidGames_.size());
+            if (count) {
+                int next = boosteroidFocus_;
+                if (in.left) next = std::max(0, next - 1);
+                if (in.right) next = std::min(count - 1, next + 1);
+                if (in.up) next = std::max(0, next - 5);
+                if (in.down) next = std::min(count - 1, next + 5);
+                if (next != boosteroidFocus_) {
+                    boosteroidFocus_ = next;
+                    dirty_ = true;
+                }
+                if (in.accept) {
+                    boosteroidStatus_ = "O player Boosteroid ainda não está pronto para jogar.";
+                    dirty_ = true;
+                }
+            }
+        }
+        return ev;
+    }
+    if ((screen_ == Screen::Home || screen_ == Screen::SignIn ||
+         screen_ == Screen::Splash || screen_ == Screen::Error) &&
+        in.l2 && in.r1) {
+        ev.action = Action::OpenBoosteroidNative;
+        return ev;
+    }
     if (screen_ == Screen::Splash) {
         return ev;
     }
