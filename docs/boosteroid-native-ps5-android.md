@@ -70,3 +70,22 @@ Compilação e testes simulados não confirmam conta real, máquina ou gameplay.
 - Nenhuma atualização da `main` antes dessas condições.
 
 **Resultado de hoje:** contrato e testes offline adicionados; fluxos reais de conta e streaming permanecem pendentes. Nunca apresentar o módulo como Boosteroid funcional no PS5/Android sem evidência do serviço.
+
+## Seleção de serviço na inicialização
+
+Ao abrir o aplicativo normalmente, o Horizon mostra **dois cartões nativos**:
+**Xbox Cloud Gaming** e **Boosteroid**. Use esquerda/direita + confirmar,
+ou toque diretamente no cartão (Android). A autenticação Xbox só começa
+quando o usuário seleciona Xbox; a autenticação Boosteroid só inicia após
+selecionar Boosteroid. Não há dependência do Electron para esta tela.
+
+Ao voltar do Boosteroid, a escolha de serviços reaparece, com o Boosteroid
+focado. Na Home Xbox, o atalho legado L2 + R1 continua disponível para mudar
+rapidamente para o Boosteroid.
+
+**Atenção:** execuções do modo `autoplay.txt` usadas nos testes PSBox
+continuam indo diretamente para o Xbox, para não invalidar seus testes.
+O seletor não interfere nas rotas de gameplay do Xbox. A presença visual
+dos serviços não comprova gameplay Boosteroid no PS5/Android: é necessário
+validar login, catálogo, fila, gateway, vídeo, áudio e controles em hardware.
+
