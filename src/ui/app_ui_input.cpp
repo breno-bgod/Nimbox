@@ -421,6 +421,76 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
         mouseCursorVisibleUntil_ = 0;
     }
     dirty_ = true;
+    if (serviceChooserOpen_) {
+        if (button == 1 && y >= 394 && y <= 798) {
+            const int target = (x >= 155 && x <= 895) ? 0
+                             : (x >= 1025 && x <= 1765) ? 1 : -1;
+            if (target >= 0) {
+                serviceChooserFocus_ = target;
+                serviceChooserOpen_ = false;
+                ev.action = target == 0
+                          ? Action::SelectXboxNative : Action::OpenBoosteroidNative;
+            }
+        }
+        return ev;
+    }
+    // A visible, mouse/touch-accessible service switch on the Xbox
+    // login and Home surfaces. Do not start either provider on hover.
+    if (!boosteroidNativeOpen_ && button == 1 &&
+        ((screen_ == Screen::Home &&
+          x >= 380 && x <= 660 && y >= 42 && y <= 124) ||
+         (screen_ == Screen::SignIn &&
+          x >= 700 && x <= 1110 && y >= 980 && y <= 1060))) {
+        ev.action = Action::ShowServiceChooser;
+        return ev;
+    }
+    if (boosteroidNativeOpen_) {
+        if (button != 1) return ev;
+        // Visible switch in the Boosteroid header; leaving pauses the
+        // provider worker and returns to the common service chooser.
+        if (x >= 1500 && y >= 15 && y <= 140 &&
+            boosteroidView_ != BoosteroidView::Streaming) {
+            ev.action = Action::LeaveBoosteroidNative;
+            return ev;
+        }
+        if (boosteroidView_ == BoosteroidView::Streaming ||
+            boosteroidView_ == BoosteroidView::Connecting) {
+            if (y > 990 && x < 660)
+                ev.action = boosteroidView_ == BoosteroidView::Connecting
+                          ? Action::LeaveBoosteroidNative
+                          : Action::CancelBoosteroidNative;
+            return ev;
+        }
+        if (y > 990) {
+            ev.action = x < 660 ? Action::LeaveBoosteroidNative
+                      : x < 1300 ? Action::RefreshBoosteroidNative
+                                 : Action::LogoutBoosteroidNative;
+        } else if (boosteroidView_ == BoosteroidView::Login &&
+                   button == 1 && caps_.openUrl &&
+                   !boosteroidUrl_.empty() && x >= 130 && x <= 1100 &&
+                   y >= 720 && y <= 840) {
+            // The same device-authorization URL used by the QR code:
+            // open the platform browser, never collect credentials here.
+            ev.action = Action::OpenUrl;
+            ev.url = boosteroidUrl_;
+        } else if (boosteroidView_ == BoosteroidView::Catalog && y >= 290 && y < 935) {
+            const int col = (static_cast<int>(x) - 86) / 355;
+            const int row = (static_cast<int>(y) - 290) / 338;
+            if (x >= 86 && col >= 0 && col < 5 && row >= 0 && row < 2) {
+                const int index = (boosteroidFocus_ / 10) * 10 + row * 5 + col;
+                if (index < static_cast<int>(boosteroidGames_.size())) {
+                    if (index == boosteroidFocus_) {
+                        ev.action = Action::StartBoosteroidNative;
+                        ev.game = boosteroidGames_[static_cast<size_t>(index)];
+                    } else {
+                        boosteroidFocus_ = index;
+                        dirty_ = true;
+                    }
+                }
+            }
+        }
+        return ev;
+    }
     if (screen_ == Screen::Streaming || screen_ == Screen::Splash) {
         return ev;
     }
@@ -1546,6 +1616,63 @@ UiEvent AppUi::handle(const NavInput& in) {
 
 UiEvent AppUi::handleLocked(const NavInput& in) {
     UiEvent ev;
+    if (serviceChooserOpen_) {
+        if (in.left || in.l1) serviceChooserFocus_ = 0;
+        if (in.right || in.r1) serviceChooserFocus_ = 1;
+        if (in.accept) {
+            serviceChooserOpen_ = false;
+            ev.action = serviceChooserFocus_ == 0
+                      ? Action::SelectXboxNative : Action::OpenBoosteroidNative;
+        }
+        dirty_ = true;
+        return ev;
+    }
+    if (boosteroidNativeOpen_) {
+        if (boosteroidView_ == BoosteroidView::Streaming) {
+            // Gameplay uses B/Circle normally. Only the explicit PSBox-style
+            // Options + Touchpad chord asks to end a Boosteroid session.
+            if (in.options && in.touchpad)
+                ev.action = Action::CancelBoosteroidNative;
+            return ev;
+        }
+        if (boosteroidView_ == BoosteroidView::Connecting) {
+            if (in.back) ev.action = Action::LeaveBoosteroidNative;
+            else if (in.options && in.touchpad)
+                ev.action = Action::CancelBoosteroidNative;
+            return ev;
+        }
+        if (in.back) ev.action = Action::LeaveBoosteroidNative;
+        else if (in.triangle) ev.action = Action::RefreshBoosteroidNative;
+        else if (in.r3) ev.action = Action::LogoutBoosteroidNative;
+        else if (boosteroidView_ == BoosteroidView::Login && in.accept && caps_.openUrl) {
+            ev.action = Action::OpenUrl;
+            ev.url = boosteroidUrl_;
+        } else if (boosteroidView_ == BoosteroidView::Catalog) {
+            const int count = static_cast<int>(boosteroidGames_.size());
+            if (count) {
+                int next = boosteroidFocus_;
+                if (in.left) next = std::max(0, next - 1);
+                if (in.right) next = std::min(count - 1, next + 1);
+                if (in.up) next = std::max(0, next - 5);
+                if (in.down) next = std::min(count - 1, next + 5);
+                if (next != boosteroidFocus_) {
+                    boosteroidFocus_ = next;
+                    dirty_ = true;
+                }
+                if (in.accept) {
+                    ev.action = Action::StartBoosteroidNative;
+                    ev.game = boosteroidGames_[static_cast<size_t>(boosteroidFocus_)];
+                }
+            }
+        }
+        return ev;
+    }
+    if ((screen_ == Screen::Home || screen_ == Screen::SignIn ||
+         screen_ == Screen::Splash || screen_ == Screen::Error) &&
+        in.l2Analog > 0.55f && in.r1) {
+        ev.action = Action::ShowServiceChooser;
+        return ev;
+    }
     if (screen_ == Screen::Splash) {
         return ev;
     }

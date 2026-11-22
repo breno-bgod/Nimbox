@@ -51,6 +51,14 @@
 #include "ui/cloud_time.h"
 #include "ui/strings.h"
 #include "ui/app_ui_internal.h"
+#include "boosteroid/native_contract.h"
+#include "boosteroid/native_client.h"
+#include "boosteroid/control_input.h"
+#ifndef _WIN32
+#include "boosteroid/native_gateway.h"
+#include "boosteroid/native_udp.h"
+#include <mbedtls/aes.h>
+#endif
 #include "util/json.h"
 #include "util/log.h"
 #include "auth/auth_manager.h"
@@ -116,6 +124,419 @@ static int g_failures = 0;
             ++g_failures;                                                    \
         }                                                                    \
     } while (0)
+
+#ifndef _WIN32
+static void testBoosteroidNativeUdpDecrypt() {
+    using namespace xc::boosteroid;
+    std::vector<uint8_t> key(16, 0x42);
+    std::array<uint8_t, 1408> plain{};
+    plain[3] = 1; // Annex-B H264 start code
+    plain[4] = 0x67;
+    plain[5] = 0x42;
+    plain[6] = 0x00;
+    plain[7] = 0x1f;
+    std::array<uint8_t, 16> iv{};
+    iv[6] = 123; // group 123, shard 0
+    std::vector<uint8_t> shard(1410, 0);
+    shard[0] = 8;
+    mbedtls_aes_context aes;
+    mbedtls_aes_init(&aes);
+    CHECK(mbedtls_aes_setkey_enc(&aes, key.data(), 128) == 0);
+    CHECK(mbedtls_aes_crypt_cbc(&aes, MBEDTLS_AES_ENCRYPT, plain.size(),
+                                iv.data(), plain.data(), shard.data() + 2) == 0);
+    mbedtls_aes_free(&aes);
+    std::vector<uint8_t> output;
+    CHECK(decodeNativeVideoGroup({shard}, key, 123, output));
+    CHECK(output.size() == 8);
+    if (output.size() == 8) {
+        CHECK(output[3] == 1);
+        CHECK(output[4] == 0x67);
+    }
+    CHECK(!decodeNativeVideoGroup({shard}, std::vector<uint8_t>(3), 123, output));
+    CHECK(!decodeNativeVideoGroup({}, key, 123, output));
+}
+
+static void testBoosteroidGatewayControl() {
+    using namespace xc::boosteroid;
+    auto parse = [](const std::string& text) {
+        auto value = xc::json::parse(text);
+        CHECK(value.has_value());
+        return value ? parseControlEvent(*value) : ControlEvent{};
+    };
+    CHECK(parse(R"({"type":"settings","action":"webrtc"})").type ==
+          ControlEvent::Type::StartWebRtc);
+    CHECK(parse(R"({"type":"settings","action":"udpforward","ip":"10.0.0.1"})").type ==
+          ControlEvent::Type::NativeUdpRequested);
+    CHECK(parse(R"({"type":"controller","action":"connected","id":2})").controllerId == 2);
+    CHECK(parse(R"({"type":"controller","action":"connected","id":0})").type ==
+          ControlEvent::Type::None);
+    CHECK(parse(R"({"type":"stream","action":"stop"})").type ==
+          ControlEvent::Type::SessionEnded);
+    auto status = xc::json::parse(deviceStatusReply());
+    CHECK(status.has_value());
+    if (status) {
+        CHECK((*status)["type"].str() == "stream");
+        CHECK((*status)["action"].str() == "status");
+        CHECK((*status)["params"]["codec"].str() == "h264");
+    }
+}
+#endif
+
+static void testBoosteroidNativeGamepad() {
+    using namespace xc::boosteroid;
+    ControllerMapper mapper;
+    xc::input::ControllerState pad{};
+    pad.connected = true;
+    const auto initial = mapper.encode(pad, 2);
+    CHECK(initial.size() == 20); // 13 buttons + 6 axes + hat
+    CHECK(mapper.encode(pad, 2).empty());
+    pad.btnA = true;
+    pad.dpadUp = true;
+    pad.triggerL2 = 0.7f;
+    const auto changed = mapper.encode(pad, 2);
+    bool crossFound = false, triggerFound = false, hatFound = false;
+    for (const auto& msg : changed) {
+        CHECK(msg["type"].str() == "controller");
+        CHECK(msg["id"].asInt() == 2);
+        if (msg["action"].str() == "button" && msg["button"].asInt() == 0) {
+            crossFound = true;
+            CHECK(msg["value"].asInt() == 1);
+        }
+        if (msg["action"].str() == "axes" && msg["axes"].asInt() == 2) {
+            triggerFound = true;
+            CHECK(msg["value"].asInt() > 0);
+        }
+        if (msg["action"].str() == "pad") {
+            hatFound = true;
+            CHECK(msg["hat"].asInt() == 1);
+        }
+    }
+    CHECK(crossFound && triggerFound && hatFound);
+    CHECK(mapper.encode(pad, -1).empty());
+    CHECK(mapper.encode(pad, 2).size() == 20);
+}
+
+static void testBoosteroidNativeQueueContract() {
+    using namespace xc::boosteroid;
+    int enqueues = 0, starts = 0, details = 0, dequeues = 0;
+    net::setTestTransport([&](const net::Request& request) -> net::Response {
+        CHECK(request.url.rfind("https://cloud.boosteroid.com", 0) == 0);
+        net::Response answer;
+        if (request.url.find("/api/v1/auth/login/qr-code/sync") != std::string::npos) {
+            json::Value tokens = json::Value::object();
+            tokens.set("access_token", "demo.access.sig");
+            tokens.set("refresh_token", "synthetic_refresh");
+            json::Value response = json::Value::object();
+            response.set("data", std::move(tokens));
+            answer.status = 200;
+            answer.body = response.dump();
+        } else if (request.url.find("/api/v1/user") != std::string::npos) {
+            // No user ID for the offline fixture: never attempt real WSS.
+            answer.status = 200;
+            answer.body = R"({"data":{"nickname":"Mock user"}})";
+        } else if (request.url.find("/api/v2/streaming/session/enqueue") != std::string::npos) {
+            const auto body = json::parse(request.body);
+            CHECK(body && (*body)["appId"].asInt() == 321);
+            ++enqueues;
+            answer.status = 200;
+            answer.body = R"({"sessionToken":"queue-demo-token","sessionId":"session-demo"})";
+        } else if (request.url.find("/api/v2/streaming/session/start") != std::string::npos) {
+            ++starts;
+            const auto body = json::parse(request.body);
+            CHECK(body && (*body)["sessionToken"].str() == "queue-demo-token");
+            answer.status = 200;
+            answer.body = R"({"data":{"sessionId":"session-demo"}})";
+        } else if (request.url.find("/api/v1/streaming/session/details") != std::string::npos) {
+            ++details;
+            CHECK(request.url.find("session=session-demo") != std::string::npos);
+            answer.status = 200;
+            answer.body = R"({"data":{"gw":"gateway.boosteroid.com","queryString":"sessionId=session-demo&signature=mock"}})";
+        } else if (request.url.find("/api/v2/streaming/session/dequeue") != std::string::npos) {
+            ++dequeues;
+            answer.status = 200;
+            answer.body = "{}";
+        } else {
+            CHECK(false);
+            answer.status = 404;
+        }
+        return answer;
+    });
+    NativeClient client({}, false);
+    DeviceAuthorization qr;
+    CHECK(client.beginDeviceLogin(qr));
+    CHECK(client.pollDeviceLogin() == LoginResult::Authorized);
+    NativeStreamSession session;
+    std::atomic<bool> canceled{false};
+    CHECK(client.startStreamingSession(321, session, &canceled));
+    CHECK(enqueues == 1 && starts == 1 && details == 1);
+    CHECK(session.sessionId == "session-demo");
+    CHECK(session.assignedGateway == "gateway.boosteroid.com");
+    CHECK(session.signedQuery == "sessionId=session-demo&signature=mock");
+    CHECK(client.stopStreamingSession());
+    CHECK(dequeues == 1);
+    net::setTestTransport({});
+}
+
+static void testNimboPlayServiceSelection() {
+    xc::ui::Fonts fonts;
+    xc::ui::ImageCache cache([] {}, 10u << 20);
+    xc::ui::AppUi ui(fonts, cache);
+    ui.showSplash("Inicio");
+    ui.showServiceChooser();
+    CHECK(ui.serviceChooserOpen());
+
+    xc::ui::Canvas frame(1920, 1080, xc::ui::rgba(8, 18, 29));
+    ui.render(frame, 1000);
+    xc::ui::NavInput right;
+    right.right = true;
+    CHECK(ui.handle(right).action == xc::ui::Action::None);
+    xc::ui::NavInput accept;
+    accept.accept = true;
+    CHECK(ui.handle(accept).action == xc::ui::Action::OpenBoosteroidNative);
+    CHECK(!ui.serviceChooserOpen());
+
+    ui.openBoosteroidNative();
+    CHECK(ui.boosteroidNativeOpen());
+    ui.closeBoosteroidNative();
+    CHECK(ui.serviceChooserOpen());
+    CHECK(!ui.boosteroidNativeOpen());
+
+    // Touching Xbox on the chooser is a different action and does not
+    // accidentally start the Boosteroid worker or change the Xbox screen.
+    CHECK(ui.onMouseDown(400, 530, 1).action ==
+          xc::ui::Action::SelectXboxNative);
+    CHECK(!ui.serviceChooserOpen());
+    CHECK(ui.screen() == xc::ui::Screen::Splash);
+
+    ui.showServiceChooser();
+    CHECK(ui.onMouseDown(1310, 530, 1).action ==
+          xc::ui::Action::OpenBoosteroidNative);
+    CHECK(!ui.serviceChooserOpen());
+}
+
+static void testBoosteroidNativeHorizonUi() {
+    // Boosteroid is an overlay: every Xbox state update is preserved beneath.
+    xc::ui::Fonts fonts;
+    xc::ui::ImageCache cache([] {}, 10u << 20);
+    xc::ui::AppUi ui(fonts, cache);
+    ui.showSignIn("ABCDEFGH", "https://www.microsoft.com/link");
+    xc::ui::NavInput shortcut;
+    shortcut.l2Analog = 0.9f;
+    shortcut.r1 = true;
+    const auto enter = ui.handle(shortcut);
+    CHECK(enter.action == xc::ui::Action::ShowServiceChooser);
+    ui.showServiceChooser();
+    CHECK(ui.serviceChooserOpen());
+    CHECK(ui.onMouseDown(1310, 530, 1).action ==
+          xc::ui::Action::OpenBoosteroidNative);
+    ui.openBoosteroidNative();
+    CHECK(ui.boosteroidNativeOpen());
+
+    ui.setBoosteroidNativeLogin("https://cloud.boosteroid.com/device?code=ABC");
+    xc::ui::Canvas frame(1920, 1080, xc::ui::rgba(8, 18, 29));
+    ui.render(frame, 1000); // QR rendering must be independent of Xbox sign-in
+
+    xc::ui::GameTile tile;
+    tile.productId = "boosteroid:42";
+    tile.name = "Test catalog game";
+    tile.playable = false;
+    ui.setBoosteroidNativeCatalog({tile}, "Conta");
+    ui.render(frame, 1200);
+    xc::ui::NavInput choose;
+    choose.accept = true;
+    const auto launch = ui.handle(choose);
+    CHECK(launch.action == xc::ui::Action::StartBoosteroidNative);
+    CHECK(launch.game.productId == "boosteroid:42");
+    ui.setBoosteroidNativeConnecting("Solicitando máquina...");
+    xc::ui::NavInput leave;
+    leave.back = true;
+    CHECK(ui.handle(leave).action == xc::ui::Action::LeaveBoosteroidNative);
+    ui.setBoosteroidNativeStreaming();
+    CHECK(ui.boosteroidNativeStreaming());
+    CHECK(ui.handle(leave).action == xc::ui::Action::None); // Circle belongs to the game
+    xc::ui::NavInput combo;
+    combo.options = true;
+    combo.touchpad = true;
+    CHECK(ui.handle(combo).action == xc::ui::Action::CancelBoosteroidNative);
+    ui.closeBoosteroidNative();
+    CHECK(!ui.boosteroidNativeStreaming());
+    CHECK(!ui.boosteroidNativeOpen());
+    CHECK(ui.screen() == xc::ui::Screen::SignIn); // original Xbox state intact
+    ui.showHome();
+    // Returning from Boosteroid opens the chooser; select Xbox to
+    // recover the original Home without starting another Xbox worker.
+    CHECK(ui.serviceChooserOpen());
+    CHECK(ui.onMouseDown(400, 530, 1).action ==
+          xc::ui::Action::SelectXboxNative);
+    CHECK(ui.onMouseDown(460, 90, 1).action ==
+          xc::ui::Action::ShowServiceChooser); // visible Horizon switch
+    CHECK(ui.onMouseDown(1650, 90, 1).action ==
+          xc::ui::Action::None); // avatar/profile area is not a service switch
+    ui.showServiceChooser();
+    CHECK(ui.onMouseDown(120, 100, 1).action ==
+          xc::ui::Action::None); // wordmark is not a service switch
+    CHECK(ui.onMouseDown(1310, 530, 1).action ==
+          xc::ui::Action::OpenBoosteroidNative);
+}
+
+static void testBoosteroidNativeHttpsClient() {
+    using namespace xc::boosteroid;
+    int pollCount = 0, profileCount = 0, catalogCount = 0;
+    std::string deviceId;
+    net::setTestTransport([&](const net::Request& request) -> net::Response {
+        CHECK(request.url.rfind("https://cloud.boosteroid.com/", 0) == 0);
+        CHECK(request.timeoutMs >= 1000);
+        CHECK(!request.followRedirects);
+        auto header = [&](const char* key) -> std::string {
+            for (const auto& pair : request.headers)
+                if (pair.first == key) return pair.second;
+            return {};
+        };
+        CHECK(header("Device-Name") == "NimboPlay");
+        CHECK(header("Nonce") == "0");
+        CHECK(header("Cookie").find("boosteroid_entrypoint_source=1") != std::string::npos);
+        if (deviceId.empty()) deviceId = header("Device-Uniq-Id");
+        CHECK(deviceId == header("Device-Uniq-Id"));
+        net::Response result;
+        if (request.url.find("/api/v1/auth/login/qr-code/sync") != std::string::npos) {
+            CHECK(request.method == "POST");
+            CHECK(header("Authorization").empty());
+            const auto body = json::parse(request.body);
+            CHECK(body && (*body)["clientId"].asInt() == 6);
+            CHECK(body && (*body)["auth-code"].isString());
+            ++pollCount;
+            if (pollCount == 1) result.status = 401; // pending approval
+            else if (pollCount == 2) result.status = 429; // rate limit
+            else {
+                result.status = 200;
+                json::Value account = json::Value::object();
+                account.set("access_token", "demo.header.sig");
+                account.set("refresh_token", "test-only-refresh");
+                json::Value userData = json::Value::object();
+                userData.set("authorization_data", "private_auth_data");
+                account.set("user_data", std::move(userData));
+                json::Value envelope = json::Value::object();
+                envelope.set("data", std::move(account));
+                result.body = envelope.dump();
+            }
+        } else if (request.url.find("/api/v1/user") != std::string::npos) {
+            ++profileCount;
+            CHECK(header("Authorization") == "Bearer demo.header.sig");
+            CHECK(header("Authorization-Data") == "private_auth_data");
+            result.status = 200;
+            result.body = R"({"data":{"id":837,"nickname":"Meu perfil","email":"private@example.org"}})";
+        } else if (request.url.find("/api/v1/boostore/applications/installed") != std::string::npos) {
+            ++catalogCount;
+            CHECK(header("Authorization") == "Bearer demo.header.sig");
+            CHECK(request.url.find("?page=1&paginate=50") != std::string::npos);
+            result.status = 200;
+            result.body = R"({"data":{"data":{"games":[{"application":{"id":59,"name":"Jogo real","coverUrl":"https://cdn.example.org/a.jpg"}},{"id":61,"title":"Outro"}]}}})";
+        } else {
+            CHECK(false); // unexpected or provider-crossed endpoint
+            result.status = 404;
+        }
+        return result;
+    });
+
+    NativeClient client({}, false); // memory-only unit test: no account files
+    DeviceAuthorization qr;
+    CHECK(client.beginDeviceLogin(qr));
+    CHECK(qr.validationUrl.rfind(
+        "https://cloud.boosteroid.com/api/v1/auth/login/qr-code/validate?auth-code=", 0) == 0);
+    CHECK(qr.pollIntervalMs == 3000 && !qr.approved);
+    CHECK(client.pollDeviceLogin() == LoginResult::Pending);
+    CHECK(client.pollDeviceLogin() == LoginResult::RateLimited);
+    CHECK(client.error() == ApiError::RateLimited);
+    CHECK(client.pollDeviceLogin() == LoginResult::Authorized);
+    CHECK(client.isAuthenticated());
+    CHECK(!client.hasPendingAuthorization());
+    CHECK(pollCount == 3);
+
+    Profile profile;
+    CHECK(client.getProfile(profile));
+    CHECK(profile.id == "837" && profile.nickname == "Meu perfil");
+    CHECK(profileCount == 1);
+    std::vector<Game> games;
+    CHECK(client.getInstalledGames(games));
+    CHECK(catalogCount == 1 && games.size() == 2);
+    if (games.size() == 2) {
+        CHECK(games[0].id == 59 && games[0].title == "Jogo real");
+        CHECK(games[1].id == 61 && games[1].title == "Outro");
+    }
+    CHECK(!client.getInstalledGames(games, 0)); // fail before network
+    client.logout();
+    CHECK(!client.isAuthenticated());
+    CHECK(!client.getProfile(profile) && client.error() == ApiError::NoSession);
+    net::setTestTransport({});
+}
+
+static void testBoosteroidNativeContract() {
+    using namespace xc::boosteroid;
+
+    // The native Horizon must see only a safe QR URL and public state.
+    // Session handoff/tokens stay in the provider, even when present in JSON.
+    DeviceAuthorization qr;
+    auto pending = json::parse(R"({"status":"pending","validationUrl":"https://cloud.boosteroid.com/device?code=ABCD","pollIntervalMs":3500,"sessionHandoff":"private"})");
+    CHECK(pending && publicAuthorization(*pending, qr));
+    CHECK(qr.validationUrl == "https://cloud.boosteroid.com/device?code=ABCD");
+    CHECK(!qr.approved && qr.pollIntervalMs == 3500);
+    CHECK(qr.status == "pending");
+    auto success = json::parse(R"({"status":"succeeded","validationUrl":"https://cloud.boosteroid.com/device","sessionEstablished":true,"sessionHandoff":"private"})");
+    CHECK(success && publicAuthorization(*success, qr) && qr.approved);
+    auto invalid = json::parse(R"({"status":"pending","validationUrl":"http://localhost/login"})");
+    CHECK(invalid && !publicAuthorization(*invalid, qr));
+
+    // IDs are provider scoped; invalid/duplicate/untrusted fields are dropped.
+    auto catalog = json::parse(R"({"games":[{"id":42,"name":"Demo","coverUrl":"https://cdn.example.org/cover.jpg","accessToken":"private"},{"application":{"id":"73","title":"Another","imageUrl":"https://cdn.example.org/cover.jpg?sig=private"}},{"id":42,"name":"Duplicate"},{"id":0,"name":"Invalid"},{"id":74,"name":""}]})");
+    CHECK(catalog.has_value());
+    const auto games = publicGames(*catalog);
+    CHECK(games.size() == 2);
+    if (games.size() == 2) {
+        CHECK(games[0].id == 42 && games[0].title == "Demo");
+        CHECK(games[0].coverUrl == "https://cdn.example.org/cover.jpg");
+        CHECK(games[1].id == 73 && games[1].title == "Another");
+        CHECK(games[1].coverUrl.empty());
+    }
+
+    // Different media transports may feed these encoded formats, but Xbox
+    // signaling and gamepad packet formats are not reused automatically.
+    int videoPackets = 0, audioPackets = 0;
+    EncodedMediaSink sink;
+    sink.h264AnnexB = [&](const uint8_t*, size_t length, uint32_t stamp) {
+        ++videoPackets;
+        CHECK(length == 5 && stamp == 45);
+    };
+    sink.opus = [&](const uint8_t*, size_t length, uint32_t stamp) {
+        ++audioPackets;
+        CHECK(length == 2 && stamp == 90);
+    };
+    const uint8_t h264[] = {0,0,0,1,0x65};
+    const uint8_t malformed[] = {1,2,3,4,5};
+    const uint8_t opus[] = {0xF8,0xFF};
+    CHECK(deliverH264(sink,h264,sizeof(h264),45));
+    CHECK(!deliverH264(sink,malformed,sizeof(malformed),45));
+    CHECK(deliverOpus(sink,opus,sizeof(opus),90));
+    CHECK(!deliverOpus(sink,nullptr,1,90));
+    CHECK(videoPackets == 1 && audioPackets == 1);
+
+    SessionState state;
+    CHECK(state.state() == State::Disabled);
+    CHECK(!state.beginLaunch());
+    CHECK(state.beginAuthorization());
+    CHECK(!state.beginLaunch());
+    CHECK(state.authorizationApproved());
+    CHECK(state.catalogLoaded());
+    CHECK(state.beginLaunch());
+    CHECK(state.streamAttached());
+    CHECK(state.streamStopped());
+    CHECK(state.state() == State::CatalogReady);
+    state.fail(Failure::Transport);
+    CHECK(state.failure() == Failure::Transport && state.state() == State::Failed);
+    CHECK(state.beginAuthorization());
+    CHECK(state.failure() == Failure::None);
+    state.reset();
+    CHECK(state.state() == State::Disabled);
+}
 
 static void testJson() {
     auto v = json::parse(R"({"a":1,"b":[true,null,"x\u00e9\n"],"c":{"d":-2.5e1},"e":"\ud83c\udfae"})");
@@ -12047,6 +12468,16 @@ int main() {
     testStrings();
     testRegions();
     testPrices();
+#ifndef _WIN32
+    testBoosteroidGatewayControl();
+    testBoosteroidNativeUdpDecrypt();
+#endif
+    testBoosteroidNativeGamepad();
+    testBoosteroidNativeQueueContract();
+    testNimboPlayServiceSelection();
+    testBoosteroidNativeHorizonUi();
+    testBoosteroidNativeHttpsClient();
+    testBoosteroidNativeContract();
     testJson();
     testUrl();
     testInputPacket();

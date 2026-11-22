@@ -21,6 +21,7 @@
 #include "app/shell.h"
 #include "app/stream_player.h"
 #include "app/stream_screen.h"
+#include "boosteroid/native_worker.h"
 #include "app/web_server.h"
 #include "app/worker_internal.h"
 #include "display/display.h"
@@ -63,6 +64,8 @@ namespace xc::app {
 namespace {
 
 std::unique_ptr<ui::ImageCache> g_images;
+std::unique_ptr<boosteroid::NativeWorker> g_boosteroidNativeWorker;
+bool g_xboxWorkerStarted = false;
 crash::Previous g_lastCrash;
 std::string crashMarkerPath() { return platform::dataDir() + "/crash.marker"; }
 
@@ -1098,7 +1101,15 @@ bool coreStartup() {
     } else {
         if (g_autoplay.badCa) XC_LOGI("AUTOPLAY END: missing CA bundle, built-in copy %s", net::usingBuiltinCa() ? "used" : "NOT used");
         if (g_autoplay.testCa) net::addTrustedCa(platform::dataDir() + "/test-ca.pem");
-        startWorker();
+        if (g_autoplay.title.empty()) {
+            // Real users select a provider first. The Xbox worker must not
+            // start a Microsoft login before they choose Xbox.
+            g_ui->showServiceChooser();
+        } else {
+            // Existing unattended Xbox regression/autoplay tests stay intact.
+            startWorker();
+            g_xboxWorkerStarted = true;
+        }
     }
     g_core->streamScreen.emplace(fonts);
     g_core->streamScreen->setCaps(uiCaps());
@@ -1109,6 +1120,76 @@ bool coreStartup() {
 
 void Core::dispatchUiAction(const ui::UiEvent& ev) {
     switch (ev.action) {
+        case ui::Action::ShowServiceChooser:
+            // The worker remains alive: choosing another service must never
+            // destroy the established Xbox runtime or its authenticated state.
+            g_ui->showServiceChooser();
+            break;
+        case ui::Action::SelectXboxNative:
+            if (!g_xboxWorkerStarted) {
+                g_ui->showSplash(ui::tr(ui::Str::SigningIn));
+                startWorker();
+                g_xboxWorkerStarted = true;
+            }
+            // If the Xbox worker was already active, the chooser itself
+            // closed when Xbox was selected. Keep the underlying Home/login.
+            break;
+        case ui::Action::OpenBoosteroidNative: {
+            g_ui->openBoosteroidNative();
+            if (!g_boosteroidNativeWorker) {
+                g_boosteroidNativeWorker = std::make_unique<boosteroid::NativeWorker>(*g_ui);
+                g_ui->setBoosteroidNativeStatus("Iniciando serviço Boosteroid...");
+                if (!g_boosteroidNativeWorker->start())
+                    g_ui->setBoosteroidNativeError("Não foi possível iniciar o Boosteroid.");
+            } else {
+                g_boosteroidNativeWorker->resume();
+                g_boosteroidNativeWorker->requestRefresh();
+            }
+            break;
+        }
+        case ui::Action::LeaveBoosteroidNative:
+            if (g_boosteroidNativeWorker)
+                g_boosteroidNativeWorker->requestPause();
+            g_ui->closeBoosteroidNative();
+            break;
+        case ui::Action::StartBoosteroidNative: {
+            constexpr const char* prefix = "boosteroid:";
+            const std::string& key = ev.game.productId;
+            if (key.rfind(prefix, 0) != 0 || key.size() > 30) {
+                g_ui->setBoosteroidNativeStatus("Jogo Boosteroid inválido.");
+                break;
+            }
+            const std::string digits = key.substr(10);
+            if (digits.empty() ||
+                !std::all_of(digits.begin(), digits.end(),
+                             [](unsigned char c) { return c >= '0' && c <= '9'; })) {
+                g_ui->setBoosteroidNativeStatus("Identificador Boosteroid inválido.");
+                break;
+            }
+            try {
+                const int64_t id = std::stoll(digits);
+                if (id <= 0 || id > 2147483647LL)
+                    throw std::out_of_range("appId");
+                if (g_boosteroidNativeWorker) {
+                    g_ui->setBoosteroidNativeConnecting("Preparando sessão Boosteroid...");
+                    g_boosteroidNativeWorker->requestLaunch(id);
+                }
+            } catch (const std::exception&) {
+                g_ui->setBoosteroidNativeStatus("Identificador do jogo não reconhecido.");
+            }
+            break;
+        }
+        case ui::Action::CancelBoosteroidNative:
+            if (g_boosteroidNativeWorker)
+                g_boosteroidNativeWorker->requestCancelStream();
+            g_ui->setBoosteroidNativeConnecting("Encerrando a sessão Boosteroid...");
+            break;
+        case ui::Action::RefreshBoosteroidNative:
+            if (g_boosteroidNativeWorker) g_boosteroidNativeWorker->requestRefresh();
+            break;
+        case ui::Action::LogoutBoosteroidNative:
+            if (g_boosteroidNativeWorker) g_boosteroidNativeWorker->requestLogout();
+            break;
         case ui::Action::Play: {
             {
                 std::lock_guard<std::mutex> lock(g_argMutex);
@@ -1750,6 +1831,10 @@ bool Core::frame() {
         scroll.cards -= static_cast<float>(nav.scrollCards);
     }
     nav.nowMs = now;
+    // The main thread remains the sole owner of controller polling. The
+    // Boosteroid service receives a copy, never a second PS5 pad poll.
+    if (g_boosteroidNativeWorker && g_ui->boosteroidNativeOpen())
+        g_boosteroidNativeWorker->setPad(pad);
     bool menuCombo = (pad.btnOptions && pad.btnTouchpad && !(prev.btnOptions && prev.btnTouchpad)) ||
                      (inGame && appMenuPressed);
     prev = pad;
@@ -1797,6 +1882,14 @@ bool Core::frame() {
         XC_LOGI("confirm button: %s", circle ? "circle" : "cross");
     }
     dispatchUiAction(ev);
+    if (g_ui->boosteroidNativeStreaming()) {
+        // A native Boosteroid decoder now owns display::drawYuv420/drawNv12.
+        // Keep pumping window/input events, but never overwrite the game with
+        // the Xbox Horizon canvas while the provider stream is active.
+        display::idleWait(4);
+        display::pump();
+        return true;
+    }
     autoplayScreens(*canvas, now);
 
     if (haveDisplay && g_ui->needsRedraw(now)) {
@@ -1874,6 +1967,10 @@ void onSystemPressure(bool terminating) {
 }
 
 void coreShutdown() {
+    if (g_boosteroidNativeWorker) {
+        g_boosteroidNativeWorker->stop();
+        g_boosteroidNativeWorker.reset();
+    }
     // Not on the PS5, whose loop never ends. Before the backends close, the
     // threads that use them stop: the worker leaves its loop (a stream
     // stopped and its xCloud session closed, so the account's slot is free;

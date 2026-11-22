@@ -19,6 +19,14 @@ void AppUi::drawPads(Canvas& c) {
 
 bool AppUi::needsRedraw(uint64_t nowMs) const {
     std::lock_guard<std::mutex> lock(mutex_);
+    if (serviceChooserOpen_) return dirty_;
+    if (boosteroidNativeOpen_) {
+        if (boosteroidView_ == BoosteroidView::Streaming) return false;
+        return dirty_ || (boosteroidView_ == BoosteroidView::Loading ||
+                          boosteroidView_ == BoosteroidView::Login ||
+                          boosteroidView_ == BoosteroidView::Connecting) &&
+                             nowMs - lastRender_ >= 33;
+    }
     if (screen_ == Screen::Streaming) return false;
     if (dirty_ || animating_) return true;
     if (mouseCursorVisible_ && nowMs >= mouseCursorVisibleUntil_) return true;
@@ -139,6 +147,8 @@ void AppUi::drawTopBar(Canvas& c, bool overArt) {
     // NimboPlay's complete transparent wordmark is the primary header brand.
     // No extra text beside it: the lettering is already included in the image.
     drawInternalBrand(c, 91, 20, 184, 100);
+    // Explicit service switch; pointer hitbox is handled in AppUi::handlePointerDown.
+    if (!overArt) fonts_.semibold.draw(c, "Trocar serviço", 390, 91, 21, kWhite);
     if (hasCloudTime && !overArt) drawCloudTime(c, 292, 59);
 
     // Avatar and centered Settings touch button
@@ -399,11 +409,155 @@ void AppUi::drawSplash(Canvas& c, uint64_t nowMs) {
     drawSpinner(c, kW / 2.0f, 720, 26, nowMs);
 }
 
+void AppUi::drawServiceChooser(Canvas& c) {
+    drawBackground(c);
+    drawInternalBrand(c, 78, 28, 240, 130);
+    fonts_.bold.draw(c, "Escolha seu serviço", 160, 220, 60, kWhite);
+    fonts_.regular.draw(c,
+        "O NimboPlay oferece duas plataformas com a mesma experiência Horizon.",
+        162, 305, 26, kGray);
+
+    constexpr int top = 394, width = 740, height = 404;
+    const Rect boxes[2] = {{155, top, width, height}, {1025, top, width, height}};
+    for (int i = 0; i < 2; ++i) {
+        const bool selected = i == serviceChooserFocus_;
+        const Rect card = boxes[i];
+        c.fillRect(card, selected ? rgba(24, 58, 91, 248)
+                                   : rgba(17, 30, 48, 242), 28);
+        c.strokeRect(card, selected ? rgba(120, 200, 255, 235)
+                                    : rgba(142, 180, 214, 95),
+                     selected ? 4 : 2, 28);
+        const int tx = card.x + 54;
+        fonts_.bold.draw(c, i == 0 ? "Xbox Cloud Gaming" : "Boosteroid",
+                         tx, card.y + 102, 49, kWhite);
+        fonts_.regular.draw(c, i == 0 ? "Game Pass e seus consoles Xbox"
+                                      : "Jogos de PC na nuvem",
+                            tx, card.y + 196, 27, kGray);
+        fonts_.semibold.draw(c, i == 0 ? "Entrar no xCloud" : "Entrar no Boosteroid",
+                             tx, card.y + 310, 29,
+                             selected ? rgba(168, 226, 255, 255) : kWhite);
+    }
+    fonts_.regular.draw(c,
+        "Use esquerda/direita e confirme, ou toque em um serviço.",
+        390, 885, 27, kGray);
+    fonts_.regular.draw(c,
+        "Você poderá alternar os serviços sem fechar o NimboPlay.",
+        405, 958, 23, kGray);
+}
+
+void AppUi::drawBoosteroidNative(Canvas& c, uint64_t nowMs) {
+    drawBackground(c);
+    drawInternalBrand(c, 78, 18, 210, 112);
+    fonts_.bold.draw(c, "BOOSTEROID", 340, 47, 38, kWhite);
+    fonts_.regular.draw(c, "Provedor nativo - NimboPlay Horizon", 342, 100, 22, kGray);
+    fonts_.semibold.draw(c, "Voltar aos serviços", 1530, 59, 24, kWhite);
+    c.line(76, 156, kW - 76, 156, 2, rgba(130, 181, 218, 55));
+
+    if (boosteroidView_ == BoosteroidView::Loading) {
+        drawCentered(c, fonts_.bold, "Conectando ao Boosteroid", 405, 50, kWhite);
+        drawCentered(c, fonts_.regular, boosteroidStatus_.empty()
+            ? "Preparando serviço nativo..." : boosteroidStatus_, 500, 28, kGray);
+        drawSpinner(c, kW * 0.5f, 635, 24, nowMs);
+    } else if (boosteroidView_ == BoosteroidView::Login) {
+        fonts_.bold.draw(c, "Entre com sua conta Boosteroid", 140, 265, 51, kWhite);
+        fonts_.regular.draw(c, "Escaneie o QR Code com seu celular e autorize o dispositivo.",
+                            140, 385, 27, kGray);
+        fonts_.regular.draw(c, fonts_.regular.fit(boosteroidStatus_, 24, 920),
+                            140, 475, 24, kGray);
+        fonts_.regular.draw(c, "Sua conta e os tokens permanecem fora do Horizon.",
+                            140, 555, 21, kGray);
+        if (!boosteroidUrl_.empty()) {
+            uint8_t qr[qrcodegen_BUFFER_LEN_MAX], tmp[qrcodegen_BUFFER_LEN_MAX];
+            if (qrcodegen_encodeText(boosteroidUrl_.c_str(), tmp, qr,
+                                     qrcodegen_Ecc_MEDIUM, qrcodegen_VERSION_MIN,
+                                     qrcodegen_VERSION_MAX, qrcodegen_Mask_AUTO, true)) {
+                const int n = qrcodegen_getSize(qr);
+                const int module = std::max(1, 410 / (n + 2));
+                const int side = module * (n + 2);
+                Rect box{1280, 264, side + 48, side + 48};
+                c.fillRect(box, kWhite, 24);
+                const int ox = box.x + 24 + module, oy = box.y + 24 + module;
+                for (int y = 0; y < n; ++y)
+                    for (int x = 0; x < n; ++x)
+                        if (qrcodegen_getModule(qr, x, y))
+                            c.fillRect({ox + x * module, oy + y * module,
+                                        module, module}, kBg);
+            }
+        }
+        drawSpinner(c, 158, 670, 14, nowMs);
+        fonts_.regular.draw(c, "Aguardando autenticação...", 192, 659, 25, kGray);
+        if (caps_.openUrl && !boosteroidUrl_.empty()) {
+            Rect browserBtn{140, 720, 960, 120};
+            c.fillRect(browserBtn, rgba(27, 126, 141, 235), 24);
+            c.strokeRect(browserBtn, rgba(128, 228, 238, 185), 2, 24);
+            fonts_.bold.draw(c, "Entrar pelo navegador", 198, 752, 34, kWhite);
+            fonts_.regular.draw(c, "Abra a página oficial e confirme o acesso", 198, 802, 22, kWhite);
+        } else {
+            fonts_.regular.draw(c, "Abra o QR Code em outro dispositivo para entrar.",
+                                140, 765, 23, kGray);
+        }
+    } else if (boosteroidView_ == BoosteroidView::Connecting) {
+        drawCentered(c, fonts_.bold, "Iniciando jogo no Boosteroid", 370, 48, kWhite);
+        drawCentered(c, fonts_.regular,
+                     fonts_.regular.fit(boosteroidStatus_, 26, 1300),
+                     475, 26, kGray);
+        drawSpinner(c, kW * 0.5f, 630, 24, nowMs);
+        drawCentered(c, fonts_.regular,
+                     "Círculo: cancelar conexão", 770, 23, kGray);
+    } else if (boosteroidView_ == BoosteroidView::Streaming) {
+        // The video decoder owns the screen; the main loop skips this frame.
+    } else if (boosteroidView_ == BoosteroidView::Catalog) {
+        fonts_.semibold.draw(c, boosteroidProfile_.empty()
+            ? "Minha biblioteca Boosteroid" : "Jogos de " + boosteroidProfile_,
+            86, 203, 35, kWhite);
+        if (boosteroidGames_.empty()) {
+            drawCentered(c, fonts_.regular, boosteroidStatus_, 500, 30, kGray);
+        } else {
+            constexpr int cols = 5, perPage = 10;
+            constexpr int startX = 86, startY = 290, stepX = 355, stepY = 338;
+            constexpr int cardW = 315, cardH = 243;
+            const int first = (boosteroidFocus_ / perPage) * perPage;
+            const int stop = std::min(static_cast<int>(boosteroidGames_.size()), first + perPage);
+            for (int i = first; i < stop; ++i) {
+                const int local = i - first, col = local % cols, row = local / cols;
+                Rect card{startX + col * stepX, startY + row * stepY, cardW, cardH};
+                const bool focused = i == boosteroidFocus_;
+                c.fillRect(card, rgba(20, 40, 62, 240), 18);
+                if (auto art = images_.get(boosteroidGames_[i].tileUrl, cardW, cardH))
+                    c.drawImage(*art, card.x, card.y, 255, -1);
+                c.strokeRect(card, focused ? rgba(130, 209, 255, 245)
+                                           : rgba(208, 228, 249, 35),
+                             focused ? 4 : 1, 18);
+                const std::string label = fonts_.semibold.fit(boosteroidGames_[i].name, 23, cardW);
+                fonts_.semibold.draw(c, label, card.x + 3, card.y + cardH + 12,
+                                     23, focused ? kWhite : kGray);
+            }
+            const int page = first / perPage + 1;
+            const int pages = (static_cast<int>(boosteroidGames_.size()) + perPage - 1) / perPage;
+            fonts_.regular.draw(c, std::to_string(page) + " / " + std::to_string(pages),
+                                1710, 208, 24, kGray);
+        }
+        fonts_.regular.draw(c,
+            boosteroidStatus_ == "Biblioteca Boosteroid" || boosteroidStatus_.empty()
+            ? "Experiência nativa experimental: confirme o stream no seu aparelho."
+            : fonts_.regular.fit(boosteroidStatus_, 22, 1500),
+            86, 957, 22, kGray);
+    } else {
+        drawCentered(c, fonts_.bold, "Boosteroid indisponível", 375, 48, kWhite);
+        drawCentered(c, fonts_.regular, boosteroidStatus_, 485, 26, kGray);
+        drawCentered(c, fonts_.regular, "Triângulo: tentar novamente", 565, 24, kGray);
+    }
+    c.fillRect({0, kH - 80, kW, 80}, kBg);
+    fonts_.regular.draw(c, "Voltar  |  Triângulo: atualizar  |  R3: sair da conta",
+                        170, kH - 54, 20, kGray);
+}
+
 void AppUi::drawSignIn(Canvas& c, uint64_t nowMs) {
     drawCollectionBackdrop(c, nowMs, focusedTile());
     const int left = 180;
     drawInternalBrand(c, left - 12, 113, 208, 113);
     fonts_.bold.draw(c, tr(Str::SignInTitle), left, 260, 72, kWhite);
+    fonts_.semibold.draw(c, "Trocar serviço", 700, 1015, 24, kWhite);
     fonts_.regular.draw(c, tr(Str::SignInStep1), left, 400, 32, kGray);
     std::string shortUrl = codeUrl_;
     for (const char* p : {"https://", "http://", "www."})
@@ -489,6 +643,7 @@ void AppUi::drawSignIn(Canvas& c, uint64_t nowMs) {
     }
     if (caps_.openUrl) drawHints(c, {{kIconCross, tr(Str::OpenInBrowser)}});  // a desktop: the page in the browser
 #endif
+    fonts_.regular.draw(c, "L2 + R1: trocar serviço", 1120, 1015, 20, kGray);
 }
 
 void AppUi::drawTabs(Canvas& c) {
@@ -2002,6 +2157,21 @@ void AppUi::render(Canvas& c, uint64_t nowMs) {
         }
     }
     dirty_ = false;
+    if (serviceChooserOpen_) {
+        drawServiceChooser(c);
+        if (mouseCursorVisible_) drawMouseCursor(c, mouseCursorX_, mouseCursorY_);
+        return;
+    }
+    if (boosteroidNativeOpen_) {
+        drawBoosteroidNative(c, nowMs);
+        if (platform::toastsEnabled()) {
+            toastsDrawn_ = platform::toasts().version(nowMs);
+            drawToasts(c, fonts_, platform::toasts().visible(nowMs), kW - kMargin, 132);
+        }
+        if (mouseCursorVisible_ && boosteroidView_ != BoosteroidView::Streaming)
+            drawMouseCursor(c, mouseCursorX_, mouseCursorY_);
+        return;
+    }
     switch (screen_) {
         case Screen::Splash: drawSplash(c, nowMs); break;
         case Screen::SignIn: drawSignIn(c, nowMs); break;

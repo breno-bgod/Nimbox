@@ -276,7 +276,15 @@ enum class Action {
     RemoveTrophies, // remove local PSBox trophy packages
     TestQueueAlert, // play test chime and vibration for queue-ready alert
     ResetSettings,  // restore settings to default
-    CopyClipboard   // copy pairing code to system clipboard
+    CopyClipboard,  // copy pairing code to system clipboard
+    OpenBoosteroidNative, // show the native Boosteroid overlay, preserving Xbox UI
+    LeaveBoosteroidNative,
+    RefreshBoosteroidNative,
+    LogoutBoosteroidNative,
+    StartBoosteroidNative,
+    CancelBoosteroidNative,
+    SelectXboxNative, // choose Xbox from the visible initial service selector
+    ShowServiceChooser // switch between providers without exiting Horizon
 };
 
 // How "Your games" is sorted (R3).
@@ -322,6 +330,20 @@ public:
     // --- Model -------------------------------------------------------------
     void showSplash(const std::string& status);
     void showSignIn(const std::string& code, const std::string& url);
+    // An independent Horizon surface; Xbox worker can update the underlying
+    // screen without changing this overlay. No token data enters AppUi.
+    void showServiceChooser();
+    bool serviceChooserOpen() const;
+    void openBoosteroidNative();
+    void closeBoosteroidNative();
+    void setBoosteroidNativeStatus(const std::string& message);
+    void setBoosteroidNativeLogin(const std::string& validationUrl);
+    void setBoosteroidNativeCatalog(std::vector<GameTile> games, const std::string& profileName);
+    void setBoosteroidNativeError(const std::string& message);
+    void setBoosteroidNativeConnecting(const std::string& message);
+    void setBoosteroidNativeStreaming();
+    bool boosteroidNativeStreaming() const;
+    bool boosteroidNativeOpen() const;
     // The signed-in account, top right; `gamerscore` (digits) under the name.
     struct ChatRequest { uint64_t session = 0; std::string peer, text; };
     ChatRequest takeChatRequest(uint64_t nowMs);
@@ -682,6 +704,8 @@ private:
     int settingSelected(int row) const;
     void applySetting(int row, int index);
     void drawCentered(Canvas& c, const Font& f, const std::string& text, int y, int px, Color color);
+    void drawBoosteroidNative(Canvas& c, uint64_t nowMs);
+    void drawServiceChooser(Canvas& c);
     // The sign-in country's "off" choice, worded for the platform (caller holds mutex_).
     const char* loginCountryOffText() const;
     // The trigger tester's rows: intensity and frequency, then resistance,
@@ -698,6 +722,14 @@ private:
     bool dirty_ = true;
     std::string status_;
     std::string code_, codeUrl_;
+    bool serviceChooserOpen_ = false;
+    int serviceChooserFocus_ = 0; // 0 Xbox, 1 Boosteroid
+    bool boosteroidNativeOpen_ = false;
+    enum class BoosteroidView { Loading, Login, Catalog, Connecting, Streaming, Error };
+    BoosteroidView boosteroidView_ = BoosteroidView::Loading;
+    std::string boosteroidStatus_, boosteroidUrl_, boosteroidProfile_;
+    std::vector<GameTile> boosteroidGames_;
+    int boosteroidFocus_ = 0;
     std::string gamertag_, gamerpicUrl_, gamerscore_, subscription_;
     int64_t playtimeRemaining_ = -1, playtimeMax_ = -1;
     bool playtimeUnlimited_ = false;

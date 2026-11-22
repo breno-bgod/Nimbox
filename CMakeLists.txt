@@ -39,6 +39,12 @@ add_custom_command(
 
 add_library(xcloud_core STATIC
     ${XC_BUILTIN_CA}
+    # Portable Boosteroid contract: compiled on PS5/Android as well as desktop,
+    # but no Boosteroid authentication or streaming is enabled by this change.
+    src/boosteroid/native_contract.cpp
+    src/boosteroid/native_client.cpp
+    src/boosteroid/native_session.cpp
+    src/boosteroid/control_input.cpp
     src/util/json.cpp
     src/util/log.cpp
     src/util/fs.cpp
@@ -68,6 +74,12 @@ add_library(xcloud_core STATIC
     src/platform/toasts.cpp
     src/input/gyro.cpp
 )
+# Keep the Boosteroid WebSocket channel separate from the Xbox libdatachannel,
+# built with NO_WEBSOCKET=ON. Native POSIX sockets work on Android/Linux/PS5;
+# Windows retains the experimental Electron adapter until its port is tested.
+if(NOT WIN32)
+    target_sources(xcloud_core PRIVATE src/boosteroid/wss_client.cpp)
+endif()
 target_include_directories(xcloud_core PUBLIC src extern/stb)
 
 if(XCLOUD_PS5 OR XC_TARGET_PS4)
@@ -106,6 +118,8 @@ if(XC_TARGET_PS4)
 endif()
 
 # --- WebRTC streaming: SDP/ICE, data channels, input reports ----------------
+# The native Boosteroid WebRTC endpoint shares libdatachannel and H264Receiver,
+# but keeps signalling and gamepad packets independent of Xbox/GSSV.
 add_library(xcloud_stream STATIC
     src/stream/h264_receiver.cpp
     src/stream/input_packet.cpp
@@ -114,6 +128,14 @@ add_library(xcloud_stream STATIC
     src/stream/rtcp_reporter.cpp
     src/stream/stream_session.cpp
 )
+# Native Boosteroid RTC adapter requires its own WSS POSIX adapter; the
+# Windows OpenStroid/Electron path is kept separate.
+if(NOT WIN32)
+    target_sources(xcloud_stream PRIVATE
+        src/boosteroid/native_gateway.cpp
+        src/boosteroid/native_udp.cpp
+    )
+endif()
 target_link_libraries(xcloud_stream PUBLIC xcloud_core PRIVATE datachannel-static)
 if(NOT MSVC)
     target_compile_options(xcloud_stream PRIVATE -Wall -Wextra -Wno-unused-parameter)
@@ -241,6 +263,9 @@ target_link_libraries(xcloud_ui PUBLIC xcloud_core)
 # backends and shell (docs/multiplatform.md).
 add_library(xcloud_appcore OBJECT
     src/app/app_state.cpp
+    # A separate native Boosteroid worker, compiled for PS5 and Android too.
+    src/boosteroid/native_worker.cpp
+    src/boosteroid/native_playback.cpp
     src/app/app_core.cpp
     src/app/worker.cpp
     src/app/worker_stream.cpp
