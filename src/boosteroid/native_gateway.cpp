@@ -4,6 +4,7 @@
 #include "boosteroid/native_gateway.h"
 
 #include "boosteroid/control_input.h"
+#include "boosteroid/native_udp.h"
 #include "boosteroid/wss_client.h"
 #include "net/http.h"
 #include "platform/platform.h"
@@ -208,6 +209,22 @@ bool NativeGateway::run(const NativeStreamSession& session, const EncodedMediaSi
     };
     const auto mediaGuard = std::make_shared<MediaGuard>();
     mediaGuard->sink = sink;
+    EncodedMediaSink nativeSink;
+    nativeSink.h264AnnexB = [mediaGuard](const uint8_t* data, size_t len,
+                                         uint32_t timestamp) {
+        std::lock_guard<std::mutex> lock(mediaGuard->mutex);
+        if (mediaGuard->active &&
+            deliverH264(mediaGuard->sink, data, len, timestamp))
+            ++mediaGuard->frames;
+    };
+    nativeSink.opus = [mediaGuard](const uint8_t* data, size_t len,
+                                  uint32_t timestamp) {
+        std::lock_guard<std::mutex> lock(mediaGuard->mutex);
+        if (mediaGuard->active &&
+            deliverOpus(mediaGuard->sink, data, len, timestamp))
+            ++mediaGuard->opus;
+    };
+    NativeUdp udp(std::move(nativeSink));
     ControllerMapper mapper;
     int controllerId = 0;
     const std::string peerId = makeUuid();
@@ -364,9 +381,23 @@ bool NativeGateway::run(const NativeStreamSession& session, const EncodedMediaSi
                     mapper.reset();
                 } else if (event.type == ControlEvent::Type::NativeUdpRequested) {
                     sawNativeUdp = true;
+                    const auto ip = field(*parsed, {"ip"});
+                    const int videoPort = static_cast<int>((*parsed)["videoport"].asInt());
+                    const int audioPort = static_cast<int>((*parsed)["audioport"].asInt());
+                    if (!udp.running()) {
+                        std::string udpError;
+                        if (!udp.start(ip, videoPort, audioPort, udpError)) {
+                            error = udpError.empty()
+                                ? "Falha ao abrir mídia UDP nativa Boosteroid."
+                                : udpError;
+                            break;
+                        }
+                        if (progress) progress("Transporte UDP nativo ativo. Aguardando vídeo...");
+                    }
                 } else if (event.type == ControlEvent::Type::StreamKey) {
-                    // The Android TV gateway waits for a key receipt before it
-                    // releases the native stream. This does not expose the key.
+                    // AES key stays inside the UDP transport, never Horizon or
+                    // logs. The TV gateway expects a receipt before video.
+                    udp.setKeyHex(field(*parsed, {"value"}));
                     control.send_text("{\"type\":\"stream\",\"action\":\"key\",\"value\":\"ok\"}");
                 } else if (event.type == ControlEvent::Type::StartWebRtc && !offerSubmitted) {
                     offerSubmitted = true;
@@ -428,7 +459,7 @@ bool NativeGateway::run(const NativeStreamSession& session, const EncodedMediaSi
         }
     }
     if (!completed && error.empty())
-        error = sawNativeUdp ? "Gateway solicitou transporte UDP nativo ainda não habilitado."
+        error = sawNativeUdp ? "O gateway UDP conectou, mas não produziu um quadro válido."
               : mediaGuard->frames > 0 ? "Vídeo H264 recebido, mas nenhum quadro pôde ser exibido."
                                : "Nenhum quadro Boosteroid chegou antes do limite.";
 
@@ -443,6 +474,8 @@ bool NativeGateway::run(const NativeStreamSession& session, const EncodedMediaSi
         }
         control.send_text("{\"type\":\"settings\",\"action\":\"terminating\"}");
     }
+    // Drain native UDP threads before destroying their H264/Opus destination.
+    udp.stop();
     // Wait for any in-flight frame delivery before the NativePlayback sink
     // can be destroyed. RTC threads retain only a shared guard, never
     // references to this stack or to the Xbox player.
@@ -454,7 +487,7 @@ bool NativeGateway::run(const NativeStreamSession& session, const EncodedMediaSi
     if (audio) audio->onFrame(nullptr);
     if (peer) peer->close();
     control.close();
-    stats_.connected = completed && signals->connected;
+    stats_.connected = completed && (signals->connected || sawNativeUdp);
     stats_.h264Frames = mediaGuard->frames;
     stats_.opusPackets = mediaGuard->opus;
     stats_.controllerId = controllerId;
