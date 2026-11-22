@@ -42,6 +42,7 @@ add_library(xcloud_core STATIC
     # Portable Boosteroid contract: compiled on PS5/Android as well as desktop,
     # but no Boosteroid authentication or streaming is enabled by this change.
     src/boosteroid/native_contract.cpp
+    src/boosteroid/native_client.cpp
     src/util/json.cpp
     src/util/log.cpp
     src/util/fs.cpp
