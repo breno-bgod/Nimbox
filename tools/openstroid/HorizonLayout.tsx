@@ -18,17 +18,20 @@ export function AuthenticatedLayout() {
   const cover = sessionStorage.getItem('nimbo:backdrop');
   return <div className="hz-shell">
     {!home && cover && <img src={cover} className="hz-backdrop" alt="" />}
-    <header className="hz-top"><img className="hz-brand" src="/nimbo-brand.png" alt="NimboPlay" />
-      <nav aria-label="Boosteroid">
-        <NavLink to="/my-games">Boosteroid</NavLink>
+    <header className="hz-top">
+      <img className="hz-brand" src="/nimbo-brand.png" alt="NimboPlay" />
+      <span className="hz-current-service" aria-label="Serviço ativo">Boosteroid</span>
+      <nav aria-label="Navegação Horizon">
+        <NavLink to="/my-games" end>Início</NavLink>
         <NavLink to="/library">Catálogo</NavLink>
         <NavLink to="/install">Instalar</NavLink>
         <NavLink to="/settings" state={{backgroundPath: pathname}}>Configurações</NavLink>
       </nav>
-      <AppHeader /><button onClick={() => window.close()}>Trocar serviço</button>
+      <AppHeader />
+      <button className="hz-switch-service" onClick={() => window.close()}>Trocar serviço</button>
     </header>
     <div className={home ? 'hz-front' : 'hz-page'}>
-      {!home && <h1>{pathname === '/install' ? 'Instalar jogos' : 'Catálogo'}</h1>}
+      {!home && <h1>{pathname === '/install' ? 'Instalar jogos' : pathname === '/settings' ? 'Configurações' : 'Catálogo'}</h1>}
       <Outlet />
     </div>
   </div>;
