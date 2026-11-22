@@ -199,6 +199,7 @@ void NativeWorker::run() {
             const int64_t gameId = launchGame_.exchange(0);
             if (gameId > 0) {
                 cancelStream_ = false;
+                std::string launchFailure;
 #ifndef _WIN32
                 ui_.setBoosteroidNativeConnecting("Solicitando máquina Boosteroid...");
                 NativeStreamSession session;
@@ -225,22 +226,23 @@ void NativeWorker::run() {
                             });
                         playback.stop();
                         if (!connected && !cancelStream_ && !stop_) {
-                            ui_.setBoosteroidNativeStatus(gatewayError.empty()
+                            launchFailure = gatewayError.empty()
                                 ? "Não foi possível receber a transmissão Boosteroid."
-                                : gatewayError);
+                                : gatewayError;
                         }
                     } else {
-                        ui_.setBoosteroidNativeStatus(
-                            "Não foi possível inicializar o reprodutor H264/Opus.");
+                        launchFailure = "Não foi possível inicializar o reprodutor H264/Opus.";
                     }
                 } else if (!cancelStream_ && !stop_) {
-                    ui_.setBoosteroidNativeStatus(errorText(client.error()));
+                    launchFailure = errorText(client.error());
                 }
                 if (ready) client.stopStreamingSession();
                 // Always return to the native catalog, not the Xbox screen.
                 if (!stop_) {
                     ui_.setBoosteroidNativeCatalog(cachedTiles,
                         profile.nickname.empty() ? "Boosteroid" : profile.nickname);
+                    if (!launchFailure.empty())
+                        ui_.setBoosteroidNativeStatus(launchFailure);
                 }
 #else
                 ui_.setBoosteroidNativeStatus(
