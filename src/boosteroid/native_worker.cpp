@@ -3,6 +3,10 @@
 #include "boosteroid/native_worker.h"
 
 #include "boosteroid/native_client.h"
+#include "boosteroid/native_playback.h"
+#ifndef _WIN32
+#include "boosteroid/native_gateway.h"
+#endif
 #include "app/app_state.h"
 #include "ui/app_ui.h"
 #include "util/log.h"
@@ -59,7 +63,14 @@ bool NativeWorker::start() {
 
 void NativeWorker::stop() {
     stop_ = true;
+    cancelStream_ = true;
     if (thread_.joinable()) thread_.join();
+}
+
+bool NativeWorker::padSnapshot(input::ControllerState& out) {
+    std::lock_guard<std::mutex> lock(padMutex_);
+    out = pad_;
+    return out.connected;
 }
 
 bool NativeWorker::pause(int milliseconds) {
@@ -149,6 +160,7 @@ void NativeWorker::run() {
             continue;
         }
 
+        std::vector<ui::GameTile> cachedTiles;
         const auto load = [&]() -> bool {
             ui_.setBoosteroidNativeStatus("Carregando biblioteca Boosteroid...");
             std::vector<ui::GameTile> tiles;
@@ -164,6 +176,7 @@ void NativeWorker::run() {
                 if (games.size() < 50) break;
             }
             if (stop_) return false;
+            cachedTiles = tiles;
             ui_.setBoosteroidNativeCatalog(std::move(tiles),
                 profile.nickname.empty() ? "Boosteroid" : profile.nickname);
             return true;
@@ -182,6 +195,57 @@ void NativeWorker::run() {
                 client.logout();
                 authenticated = false;
                 break;
+            }
+            const int64_t gameId = launchGame_.exchange(0);
+            if (gameId > 0) {
+                cancelStream_ = false;
+#ifndef _WIN32
+                ui_.setBoosteroidNativeConnecting("Solicitando máquina Boosteroid...");
+                NativeStreamSession session;
+                const auto progress = [this](const std::string& message) {
+                    if (!stop_) ui_.setBoosteroidNativeStatus(message);
+                };
+                bool ready = client.startStreamingSession(gameId, session,
+                                                            &cancelStream_, progress);
+                if (ready && !stop_ && !cancelStream_) {
+                    NativePlayback playback;
+                    playback.setFirstFrameCallback([this] {
+                        if (!stop_ && !cancelStream_)
+                            ui_.setBoosteroidNativeStreaming();
+                    });
+                    if (playback.start()) {
+                        NativeGateway gateway;
+                        std::string gatewayError;
+                        const bool connected = gateway.run(
+                            session, playback.mediaSink(), cancelStream_,
+                            [this](input::ControllerState& pad) {
+                                return padSnapshot(pad);
+                            }, progress, gatewayError);
+                        playback.stop();
+                        if (!connected && !cancelStream_ && !stop_) {
+                            ui_.setBoosteroidNativeStatus(gatewayError.empty()
+                                ? "Não foi possível receber a transmissão Boosteroid."
+                                : gatewayError);
+                        }
+                    } else {
+                        ui_.setBoosteroidNativeStatus(
+                            "Não foi possível inicializar o reprodutor H264/Opus.");
+                    }
+                } else if (!cancelStream_ && !stop_) {
+                    ui_.setBoosteroidNativeStatus(errorText(client.error()));
+                }
+                if (ready) client.stopStreamingSession();
+                // Always return to the native catalog, not the Xbox screen.
+                if (!stop_) {
+                    ui_.setBoosteroidNativeCatalog(cachedTiles,
+                        profile.nickname.empty() ? "Boosteroid" : profile.nickname);
+                }
+#else
+                ui_.setBoosteroidNativeStatus(
+                    "O reprodutor nativo está em validação no Android e PS5.");
+#endif
+                cancelStream_ = false;
+                continue;
             }
             if (refresh_.exchange(false)) {
                 if (!load() && client.error() == ApiError::Unauthorized) {
