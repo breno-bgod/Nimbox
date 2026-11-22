@@ -52,6 +52,7 @@
 #include "ui/strings.h"
 #include "ui/app_ui_internal.h"
 #include "boosteroid/native_contract.h"
+#include "boosteroid/native_client.h"
 #include "util/json.h"
 #include "util/log.h"
 #include "auth/auth_manager.h"
@@ -117,6 +118,89 @@ static int g_failures = 0;
             ++g_failures;                                                    \
         }                                                                    \
     } while (0)
+
+static void testBoosteroidNativeHttpsClient() {
+    using namespace xc::boosteroid;
+    int pollCount = 0, profileCount = 0, catalogCount = 0;
+    std::string deviceId;
+    net::setTestTransport([&](const net::Request& request) -> net::Response {
+        CHECK(request.url.rfind("https://cloud.boosteroid.com/", 0) == 0);
+        CHECK(request.timeoutMs >= 1000);
+        CHECK(!request.followRedirects);
+        auto header = [&](const char* key) -> std::string {
+            for (const auto& pair : request.headers)
+                if (pair.first == key) return pair.second;
+            return {};
+        };
+        CHECK(header("Device-Name") == "NimboPlay");
+        CHECK(header("Nonce") == "0");
+        CHECK(header("Cookie").find("boosteroid_entrypoint_source=1") != std::string::npos);
+        if (deviceId.empty()) deviceId = header("Device-Uniq-Id");
+        CHECK(deviceId == header("Device-Uniq-Id"));
+        net::Response result;
+        if (request.url.find("/api/v1/auth/login/qr-code/sync") != std::string::npos) {
+            CHECK(request.method == "POST");
+            CHECK(header("Authorization").empty());
+            const auto body = json::parse(request.body);
+            CHECK(body && (*body)["clientId"].asInt() == 6);
+            CHECK(body && (*body)["auth-code"].isString());
+            ++pollCount;
+            if (pollCount == 1) result.status = 401; // pending approval
+            else if (pollCount == 2) result.status = 429; // rate limit
+            else {
+                result.status = 200;
+                result.body = R"({"data":{"access_token":"eyJ.test.sig","refresh_token":"private_refresh","user_data":{"authorization_data":"private_auth_data"}}})";
+            }
+        } else if (request.url.find("/api/v1/user") != std::string::npos) {
+            ++profileCount;
+            CHECK(header("Authorization") == "Bearer eyJ.test.sig");
+            CHECK(header("Authorization-Data") == "private_auth_data");
+            result.status = 200;
+            result.body = R"({"data":{"id":837,"nickname":"Meu perfil","email":"private@example.org"}})";
+        } else if (request.url.find("/api/v1/boostore/applications/installed") != std::string::npos) {
+            ++catalogCount;
+            CHECK(header("Authorization") == "Bearer eyJ.test.sig");
+            CHECK(request.url.find("?page=1&paginate=50") != std::string::npos);
+            result.status = 200;
+            result.body = R"({"data":{"data":{"games":[{"application":{"id":59,"name":"Jogo real","coverUrl":"https://cdn.example.org/a.jpg"}},{"id":61,"title":"Outro"}]}}})";
+        } else {
+            CHECK(false); // unexpected or provider-crossed endpoint
+            result.status = 404;
+        }
+        return result;
+    });
+
+    NativeClient client({}, false); // memory-only unit test: no account files
+    DeviceAuthorization qr;
+    CHECK(client.beginDeviceLogin(qr));
+    CHECK(qr.validationUrl.rfind(
+        "https://cloud.boosteroid.com/api/v1/auth/login/qr-code/validate?auth-code=", 0) == 0);
+    CHECK(qr.pollIntervalMs == 3000 && !qr.approved);
+    CHECK(client.pollDeviceLogin() == LoginResult::Pending);
+    CHECK(client.pollDeviceLogin() == LoginResult::RateLimited);
+    CHECK(client.error() == ApiError::RateLimited);
+    CHECK(client.pollDeviceLogin() == LoginResult::Authorized);
+    CHECK(client.isAuthenticated());
+    CHECK(!client.hasPendingAuthorization());
+    CHECK(pollCount == 3);
+
+    Profile profile;
+    CHECK(client.getProfile(profile));
+    CHECK(profile.id == "837" && profile.nickname == "Meu perfil");
+    CHECK(profileCount == 1);
+    std::vector<Game> games;
+    CHECK(client.getInstalledGames(games));
+    CHECK(catalogCount == 1 && games.size() == 2);
+    if (games.size() == 2) {
+        CHECK(games[0].id == 59 && games[0].title == "Jogo real");
+        CHECK(games[1].id == 61 && games[1].title == "Outro");
+    }
+    CHECK(!client.getInstalledGames(games, 0)); // fail before network
+    client.logout();
+    CHECK(!client.isAuthenticated());
+    CHECK(!client.getProfile(profile) && client.error() == ApiError::NoSession);
+    net::setTestTransport({});
+}
 
 static void testBoosteroidNativeContract() {
     using namespace xc::boosteroid;
@@ -12116,6 +12200,7 @@ int main() {
     testStrings();
     testRegions();
     testPrices();
+    testBoosteroidNativeHttpsClient();
     testBoosteroidNativeContract();
     testJson();
     testUrl();
