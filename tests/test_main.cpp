@@ -321,6 +321,11 @@ static void testBoosteroidNativeHorizonUi() {
     CHECK(!ui.boosteroidNativeStreaming());
     CHECK(!ui.boosteroidNativeOpen());
     CHECK(ui.screen() == xc::ui::Screen::SignIn); // original Xbox state intact
+    ui.showHome();
+    CHECK(ui.onMouseDown(460, 90, 1).action ==
+          xc::ui::Action::OpenBoosteroidNative); // Android Home shortcut
+    CHECK(ui.onMouseDown(120, 100, 1).action ==
+          xc::ui::Action::None); // untouched Xbox wordmark hit area
 }
 
 static void testBoosteroidNativeHttpsClient() {
