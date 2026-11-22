@@ -30,6 +30,14 @@ void AppUi::handleHome(const NavInput& in, UiEvent& ev) {
         }
         return;
     }
+    // The service selector belongs to the universal Horizon shell.
+    // Handle LT+RB before RB changes tabs (otherwise this shortcut is unreachable).
+    if (!searching_ && in.r1 && in.l2Analog > 0.5f) {
+        servicesFromHome_ = true;
+        screen_ = Screen::Services;
+        dirty_ = true;
+        return;
+    }
     // Library already owns R3 for sorting; leave that established action.
     if (!searching_ && tab_ != Tab::Library && in.r3) {
         profileOpen_ = true;
@@ -84,12 +92,6 @@ void AppUi::handleHome(const NavInput& in, UiEvent& ev) {
                 openDetails(*tile);
             }
         }
-        return;
-    }
-    if (in.r1 && in.l2Analog > 0.5f && !searching_) {
-        servicesFromHome_ = true;
-        screen_ = Screen::Services;
-        dirty_ = true;
         return;
     }
     if (in.l3 && !searching_) {
