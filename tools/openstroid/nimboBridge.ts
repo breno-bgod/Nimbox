@@ -79,6 +79,7 @@ function equalKey(a: string, b: string): boolean {
 export async function startNimboBridge(options: NimboBridgeOptions): Promise<Server> {
   if (!/^[a-f0-9]{64}$/i.test(options.key)) throw new Error('Invalid NimboPlay bridge key');
   let inMemorySession: string | null = null;
+  let sessionCookie: string | null = null;
   let pendingQrId: string | null = null;
   let launchPending = false;
   let launchCancelled = false;
@@ -93,10 +94,18 @@ export async function startNimboBridge(options: NimboBridgeOptions): Promise<Ser
       headers: {
         'content-type': 'application/json',
         ...(handoff ? { 'x-openstroid-session': handoff } : {}),
+        ...(sessionCookie ? { cookie: sessionCookie } : {}),
       },
       ...(body ? { body: JSON.stringify(body) } : {}),
       signal: AbortSignal.timeout(timeoutMs),
     });
+    // The existing backend may establish the QR session with an HTTP cookie
+    // instead of a handoff. Keep that cookie private to the helper process.
+    const setCookie = response.headers.get('set-cookie');
+    if (setCookie) {
+      const first = setCookie.split(';', 1)[0];
+      if (first.includes('=')) sessionCookie = first;
+    }
     const data = record(await response.json());
     return { status: response.status, json: data };
   };
@@ -151,7 +160,8 @@ export async function startNimboBridge(options: NimboBridgeOptions): Promise<Ser
           send(res, 502, { error: 'Falha ao iniciar o login Boosteroid' });
           return;
         }
-        pendingQrId = typeof qr.json.id === 'string' ? qr.json.id : null;
+        pendingQrId = typeof qr.json.id === 'string' || typeof qr.json.id === 'number'
+          ? String(qr.json.id) : null;
         send(res, 200, {
           validationUrl: firstString(qr.json, ['validationUrl']),
           status: firstString(qr.json, ['status']),
@@ -170,12 +180,14 @@ export async function startNimboBridge(options: NimboBridgeOptions): Promise<Ser
         if (status === 'succeeded' && handoff) {
           inMemorySession = handoff;
           await options.sessionStore.write(handoff);
-          pendingQrId = null;
         }
-        send(res, 200, {
-          authenticated: status === 'succeeded' && !!handoff,
-          status,
-        });
+        const confirmed = status === 'succeeded'
+          ? await backend('GET', '/auth/session')
+          : null;
+        const authenticated = status === 'succeeded' &&
+          (Boolean(handoff) || confirmed?.json.authenticated === true);
+        if (authenticated) pendingQrId = null;
+        send(res, 200, { authenticated, status });
         return;
       }
       if (method === 'GET' && url.pathname === '/catalog') {
