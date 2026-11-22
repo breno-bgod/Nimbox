@@ -280,7 +280,9 @@ enum class Action {
     OpenBoosteroidNative, // show the native Boosteroid overlay, preserving Xbox UI
     LeaveBoosteroidNative,
     RefreshBoosteroidNative,
-    LogoutBoosteroidNative
+    LogoutBoosteroidNative,
+    StartBoosteroidNative,
+    CancelBoosteroidNative
 };
 
 // How "Your games" is sorted (R3).
@@ -334,6 +336,9 @@ public:
     void setBoosteroidNativeLogin(const std::string& validationUrl);
     void setBoosteroidNativeCatalog(std::vector<GameTile> games, const std::string& profileName);
     void setBoosteroidNativeError(const std::string& message);
+    void setBoosteroidNativeConnecting(const std::string& message);
+    void setBoosteroidNativeStreaming();
+    bool boosteroidNativeStreaming() const;
     bool boosteroidNativeOpen() const;
     // The signed-in account, top right; `gamerscore` (digits) under the name.
     struct ChatRequest { uint64_t session = 0; std::string peer, text; };
@@ -713,7 +718,7 @@ private:
     std::string status_;
     std::string code_, codeUrl_;
     bool boosteroidNativeOpen_ = false;
-    enum class BoosteroidView { Loading, Login, Catalog, Error };
+    enum class BoosteroidView { Loading, Login, Catalog, Connecting, Streaming, Error };
     BoosteroidView boosteroidView_ = BoosteroidView::Loading;
     std::string boosteroidStatus_, boosteroidUrl_, boosteroidProfile_;
     std::vector<GameTile> boosteroidGames_;
