@@ -335,11 +335,7 @@ bool NativeClient::getInstalledGames(std::vector<Game>& out, int page, int pageS
     if (r.body.size() > 8u * 1024u * 1024u) { error_ = ApiError::InvalidResponse; return false; }
     const auto data = json::parse(r.body);
     if (!data) { error_ = ApiError::InvalidResponse; return false; }
-    const bool arrayFound = data->isArray() || (*data)["games"].isArray() ||
-        (*data)["result"].isArray() || (*data)["data"].isArray() ||
-        (*data)["data"]["games"].isArray() || (*data)["data"]["data"].isArray() ||
-        (*data)["data"]["data"]["games"].isArray();
-    if (!arrayFound) { error_ = ApiError::InvalidResponse; return false; }
+    if (!catalogHasGameArray(*data)) { error_ = ApiError::InvalidResponse; return false; }
     out = publicGames(*data);
     return true;
 }
