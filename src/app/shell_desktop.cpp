@@ -34,6 +34,7 @@ namespace xc::app::shell {
 namespace {
 #ifdef _WIN32
 SDL_Process* serviceProcess = nullptr;
+bool serviceBridgeMode = false;
 HWND serviceView = nullptr;
 Uint64 attachDeadline = 0;
 DWORD servicePid = 0;
@@ -58,13 +59,14 @@ void updateServiceView() {
         SDL_DestroyProcess(serviceProcess);
         serviceProcess = nullptr;
         serviceView = nullptr;
+        serviceBridgeMode = false;
         SDL_RaiseWindow(display::sdlWindow());
         return;
     }
     HWND host = static_cast<HWND>(SDL_GetPointerProperty(SDL_GetWindowProperties(display::sdlWindow()),
                                      SDL_PROP_WINDOW_WIN32_HWND_POINTER,nullptr));
     if (!host || !serviceView) {
-        if (SDL_GetTicks() >= attachDeadline) {
+        if (!serviceBridgeMode && SDL_GetTicks() >= attachDeadline) {
             SDL_KillProcess(serviceProcess,true);
             platform::notify("O Boosteroid não concluiu a abertura. Tente novamente.");
             return;
@@ -342,6 +344,24 @@ Caps caps() {
                                                               SDL_PROP_PROCESS_PID_NUMBER,0));
         XC_LOGI("Boosteroid: opening renderer pid=%lu", static_cast<unsigned long>(servicePid));
         attachDeadline = SDL_GetTicks()+45000;
+        return true;
+    };
+    result.launchBoosteroidBridge = [](const std::string& secret) {
+        if (secret.size() != 64) return false;
+        if (serviceProcess) return serviceBridgeMode;
+        const char* base = SDL_GetBasePath();
+        if (!base) return false;
+        const std::string path = std::string(base) + "OpenStroid/OpenStroid.exe";
+        const std::string bridgeArg = "--nimbo-bridge=" + secret;
+        const char* args[] = {path.c_str(), bridgeArg.c_str(), nullptr};
+        serviceProcess = SDL_CreateProcess(args, false);
+        if (!serviceProcess) return false;
+        serviceBridgeMode = true;
+        servicePid = static_cast<DWORD>(SDL_GetNumberProperty(SDL_GetProcessProperties(serviceProcess),
+                                                              SDL_PROP_PROCESS_PID_NUMBER, 0));
+        serviceView = nullptr;
+        XC_LOGI("Boosteroid: starting background helper pid=%lu",
+                static_cast<unsigned long>(servicePid));
         return true;
     };
 #endif
