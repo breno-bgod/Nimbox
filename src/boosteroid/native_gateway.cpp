@@ -333,12 +333,12 @@ bool NativeGateway::run(const NativeStreamSession& session, const EncodedMediaSi
             // Some gateway versions ignore ICE candidates embedded in the SDP
             // offer; send the same local candidates through its REST trickle
             // route. Keep signed gateway details out of logs and UI.
-            std::vector<rtc::Candidate> local;
+            std::vector<rtc::Candidate> localIce;
             {
                 std::lock_guard<std::mutex> lock(gathered->mutex);
-                local = gathered->values;
+                localIce = gathered->values;
             }
-            for (const auto& candidate : local) {
+            for (const auto& candidate : localIce) {
                 if (cancel) break;
                 json::Value trickle = json::Value::object();
                 trickle.set("candidate", std::string(candidate));
@@ -453,7 +453,7 @@ bool NativeGateway::run(const NativeStreamSession& session, const EncodedMediaSi
         }
         if (signals->failed) { error = "Falha na conexão WebRTC do gateway."; break; }
         if (!completed &&
-            (pictureReady ? pictureReady() : frameCount > 0)) {
+            (pictureReady ? pictureReady() : mediaGuard->frames > 0)) {
             completed = true;
             if (progress) progress("Primeiro quadro Boosteroid exibido.");
         }
