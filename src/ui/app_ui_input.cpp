@@ -444,6 +444,13 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
     }
     if (boosteroidNativeOpen_) {
         if (button != 1) return ev;
+        // Visible switch in the Boosteroid header; leaving pauses the
+        // provider worker and returns to the common service chooser.
+        if (x >= 1500 && y >= 15 && y <= 140 &&
+            boosteroidView_ != BoosteroidView::Streaming) {
+            ev.action = Action::LeaveBoosteroidNative;
+            return ev;
+        }
         if (boosteroidView_ == BoosteroidView::Streaming ||
             boosteroidView_ == BoosteroidView::Connecting) {
             if (y > 990 && x < 660)
