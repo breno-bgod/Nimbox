@@ -148,7 +148,7 @@ void AppUi::drawTopBar(Canvas& c, bool overArt) {
     // No extra text beside it: the lettering is already included in the image.
     drawInternalBrand(c, 91, 20, 184, 100);
     // Explicit service switch; pointer hitbox is handled in AppUi::handlePointerDown.
-    if (!overArt) fonts_.semibold.draw(c, "Trocar serviço", 1570, 95, 21, kWhite);
+    if (!overArt) fonts_.semibold.draw(c, "Trocar serviço", 390, 91, 21, kWhite);
     if (hasCloudTime && !overArt) drawCloudTime(c, 292, 59);
 
     // Avatar and centered Settings touch button
@@ -557,7 +557,7 @@ void AppUi::drawSignIn(Canvas& c, uint64_t nowMs) {
     const int left = 180;
     drawInternalBrand(c, left - 12, 113, 208, 113);
     fonts_.bold.draw(c, tr(Str::SignInTitle), left, 260, 72, kWhite);
-    fonts_.semibold.draw(c, "Trocar serviço", 1570, 72, 24, kWhite);
+    fonts_.semibold.draw(c, "Trocar serviço", 700, 1015, 24, kWhite);
     fonts_.regular.draw(c, tr(Str::SignInStep1), left, 400, 32, kGray);
     std::string shortUrl = codeUrl_;
     for (const char* p : {"https://", "http://", "www."})
@@ -643,7 +643,7 @@ void AppUi::drawSignIn(Canvas& c, uint64_t nowMs) {
     }
     if (caps_.openUrl) drawHints(c, {{kIconCross, tr(Str::OpenInBrowser)}});  // a desktop: the page in the browser
 #endif
-    fonts_.regular.draw(c, "L2 + R1: trocar serviço", 700, 1015, 20, kGray);
+    fonts_.regular.draw(c, "L2 + R1: trocar serviço", 1120, 1015, 20, kGray);
 }
 
 void AppUi::drawTabs(Canvas& c) {
