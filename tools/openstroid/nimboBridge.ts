@@ -190,6 +190,21 @@ export async function startNimboBridge(options: NimboBridgeOptions): Promise<Ser
         send(res, 200, { authenticated, status });
         return;
       }
+      if (method === 'POST' && url.pathname === '/logout') {
+        // Only the existing backend performs logout; the helper discards its
+        // private handoff and cookie after that action succeeds.
+        const loggedOut = await backend('POST', '/auth/logout');
+        if (loggedOut.status < 200 || loggedOut.status >= 300) {
+          send(res, 502, { error: 'Falha ao sair da conta Boosteroid' });
+          return;
+        }
+        await options.sessionStore.write(null);
+        inMemorySession = null;
+        sessionCookie = null;
+        pendingQrId = null;
+        send(res, 200, { loggedOut: true });
+        return;
+      }
       if (method === 'GET' && url.pathname === '/catalog') {
         const [installed, catalog] = await Promise.all([
           backend('GET', '/library/installed', undefined, 25000),
