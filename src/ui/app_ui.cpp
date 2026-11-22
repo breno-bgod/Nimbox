@@ -260,6 +260,12 @@ bool AppUi::reportOpen() const {
 
 void AppUi::setProfile(const std::string& gamertag, const std::string& gamerpicUrl, const std::string& gamerscore) {
     std::lock_guard<std::mutex> lock(mutex_);
+    if (boosteroidActive_) {
+        xboxViewBackup_.gamertag = gamertag;
+        xboxViewBackup_.gamerpic = gamerpicUrl;
+        xboxViewBackup_.gamerscore = gamerscore;
+        return;
+    }
     if (gamertag_ != gamertag || gamertag.empty()) {
         directory_.clear();
         ++chatSession_;
@@ -282,6 +288,7 @@ void AppUi::setProfile(const std::string& gamertag, const std::string& gamerpicU
 
 void AppUi::setSubscription(const std::string& plan) {
     std::lock_guard<std::mutex> lock(mutex_);
+    if (boosteroidActive_) { xboxViewBackup_.subscription = plan; return; }
     subscription_ = plan;
     if (searching_) runSearch(true);
     dirty_ = true;
@@ -296,6 +303,11 @@ void AppUi::setFreeTierSession(int seconds) {
 
 void AppUi::setMembership(bool member) {
     std::lock_guard<std::mutex> lock(mutex_);
+    if (boosteroidActive_) {
+        if (xboxViewBackup_.subscription.empty() || xboxViewBackup_.subscription == "GamePass")
+            xboxViewBackup_.subscription = member ? "GamePass" : "";
+        return;
+    }
     if (!subscription_.empty() && subscription_ != "GamePass") return;  // the plan is known
     subscription_ = member ? "GamePass" : "";
     dirty_ = true;
