@@ -54,6 +54,9 @@
 #include "boosteroid/native_contract.h"
 #include "boosteroid/native_client.h"
 #include "boosteroid/control_input.h"
+#ifndef _WIN32
+#include "boosteroid/native_gateway.h"
+#endif
 #include "util/json.h"
 #include "util/log.h"
 #include "auth/auth_manager.h"
@@ -119,6 +122,33 @@ static int g_failures = 0;
             ++g_failures;                                                    \
         }                                                                    \
     } while (0)
+
+#ifndef _WIN32
+static void testBoosteroidGatewayControl() {
+    using namespace xc::boosteroid;
+    auto parse = [](const std::string& text) {
+        auto value = xc::json::parse(text);
+        CHECK(value.has_value());
+        return value ? parseControlEvent(*value) : ControlEvent{};
+    };
+    CHECK(parse(R"({"type":"settings","action":"webrtc"})").type ==
+          ControlEvent::Type::StartWebRtc);
+    CHECK(parse(R"({"type":"settings","action":"udpforward","ip":"10.0.0.1"})").type ==
+          ControlEvent::Type::NativeUdpRequested);
+    CHECK(parse(R"({"type":"controller","action":"connected","id":2})").controllerId == 2);
+    CHECK(parse(R"({"type":"controller","action":"connected","id":0})").type ==
+          ControlEvent::Type::None);
+    CHECK(parse(R"({"type":"stream","action":"stop"})").type ==
+          ControlEvent::Type::SessionEnded);
+    auto status = xc::json::parse(deviceStatusReply());
+    CHECK(status.has_value());
+    if (status) {
+        CHECK((*status)["type"].str() == "stream");
+        CHECK((*status)["action"].str() == "status");
+        CHECK((*status)["params"]["codec"].str() == "h264");
+    }
+}
+#endif
 
 static void testBoosteroidNativeGamepad() {
     using namespace xc::boosteroid;
@@ -241,11 +271,22 @@ static void testBoosteroidNativeHorizonUi() {
     ui.render(frame, 1200);
     xc::ui::NavInput choose;
     choose.accept = true;
-    CHECK(ui.handle(choose).action == xc::ui::Action::None);
+    const auto launch = ui.handle(choose);
+    CHECK(launch.action == xc::ui::Action::StartBoosteroidNative);
+    CHECK(launch.game.productId == "boosteroid:42");
+    ui.setBoosteroidNativeConnecting("Solicitando máquina...");
     xc::ui::NavInput leave;
     leave.back = true;
-    CHECK(ui.handle(leave).action == xc::ui::Action::LeaveBoosteroidNative);
+    CHECK(ui.handle(leave).action == xc::ui::Action::CancelBoosteroidNative);
+    ui.setBoosteroidNativeStreaming();
+    CHECK(ui.boosteroidNativeStreaming());
+    CHECK(ui.handle(leave).action == xc::ui::Action::None); // Circle belongs to the game
+    xc::ui::NavInput combo;
+    combo.options = true;
+    combo.touchpad = true;
+    CHECK(ui.handle(combo).action == xc::ui::Action::CancelBoosteroidNative);
     ui.closeBoosteroidNative();
+    CHECK(!ui.boosteroidNativeStreaming());
     CHECK(!ui.boosteroidNativeOpen());
     CHECK(ui.screen() == xc::ui::Screen::SignIn); // original Xbox state intact
 }
@@ -12339,6 +12380,9 @@ int main() {
     testStrings();
     testRegions();
     testPrices();
+#ifndef _WIN32
+    testBoosteroidGatewayControl();
+#endif
     testBoosteroidNativeGamepad();
     testBoosteroidNativeQueueContract();
     testBoosteroidNativeHorizonUi();
