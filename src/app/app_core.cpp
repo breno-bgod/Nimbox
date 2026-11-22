@@ -21,6 +21,7 @@
 #include "app/shell.h"
 #include "app/stream_player.h"
 #include "app/stream_screen.h"
+#include "boosteroid/native_worker.h"
 #include "app/web_server.h"
 #include "app/worker_internal.h"
 #include "display/display.h"
@@ -63,6 +64,7 @@ namespace xc::app {
 namespace {
 
 std::unique_ptr<ui::ImageCache> g_images;
+std::unique_ptr<boosteroid::NativeWorker> g_boosteroidNativeWorker;
 crash::Previous g_lastCrash;
 std::string crashMarkerPath() { return platform::dataDir() + "/crash.marker"; }
 
@@ -1109,6 +1111,27 @@ bool coreStartup() {
 
 void Core::dispatchUiAction(const ui::UiEvent& ev) {
     switch (ev.action) {
+        case ui::Action::OpenBoosteroidNative: {
+            g_ui->openBoosteroidNative();
+            if (!g_boosteroidNativeWorker) {
+                g_boosteroidNativeWorker = std::make_unique<boosteroid::NativeWorker>(*g_ui);
+                g_ui->setBoosteroidNativeStatus("Iniciando serviço Boosteroid...");
+                if (!g_boosteroidNativeWorker->start())
+                    g_ui->setBoosteroidNativeError("Não foi possível iniciar o Boosteroid.");
+            } else {
+                g_boosteroidNativeWorker->requestRefresh();
+            }
+            break;
+        }
+        case ui::Action::LeaveBoosteroidNative:
+            g_ui->closeBoosteroidNative();
+            break;
+        case ui::Action::RefreshBoosteroidNative:
+            if (g_boosteroidNativeWorker) g_boosteroidNativeWorker->requestRefresh();
+            break;
+        case ui::Action::LogoutBoosteroidNative:
+            if (g_boosteroidNativeWorker) g_boosteroidNativeWorker->requestLogout();
+            break;
         case ui::Action::Play: {
             {
                 std::lock_guard<std::mutex> lock(g_argMutex);
@@ -1874,6 +1897,10 @@ void onSystemPressure(bool terminating) {
 }
 
 void coreShutdown() {
+    if (g_boosteroidNativeWorker) {
+        g_boosteroidNativeWorker->stop();
+        g_boosteroidNativeWorker.reset();
+    }
     // Not on the PS5, whose loop never ends. Before the backends close, the
     // threads that use them stop: the worker leaves its loop (a stream
     // stopped and its xCloud session closed, so the account's slot is free;
