@@ -82,9 +82,9 @@ inline bool toTile(const json::Value& raw, ui::GameTile& tile) {
     tile.heroUrl = firstString(details, {"heroUrl", "backgroundUrl", "bannerUrl"});
     if (tile.heroUrl.rfind("https://", 0) != 0) tile.heroUrl = tile.tileUrl;
 
-    // Do not expose the Xbox play/purchase/achievement paths until the
-    // Boosteroid command dispatcher is connected to its existing engine.
-    tile.playable = false;
+    // Enabled only when the NimboPlay Core dispatches this prefix to the
+    // existing Boosteroid player, never to the Xbox Gssv/stream worker.
+    tile.playable = true;
     tile.purchasable = false;
     tile.homeConsole = false;
     tile.titleId.clear();
