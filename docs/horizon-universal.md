@@ -45,3 +45,36 @@ A UI nativa recebe dos provedores apenas informação normalizada, com identific
 - O processo Boosteroid pode falhar/encerrar sem travar o NimboPlay.
 - Testes de regressão do Xbox + builds Windows/Linux/Android preservados.
 - Nenhum merge para `main` antes desses critérios serem atendidos.
+
+
+## Auditoria interna PSBox/xCloud → Boosteroid (fase de integração segura)
+
+O fluxo nativo existente do xCloud está em `src/app/worker.cpp`:
+- `signInAndLoad()` autentica no worker e publica o código na UI com `showSignIn()`.
+- `loadLibrary()` publica `GameRow`/`GameTile` com `setCatalogState()`.
+- `kPlay` envia o título ao motor de streaming existente, sem implementar outro menu.
+- `Core::frame()` continua atualizando e desenhando o Horizon em paralelo ao worker.
+
+O fluxo atual Boosteroid **ainda é diferente**:
+- O seletor chama `shell::caps().launchOpenStroid()` em `app_core.cpp`.
+- O shell Windows inicia `OpenStroid/OpenStroid.exe` e associa a janela Electron à janela SDL.
+- Enquanto a janela externa está visível, `Core::frame()` retorna antes do desenho nativo.
+- O OpenStroid tem seu próprio servidor local/API de autenticação, biblioteca e streaming. Não precisamos copiá-lo; precisamos de uma ponte de **estado e comandos**, autenticada e local.
+
+### Implementado sem modificar motores
+
+`src/app/boosteroid_horizon_projection.h`: projeção **somente de leitura** de jogos do Boosteroid para as estruturas já existentes `ui::GameTile` e `ui::GameRow`. Ela:
+- Cria IDs `boosteroid:<id>` para evitar colisões com IDs Xbox.
+- Mapeia título, descrição, editora e URLs públicas de capa.
+- Produz as coleções "Meus jogos" e "Catálogo" para serem usadas pelo Horizon.
+- **Não** publica esses dados ainda, não acessa credenciais e não executa `launchStream`. A propriedade `playable` fica falsa até existir roteamento Boosteroid para que o comando Xbox nunca receba um jogo do outro provedor.
+
+### Próxima ligação necessária (não implementada)
+
+1. **Canal entre processos:** o OpenStroid autentica com seu mecanismo atual e informa ao NimboPlay somente estado, perfil público e jogos; o NimboPlay não recebe tokens de sessão. Usar transporte local com validação de origem/identidade da aplicação, não uma API sem proteção acessível à rede.
+2. **Worker Boosteroid:** atualizar `AppUi` via `setCatalogState()` fora da thread de renderização SDL, respeitando o mesmo modelo do worker xCloud. Não iniciar uma segunda interface de biblioteca dentro do Electron.
+3. **Roteador de comandos:** ao selecionar Boosteroid, `Play` e ações específicas devem ir para o OpenStroid original. Ao selecionar Xbox, os caminhos atuais `kPlay` e `AuthManager` permanecem idênticos. Nunca passar um `boosteroid:<id>` ao `GssvClient`.
+4. **Superfície de gameplay:** manter o player OpenStroid e seu mecanismo de stream; permitir uma superfície de reprodução quando necessário, sem cobrir permanentemente a navegação Horizon.
+5. **Recuperação:** timeouts limitados, indicação de progresso, saída segura se Electron não responder, teste de login QR real e abertura de jogo. O teste atual só confirma abertura/retorno de janela.
+
+**Estado da etapa:** projeção implementada no código-fonte; canal autenticado, publicação na UI e roteamento de ações ainda pendentes. Esta etapa não altera o comportamento em execução.
