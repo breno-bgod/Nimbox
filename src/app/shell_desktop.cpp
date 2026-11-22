@@ -43,7 +43,7 @@ BOOL CALLBACK findServiceView(HWND handle, LPARAM) {
     if (pid != servicePid) return TRUE;
     wchar_t kind[64]{};
     GetClassNameW(handle, kind, 64);
-    if (wcscmp(kind, L"Chrome_WidgetWin_1") || GetWindow(handle,GW_OWNER)) return TRUE;
+    if (wcscmp(kind, L"Chrome_WidgetWin_1")) return TRUE;
     wchar_t title[80]{};
     GetWindowTextW(handle,title,80);
     if (wcscmp(title,L"NimboPlay.Boosteroid.Ready")) return TRUE;
@@ -340,7 +340,8 @@ Caps caps() {
         if (!serviceProcess) return false;
         servicePid = static_cast<DWORD>(SDL_GetNumberProperty(SDL_GetProcessProperties(serviceProcess),
                                                               SDL_PROP_PROCESS_PID_NUMBER,0));
-        attachDeadline = SDL_GetTicks()+30000;
+        XC_LOGI("Boosteroid: opening renderer pid=%lu", static_cast<unsigned long>(servicePid));
+        attachDeadline = SDL_GetTicks()+45000;
         return true;
     };
 #endif

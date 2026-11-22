@@ -50,4 +50,3 @@ replace("electron/main.ts", "  attachWindowLogging(window, 'main');", """  if (p
   attachWindowLogging(window, 'main');""")
 replace("electron/main.ts", "  createMainWindow();\n  registerIpcHandlers();\n  registerAuthSessionIpc(ipcMain, authSessionStore);",
         "  registerIpcHandlers();\n  registerAuthSessionIpc(ipcMain, authSessionStore);\n  createMainWindow();")
-replace("electron/main.ts", "  const { startBridgeServer }", "  if (process.argv.includes('--nimbo-embedded')) process.env.PORT = '0';\n  const { startBridgeServer }")
