@@ -283,7 +283,8 @@ enum class Action {
     LogoutBoosteroidNative,
     StartBoosteroidNative,
     CancelBoosteroidNative,
-    SelectXboxNative  // choose Xbox from the visible initial service selector
+    SelectXboxNative, // choose Xbox from the visible initial service selector
+    ShowServiceChooser // switch between providers without exiting Horizon
 };
 
 // How "Your games" is sorted (R3).
