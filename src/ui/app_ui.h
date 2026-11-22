@@ -282,7 +282,8 @@ enum class Action {
     RefreshBoosteroidNative,
     LogoutBoosteroidNative,
     StartBoosteroidNative,
-    CancelBoosteroidNative
+    CancelBoosteroidNative,
+    SelectXboxNative  // choose Xbox from the visible initial service selector
 };
 
 // How "Your games" is sorted (R3).
@@ -330,6 +331,8 @@ public:
     void showSignIn(const std::string& code, const std::string& url);
     // An independent Horizon surface; Xbox worker can update the underlying
     // screen without changing this overlay. No token data enters AppUi.
+    void showServiceChooser();
+    bool serviceChooserOpen() const;
     void openBoosteroidNative();
     void closeBoosteroidNative();
     void setBoosteroidNativeStatus(const std::string& message);
@@ -701,6 +704,7 @@ private:
     void applySetting(int row, int index);
     void drawCentered(Canvas& c, const Font& f, const std::string& text, int y, int px, Color color);
     void drawBoosteroidNative(Canvas& c, uint64_t nowMs);
+    void drawServiceChooser(Canvas& c);
     // The sign-in country's "off" choice, worded for the platform (caller holds mutex_).
     const char* loginCountryOffText() const;
     // The trigger tester's rows: intensity and frequency, then resistance,
@@ -717,6 +721,8 @@ private:
     bool dirty_ = true;
     std::string status_;
     std::string code_, codeUrl_;
+    bool serviceChooserOpen_ = false;
+    int serviceChooserFocus_ = 0; // 0 Xbox, 1 Boosteroid
     bool boosteroidNativeOpen_ = false;
     enum class BoosteroidView { Loading, Login, Catalog, Connecting, Streaming, Error };
     BoosteroidView boosteroidView_ = BoosteroidView::Loading;
