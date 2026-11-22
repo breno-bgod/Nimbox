@@ -65,6 +65,7 @@ namespace {
 
 std::unique_ptr<ui::ImageCache> g_images;
 std::unique_ptr<boosteroid::NativeWorker> g_boosteroidNativeWorker;
+bool g_xboxWorkerStarted = false;
 crash::Previous g_lastCrash;
 std::string crashMarkerPath() { return platform::dataDir() + "/crash.marker"; }
 
@@ -1100,7 +1101,15 @@ bool coreStartup() {
     } else {
         if (g_autoplay.badCa) XC_LOGI("AUTOPLAY END: missing CA bundle, built-in copy %s", net::usingBuiltinCa() ? "used" : "NOT used");
         if (g_autoplay.testCa) net::addTrustedCa(platform::dataDir() + "/test-ca.pem");
-        startWorker();
+        if (g_autoplay.title.empty()) {
+            // Real users select a provider first. The Xbox worker must not
+            // start a Microsoft login before they choose Xbox.
+            g_ui->showServiceChooser();
+        } else {
+            // Existing unattended Xbox regression/autoplay tests stay intact.
+            startWorker();
+            g_xboxWorkerStarted = true;
+        }
     }
     g_core->streamScreen.emplace(fonts);
     g_core->streamScreen->setCaps(uiCaps());
@@ -1111,6 +1120,13 @@ bool coreStartup() {
 
 void Core::dispatchUiAction(const ui::UiEvent& ev) {
     switch (ev.action) {
+        case ui::Action::SelectXboxNative:
+            if (!g_xboxWorkerStarted) {
+                g_ui->showSplash(ui::tr(ui::Str::SigningIn));
+                startWorker();
+                g_xboxWorkerStarted = true;
+            }
+            break;
         case ui::Action::OpenBoosteroidNative: {
             g_ui->openBoosteroidNative();
             if (!g_boosteroidNativeWorker) {
