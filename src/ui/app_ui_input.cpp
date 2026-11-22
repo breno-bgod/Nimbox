@@ -302,19 +302,7 @@ UiEvent AppUi::onMouseMove(float x, float y) {
     mouseCursorVisible_ = true;
     mouseCursorVisibleUntil_ = platform::nowMs() + 3000;
     dirty_ = true;
-    if (screen_ == Screen::Home && directory_.empty() && !searching_ && !profileOpen_ && !reportOpen_ && !quitPrompt_ && !updatePrompt_ && button == 1 && x >= 100 && x < 360 && y >= 122 && y < 173) {
-        servicesFromHome_ = true;
-        screen_ = Screen::Services;
-        return ev;
-    }
-    if (screen_ == Screen::Services) {
-        if (button == 3) return handleLocked(NavInput{.back=true});
-        if (button == 1 && y >= 430 && y < 620 && x >= 180 && x < 1740 && (x < 940 || x >= 980)) {
-            boosteroidSelected_ = x >= 980;
-            return handleLocked(NavInput{.accept=true});
-        }
-        return ev;
-    }
+    if (screen_ == Screen::Services) return ev;
     if (screen_ == Screen::Streaming || screen_ == Screen::Splash) return ev;
     if (screen_ == Screen::Home && !searching_ && (!directory_.empty() || (onCatalogShelf() && !profileOpen_)) && !quitPrompt_ && !updatePrompt_) {
         auto& page = activeDirectory();
@@ -445,6 +433,19 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
         mouseCursorVisibleUntil_ = 0;
     }
     dirty_ = true;
+    if (screen_ == Screen::Home && directory_.empty() && !searching_ && !profileOpen_ && !reportOpen_ && !quitPrompt_ && !updatePrompt_ && button == 1 && x >= 100 && x < 360 && y >= 122 && y < 173) {
+        servicesFromHome_ = true;
+        screen_ = Screen::Services;
+        return ev;
+    }
+    if (screen_ == Screen::Services) {
+        if (button == 3) return handleLocked(NavInput{.back=true});
+        if (button == 1 && y >= 430 && y < 620 && x >= 180 && x < 1740 && (x < 940 || x >= 980)) {
+            boosteroidSelected_ = x >= 980;
+            return handleLocked(NavInput{.accept=true});
+        }
+        return ev;
+    }
     if (screen_ == Screen::Streaming || screen_ == Screen::Splash) {
         return ev;
     }
