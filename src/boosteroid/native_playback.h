@@ -10,6 +10,7 @@
 #include <condition_variable>
 #include <cstdint>
 #include <deque>
+#include <functional>
 #include <mutex>
 #include <string>
 #include <vector>
@@ -25,6 +26,9 @@ public:
     bool start();
     void stop();
     EncodedMediaSink mediaSink();
+    void setFirstFrameCallback(std::function<void()> callback) {
+        onFirstFrame_ = std::move(callback);
+    }
     bool firstFramePresented() const { return firstFrame_.load(); }
     bool failed() const { return failed_.load(); }
     std::string error() const;
@@ -43,6 +47,7 @@ private:
     std::deque<Packet> pending_;
     std::string error_;
     bool audioStarted_ = false;
+    std::function<void()> onFirstFrame_;
 };
 
 } // namespace xc::boosteroid
