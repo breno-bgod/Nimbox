@@ -131,7 +131,10 @@ add_library(xcloud_stream STATIC
 # Native Boosteroid RTC adapter requires its own WSS POSIX adapter; the
 # Windows OpenStroid/Electron path is kept separate.
 if(NOT WIN32)
-    target_sources(xcloud_stream PRIVATE src/boosteroid/native_gateway.cpp)
+    target_sources(xcloud_stream PRIVATE
+        src/boosteroid/native_gateway.cpp
+        src/boosteroid/native_udp.cpp
+    )
 endif()
 target_link_libraries(xcloud_stream PUBLIC xcloud_core PRIVATE datachannel-static)
 if(NOT MSVC)
