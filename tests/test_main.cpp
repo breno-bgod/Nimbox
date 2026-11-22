@@ -51,6 +51,7 @@
 #include "ui/cloud_time.h"
 #include "ui/strings.h"
 #include "ui/app_ui_internal.h"
+#include "boosteroid/native_contract.h"
 #include "util/json.h"
 #include "util/log.h"
 #include "auth/auth_manager.h"
@@ -116,6 +117,74 @@ static int g_failures = 0;
             ++g_failures;                                                    \
         }                                                                    \
     } while (0)
+
+static void testBoosteroidNativeContract() {
+    using namespace xc::boosteroid;
+
+    // The native Horizon must see only a safe QR URL and public state.
+    // Session handoff/tokens stay in the provider, even when present in JSON.
+    DeviceAuthorization qr;
+    auto pending = json::parse(R"({"status":"pending","validationUrl":"https://cloud.boosteroid.com/device?code=ABCD","pollIntervalMs":3500,"sessionHandoff":"private"})");
+    CHECK(pending && publicAuthorization(*pending, qr));
+    CHECK(qr.validationUrl == "https://cloud.boosteroid.com/device?code=ABCD");
+    CHECK(!qr.approved && qr.pollIntervalMs == 3500);
+    CHECK(qr.status == "pending");
+    auto success = json::parse(R"({"status":"succeeded","validationUrl":"https://cloud.boosteroid.com/device","sessionEstablished":true,"sessionHandoff":"private"})");
+    CHECK(success && publicAuthorization(*success, qr) && qr.approved);
+    auto invalid = json::parse(R"({"status":"pending","validationUrl":"http://localhost/login"})");
+    CHECK(invalid && !publicAuthorization(*invalid, qr));
+
+    // IDs are provider scoped; invalid/duplicate/untrusted fields are dropped.
+    auto catalog = json::parse(R"({"games":[{"id":42,"name":"Demo","coverUrl":"https://cdn.example.org/cover.jpg","accessToken":"private"},{"application":{"id":"73","title":"Another","imageUrl":"https://cdn.example.org/cover.jpg?sig=private"}},{"id":42,"name":"Duplicate"},{"id":0,"name":"Invalid"},{"id":74,"name":""}]})");
+    CHECK(catalog.has_value());
+    const auto games = publicGames(*catalog);
+    CHECK(games.size() == 2);
+    if (games.size() == 2) {
+        CHECK(games[0].id == 42 && games[0].title == "Demo");
+        CHECK(games[0].coverUrl == "https://cdn.example.org/cover.jpg");
+        CHECK(games[1].id == 73 && games[1].title == "Another");
+        CHECK(games[1].coverUrl.empty());
+    }
+
+    // Different media transports may feed these encoded formats, but Xbox
+    // signaling and gamepad packet formats are not reused automatically.
+    int videoPackets = 0, audioPackets = 0;
+    EncodedMediaSink sink;
+    sink.h264AnnexB = [&](const uint8_t*, size_t length, uint32_t stamp) {
+        ++videoPackets;
+        CHECK(length == 5 && stamp == 45);
+    };
+    sink.opus = [&](const uint8_t*, size_t length, uint32_t stamp) {
+        ++audioPackets;
+        CHECK(length == 2 && stamp == 90);
+    };
+    const uint8_t h264[] = {0,0,0,1,0x65};
+    const uint8_t malformed[] = {1,2,3,4,5};
+    const uint8_t opus[] = {0xF8,0xFF};
+    CHECK(deliverH264(sink,h264,sizeof(h264),45));
+    CHECK(!deliverH264(sink,malformed,sizeof(malformed),45));
+    CHECK(deliverOpus(sink,opus,sizeof(opus),90));
+    CHECK(!deliverOpus(sink,nullptr,1,90));
+    CHECK(videoPackets == 1 && audioPackets == 1);
+
+    SessionState state;
+    CHECK(state.state() == State::Disabled);
+    CHECK(!state.beginLaunch());
+    CHECK(state.beginAuthorization());
+    CHECK(!state.beginLaunch());
+    CHECK(state.authorizationApproved());
+    CHECK(state.catalogLoaded());
+    CHECK(state.beginLaunch());
+    CHECK(state.streamAttached());
+    CHECK(state.streamStopped());
+    CHECK(state.state() == State::CatalogReady);
+    state.fail(Failure::Transport);
+    CHECK(state.failure() == Failure::Transport && state.state() == State::Failed);
+    CHECK(state.beginAuthorization());
+    CHECK(state.failure() == Failure::None);
+    state.reset();
+    CHECK(state.state() == State::Disabled);
+}
 
 static void testJson() {
     auto v = json::parse(R"({"a":1,"b":[true,null,"x\u00e9\n"],"c":{"d":-2.5e1},"e":"\ud83c\udfae"})");
@@ -12047,6 +12116,7 @@ int main() {
     testStrings();
     testRegions();
     testPrices();
+    testBoosteroidNativeContract();
     testJson();
     testUrl();
     testInputPacket();
