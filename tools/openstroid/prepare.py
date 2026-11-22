@@ -132,8 +132,8 @@ replace("electron/main.ts", "  attachWindowLogging(window, 'main');",
   }
   attachWindowLogging(window, 'main');""")
 replace("electron/main.ts",
-        "  void window.loadURL(\`http://127.0.0.1:\${bridgePort}\`);\n}",
-        "  void window.loadURL(\`http://127.0.0.1:\${bridgePort}\`);\n  return window;\n}")
+        "  void window.loadURL(`http://127.0.0.1:${bridgePort}`);\n}",
+        "  void window.loadURL(`http://127.0.0.1:${bridgePort}`);\n  return window;\n}")
 replace("electron/main.ts",
         "  createMainWindow();\n\n  app.on('activate',",
         """  if (nimboBridgeArg) {
