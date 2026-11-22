@@ -118,6 +118,8 @@ if(XC_TARGET_PS4)
 endif()
 
 # --- WebRTC streaming: SDP/ICE, data channels, input reports ----------------
+# The native Boosteroid WebRTC endpoint shares libdatachannel and H264Receiver,
+# but keeps signalling and gamepad packets independent of Xbox/GSSV.
 add_library(xcloud_stream STATIC
     src/stream/h264_receiver.cpp
     src/stream/input_packet.cpp
