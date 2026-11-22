@@ -14,12 +14,6 @@
 
 
 
-#include <arpa/inet.h>
-#include <cerrno>
-#include <netdb.h>
-#include <sys/select.h>
-#include <sys/socket.h>
-#include <unistd.h>
 
 #include <algorithm>
 #include <array>
@@ -99,52 +93,42 @@ std::string websocket_accept(const std::string& key) {
 }
 
 int socket_send(void* context, const unsigned char* data, size_t size) {
-    const int fd = *static_cast<int*>(context);
-    const int result = ::send(fd, data, size, 0);
-    if (result >= 0) return result;
-    if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR) {
+    auto socket = *static_cast<net::Socket*>(context);
+    const ssize_t result = net::sendNoSignal(socket, data, size);
+    if (result >= 0) return static_cast<int>(result);
+    if (net::wouldBlock() || net::wasInterrupted())
         return MBEDTLS_ERR_SSL_WANT_WRITE;
-    }
     return MBEDTLS_ERR_NET_SEND_FAILED;
 }
 
 int socket_receive(void* context, unsigned char* data, size_t size) {
-    const int fd = *static_cast<int*>(context);
-    const int result = ::recv(fd, data, size, 0);
-    if (result >= 0) return result;
-    if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR) {
+    auto socket = *static_cast<net::Socket*>(context);
+    const ssize_t result = net::recvSocket(socket, data, size);
+    if (result >= 0) return static_cast<int>(result);
+    if (net::wouldBlock() || net::wasInterrupted())
         return MBEDTLS_ERR_SSL_WANT_READ;
-    }
     return MBEDTLS_ERR_NET_RECV_FAILED;
 }
 
 int socket_receive_timeout(void* context, unsigned char* data, size_t size,
                            uint32_t timeoutMs) {
-    const int fd = *static_cast<int*>(context);
-    fd_set reads;
-    FD_ZERO(&reads);
-    FD_SET(fd, &reads);
-    timeval timeout{};
-    timeout.tv_sec = static_cast<time_t>(timeoutMs / 1000);
-    timeout.tv_usec = static_cast<suseconds_t>((timeoutMs % 1000) * 1000);
-    const int ready = ::select(fd + 1, &reads, nullptr, nullptr,
-                               timeoutMs ? &timeout : nullptr);
+    auto readSocket = *static_cast<net::Socket*>(context);
+    const int ready = net::pollSockets(&readSocket, 1, nullptr, 0,
+                                       static_cast<int>(timeoutMs));
     if (ready == 0) return MBEDTLS_ERR_SSL_TIMEOUT;
-    if (ready < 0) {
-        return errno == EINTR ? MBEDTLS_ERR_SSL_WANT_READ
-                              : MBEDTLS_ERR_NET_RECV_FAILED;
-    }
+    if (ready < 0) return net::wasInterrupted()
+                               ? MBEDTLS_ERR_SSL_WANT_READ
+                               : MBEDTLS_ERR_NET_RECV_FAILED;
     return socket_receive(context, data, size);
 }
 
-bool tcp_connect(const std::string& host, const std::string& port, int& fd) {
+bool tcp_connect(const std::string& host, const std::string& port,
+                 net::Socket& socket) {
     const int portNum = std::atoi(port.c_str());
     if (portNum <= 0 || portNum > 65535) return false;
     std::string error;
-    // The native PS5 backend handles console DNS via sceNetResolver; desktop
-    // and Android use their existing POSIX socket paths with connection timeout.
-    fd = net::connectTcp(host, portNum, 12000, error);
-    return fd >= 0;
+    socket = net::connectTcpSocket(host, portNum, 12000, error);
+    return socket.valid();
 }
 
 }  // namespace
@@ -167,10 +151,9 @@ void WssClient::reset_locked() {
     fragmentOpcode_ = 0;
     if (!initialized_) return;
     mbedtls_ssl_close_notify(&ssl_);
-    if (socket_ >= 0) {
-        ::shutdown(socket_, SHUT_RDWR);
-        ::close(socket_);
-        socket_ = -1;
+    if (socket_.valid()) {
+        net::shutdownSocket(socket_);
+        net::closeSocket(socket_);
     }
     mbedtls_ssl_free(&ssl_);
     mbedtls_ssl_config_free(&config_);
