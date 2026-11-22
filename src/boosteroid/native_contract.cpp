@@ -24,12 +24,18 @@ std::string field(const json::Value& value, std::initializer_list<const char*> n
     return {};
 }
 
-bool isSafePublicHttps(std::string_view url) {
+bool isSafeHttps(std::string_view url) {
     if (url.size() < 10 || url.size() > 4096 || url.substr(0, 8) != "https://") return false;
-    // Do not pass userinfo, fragments, query string or control characters to
-    // the public cover cache. Session-signed art URLs remain provider-private.
-    if (url.find_first_of("@?#") != std::string_view::npos) return false;
+    const size_t authorityEnd = url.find_first_of("/?#", 8);
+    const std::string_view authority = url.substr(8, authorityEnd == std::string_view::npos
+                                                ? std::string_view::npos : authorityEnd - 8);
+    if (authority.empty() || authority.find('@') != std::string_view::npos) return false;
     return std::none_of(url.begin(), url.end(), [](unsigned char c) { return c <= 32 || c == 127; });
+}
+
+bool isSafePublicArt(std::string_view url) {
+    // Keep query-signed art URLs inside the provider, not Horizon's image cache.
+    return isSafeHttps(url) && url.find_first_of("?#") == std::string_view::npos;
 }
 
 int64_t appId(const json::Value& value) {
@@ -72,7 +78,7 @@ Game project(const json::Value& raw) {
         if (result.publisher.empty()) result.publisher = field(entry, {"publisher", "developer"});
         if (result.coverUrl.empty()) {
             auto art = field(entry, {"cover", "coverUrl", "image", "imageUrl", "poster", "posterUrl", "thumbnail"});
-            if (isSafePublicHttps(art)) result.coverUrl = std::move(art);
+            if (isSafePublicArt(art)) result.coverUrl = std::move(art);
         }
     }
     if (result.title.size() > 256) result.title.resize(256);
@@ -93,7 +99,7 @@ const json::Value& gameArray(const json::Value& response) {
 bool publicAuthorization(const json::Value& response, DeviceAuthorization& output) {
     output = {};
     const std::string url = field(response, {"validationUrl", "verificationUrl"});
-    if (!isSafePublicHttps(url)) return false;
+    if (!isSafeHttps(url)) return false;
     output.validationUrl = url;
     output.status = field(response, {"status"});
     if (const auto& interval = response["pollIntervalMs"]; interval.isNumber()) {
