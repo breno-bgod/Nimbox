@@ -99,16 +99,17 @@ ChatResponse readConversation(const std::string& auth, const std::string& peer, 
         const auto r = net::perform(byId);
         return decodeChatHistory(r.status,r.body);
     };
+    req.url += "?maxItems=64";
+    const auto r = net::perform(req);
+    auto result = decodeChatHistory(r.status,r.body);
+    if (result.ok) return result;
     if (!conversationId.empty()) {
         auto page = readById(conversationId);
         if (page.ok) return page;
     }
-    req.url += "?maxItems=64";
-    const auto r = net::perform(req);
-    auto result = decodeChatHistory(r.status,r.body);
     if (!result.ok && !result.conversationId.empty() && result.conversationId != conversationId)
         return readById(result.conversationId);
-    if (r.status == 404 && conversationId.empty()) {
+    if (r.status == 404) {
         // Resolve existing threads by their two participants when the peer route misses.
         req.url = "https://xblmessaging.xboxlive.com/network/Xbox/users/me/inbox?maxItems=100";
         const auto inbox = net::perform(req);
