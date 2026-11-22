@@ -291,10 +291,12 @@ bool NativeGateway::run(const NativeStreamSession& session, const EncodedMediaSi
         }
     };
 
-    const uint64_t deadline = platform::nowMs() + 30000;
-    uint64_t nextPing = platform::nowMs() + 5000;
+    const uint64_t deadline = platform::nowMs() + 60000;
+    uint64_t nextPing = platform::nowMs() + 2000;
     uint64_t nextCandidatePoll = platform::nowMs() + 1000;
     uint64_t nextInput = platform::nowMs();
+    uint64_t nextControllerHello = 0;
+    bool readyAnnounced = false;
     bool offerSubmitted = false;
     bool sawNativeUdp = false;
     bool completed = false;
@@ -315,6 +317,10 @@ bool NativeGateway::run(const NativeStreamSession& session, const EncodedMediaSi
                     mapper.reset();
                 } else if (event.type == ControlEvent::Type::NativeUdpRequested) {
                     sawNativeUdp = true;
+                } else if (event.type == ControlEvent::Type::StreamKey) {
+                    // The Android TV gateway waits for a key receipt before it
+                    // releases the native stream. This does not expose the key.
+                    control.send_text("{\"type\":\"stream\",\"action\":\"key\",\"value\":\"ok\"}");
                 } else if (event.type == ControlEvent::Type::StartWebRtc && !offerSubmitted) {
                     offerSubmitted = true;
                     if (!makePeer()) break;
@@ -329,8 +335,18 @@ bool NativeGateway::run(const NativeStreamSession& session, const EncodedMediaSi
         }
         const uint64_t now = platform::nowMs();
         if (now >= nextPing) {
-            control.send_text("{\"type\":\"ping\"}");
-            nextPing = now + 5000;
+            control.send_ping(); // RFC 6455 ping/pong, as the native TV client.
+            nextPing = now + 2000;
+        }
+        if (controllerId == 0 && now >= nextControllerHello) {
+            control.send_text("{\"type\":\"controller\",\"action\":\"connected\",\"name\":\"1\"}");
+            nextControllerHello = now + 2000;
+        }
+        if (peerConnected && !readyAnnounced) {
+            readyAnnounced = true;
+            control.send_text("{\"type\":\"settings\",\"action\":\"ready\"}");
+            control.send_text("{\"type\":\"stream\",\"action\":\"page\",\"is_visible\":true}");
+            if (progress) progress("Conectado ao servidor. Aguardando vídeo...");
         }
         if (peer && now >= nextCandidatePoll) {
             const auto candidates = signalRequest(host, endpoint("/api/getIceCandidate"));
@@ -366,6 +382,17 @@ bool NativeGateway::run(const NativeStreamSession& session, const EncodedMediaSi
         error = sawNativeUdp ? "Gateway solicitou transporte UDP nativo ainda não habilitado."
                              : "Não chegou vídeo H264 e áudio Opus antes do limite.";
 
+    // Tell the gateway we're leaving the game, independently from Xbox.
+    if (control.connected()) {
+        if (controllerId > 0) {
+            json::Value bye = json::Value::object();
+            bye.set("type", "controller");
+            bye.set("action", "disconnected");
+            bye.set("id", controllerId);
+            control.send_text(bye.dump());
+        }
+        control.send_text("{\"type\":\"settings\",\"action\":\"terminating\"}");
+    }
     // Ensure callbacks cannot outlive the captured sink/frame counters.
     if (video) video->onFrame(nullptr);
     if (audio) audio->onFrame(nullptr);
