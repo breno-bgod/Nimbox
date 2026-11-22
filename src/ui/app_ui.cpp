@@ -311,6 +311,7 @@ bool AppUi::isFreeAccount() const {
 }
 
 bool AppUi::isEffectivePlayableLocked(const GameTile& t) const {
+    if (boosteroidActive_) return t.playable && t.productId.rfind("boosteroid:", 0) == 0;
     if (!t.playable) return false;
     if (!isFreeAccountLocked()) return true;
     return isFreeGame(t) || isAcquired(t);
