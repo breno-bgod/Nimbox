@@ -4,6 +4,8 @@
 // Original: https://github.com/elzerdodata/ZERODROID
 #pragma once
 
+#include "net/socket.h"
+
 #include <mbedtls/ctr_drbg.h>
 #include <mbedtls/entropy.h>
 #include <mbedtls/ssl.h>
@@ -41,7 +43,7 @@ private:
                            bool& timedOut, std::string& error);
     void reset_locked();
     mutable std::mutex ioMutex_;
-    int socket_ = -1;
+    net::Socket socket_;
     mbedtls_ssl_context ssl_;
     mbedtls_ssl_config config_;
     mbedtls_x509_crt ca_;
