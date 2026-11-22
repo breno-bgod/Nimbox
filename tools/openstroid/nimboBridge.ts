@@ -81,6 +81,7 @@ export async function startNimboBridge(options: NimboBridgeOptions): Promise<Ser
   let inMemorySession: string | null = null;
   let pendingQrId: string | null = null;
   let launchPending = false;
+  let launchCancelled = false;
   let launchError = '';
 
   const backend = async (
@@ -192,6 +193,11 @@ export async function startNimboBridge(options: NimboBridgeOptions): Promise<Ser
         });
         return;
       }
+      if (method === 'POST' && url.pathname === '/cancel') {
+        launchCancelled = true;
+        send(res, 200, { cancelled: true });
+        return;
+      }
       if (method === 'POST' && url.pathname === '/play') {
         if (launchPending) {
           send(res, 409, { error: 'Um jogo já está iniciando' });
@@ -209,6 +215,7 @@ export async function startNimboBridge(options: NimboBridgeOptions): Promise<Ser
           return;
         }
         launchPending = true;
+        launchCancelled = false;
         launchError = '';
         // Respond immediately: the native Horizon remains responsive while
         // the original backend starts its potentially long streaming session.
@@ -219,7 +226,7 @@ export async function startNimboBridge(options: NimboBridgeOptions): Promise<Ser
             if (launch.status < 200 || launch.status >= 300) {
               throw new Error('O Boosteroid não conseguiu iniciar o jogo');
             }
-            await options.launchExistingPlayer(launch.json);
+            if (!launchCancelled) await options.launchExistingPlayer(launch.json);
           } catch (error) {
             console.error('[nimbo] stream launch failed', error);
             launchError = 'Não foi possível iniciar o jogo. Tente novamente.';
