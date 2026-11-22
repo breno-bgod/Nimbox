@@ -23,7 +23,9 @@ public:
     void requestRefresh() { refresh_ = true; }
     void requestLogout() { logout_ = true; }
     void requestStop() { stop_ = true; cancelStream_ = true; }
-    void requestLaunch(int64_t gameId) { if (gameId > 0) launchGame_ = gameId; }
+    void requestLaunch(int64_t gameId) {
+        if (gameId > 0) { cancelStream_ = false; launchGame_ = gameId; }
+    }
     void requestCancelStream() { cancelStream_ = true; }
     void setPad(const input::ControllerState& pad) {
         std::lock_guard<std::mutex> lock(padMutex_);
