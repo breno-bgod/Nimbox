@@ -1116,7 +1116,8 @@ void Core::dispatchUiAction(const ui::UiEvent& ev) {
             break;
         case ui::Action::LaunchOpenStroid: {
             auto launch = shell::caps().launchOpenStroid;
-            if (!launch || !launch()) g_ui->showToast("OpenStroid indisponível neste dispositivo");
+            if (!launch || !launch()) g_ui->showToast("Boosteroid indisponível neste dispositivo");
+            else g_ui->showToast("Abrindo Boosteroid…");
             break;
         }
         case ui::Action::Play: {

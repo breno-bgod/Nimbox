@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
 import { getInstalledGames, launchStream } from '../api';
 import { imageUrl, uniqueGames, coerceGame, describeLaunchError } from '../lib/gameUtils';
 import type { InstalledGame } from '../types';
@@ -23,6 +22,9 @@ export function HorizonHome() {
     }).catch(() => { if (active) setStatus('Não foi possível carregar sua biblioteca.'); });
     return () => { active = false; };
   }, [reload]);
+  useEffect(() => {
+    if (game) sessionStorage.setItem('nimbo:backdrop', imageUrl(game));
+  }, [game]);
   async function play() {
     if (!game || busy) return;
     setBusy(true);
@@ -37,6 +39,7 @@ export function HorizonHome() {
   useEffect(() => {
     const move = (delta: number) => select(i => Math.max(0,Math.min(games.length-1,i+delta)));
     function key(e: KeyboardEvent) {
+      if (document.querySelector('[role="dialog"], [role="menu"]') || (e.target instanceof Element && e.target.closest('.hz-top'))) return;
       if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') { e.preventDefault(); move(e.key === 'ArrowRight' ? 1 : -1); }
       else if (e.key === 'Escape') window.close();
       else if (e.key === 'Enter' && document.activeElement === document.body) void play();
@@ -44,7 +47,7 @@ export function HorizonHome() {
     let previous = [true,true,true,true];
     const timer = window.setInterval(() => {
       const pad = Array.from(navigator.getGamepads()).find(Boolean);
-      if (!pad || !document.hasFocus()) return;
+      if (!pad || !document.hasFocus() || document.querySelector('[role="dialog"], [role="menu"]')) return;
       const inputs = [!!pad.buttons[14]?.pressed || pad.axes[0] < -.6, !!pad.buttons[15]?.pressed || pad.axes[0] > .6,
                       !!pad.buttons[0]?.pressed, !!pad.buttons[1]?.pressed];
       if (inputs[0] && !previous[0]) move(-1);
@@ -59,7 +62,6 @@ export function HorizonHome() {
   useEffect(() => { document.querySelector('.horizon-rail [aria-current="true"]')?.scrollIntoView({block:'nearest',inline:'center'}); },[index,games]);
   return <main className="horizon-home">
     {game && <img key={game.id} className="horizon-art" src={imageUrl(game)} alt="" />}
-    <header><b>NimboPlay</b><strong>Boosteroid</strong><Link to="/library">Catálogo</Link><button onClick={() => window.close()}>Trocar serviço</button></header>
     <section><small>Meus jogos</small><h1>{game?.name || 'Boosteroid'}</h1>
     {game && <button disabled={busy} onClick={play}>{busy ? 'Iniciando…' : 'Jogar'}</button>}
     {status && <p role="status">{status} <button onClick={() => refresh(i=>i+1)}>Atualizar</button></p>}</section>
