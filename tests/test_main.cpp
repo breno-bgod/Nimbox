@@ -53,6 +53,7 @@
 #include "ui/app_ui_internal.h"
 #include "boosteroid/native_contract.h"
 #include "boosteroid/native_client.h"
+#include "boosteroid/control_input.h"
 #include "util/json.h"
 #include "util/log.h"
 #include "auth/auth_manager.h"
@@ -118,6 +119,40 @@ static int g_failures = 0;
             ++g_failures;                                                    \
         }                                                                    \
     } while (0)
+
+static void testBoosteroidNativeGamepad() {
+    using namespace xc::boosteroid;
+    ControllerMapper mapper;
+    xc::input::ControllerState pad{};
+    pad.connected = true;
+    const auto initial = mapper.encode(pad, 2);
+    CHECK(initial.size() == 20); // 13 buttons + 6 axes + hat
+    CHECK(mapper.encode(pad, 2).empty());
+    pad.btnA = true;
+    pad.dpadUp = true;
+    pad.triggerL2 = 0.7f;
+    const auto changed = mapper.encode(pad, 2);
+    bool crossFound = false, triggerFound = false, hatFound = false;
+    for (const auto& msg : changed) {
+        CHECK(msg["type"].str() == "controller");
+        CHECK(msg["id"].asInt() == 2);
+        if (msg["action"].str() == "button" && msg["button"].asInt() == 0) {
+            crossFound = true;
+            CHECK(msg["value"].asInt() == 1);
+        }
+        if (msg["action"].str() == "axes" && msg["axes"].asInt() == 2) {
+            triggerFound = true;
+            CHECK(msg["value"].asInt() > 0);
+        }
+        if (msg["action"].str() == "pad") {
+            hatFound = true;
+            CHECK(msg["hat"].asInt() == 1);
+        }
+    }
+    CHECK(crossFound && triggerFound && hatFound);
+    CHECK(mapper.encode(pad, -1).empty());
+    CHECK(mapper.encode(pad, 2).size() == 20);
+}
 
 static void testBoosteroidNativeQueueContract() {
     using namespace xc::boosteroid;
@@ -12304,6 +12339,7 @@ int main() {
     testStrings();
     testRegions();
     testPrices();
+    testBoosteroidNativeGamepad();
     testBoosteroidNativeQueueContract();
     testBoosteroidNativeHorizonUi();
     testBoosteroidNativeHttpsClient();
