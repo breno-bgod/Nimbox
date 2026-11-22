@@ -263,7 +263,7 @@ std::string loginCountryName(const std::string& country);
 // the answer to the update pop-up, or Updates in Settings.
 enum class Action {
     None, Play, SignOut, Retry, CancelLaunch, SettingsChanged, PrefsChanged, ConsolesShown, UpdateNow, UpdateLater,
-    SelectXbox, LaunchOpenStroid, GameSettingsChanged,
+    SelectXbox, LaunchOpenStroid, LeaveBoosteroid, GameSettingsChanged,
     Report,  // "Report a problem" (Triangle on an error or in Settings): reportWhat is the error shown
     StoreCountry,  // store country changed: save and refresh the catalog
     LoginCountry,  // the sign-in country changed (settings): save them and sign in again
@@ -322,6 +322,14 @@ public:
 
     // --- Model -------------------------------------------------------------
     void showServices();
+    // Pure presentation state. Credentials and game launch remain in the provider.
+    void setBoosteroidMode(bool enabled);
+    bool boosteroidActive() const;
+    void showBoosteroidSignIn(const std::string& validationUrl);
+    void showBoosteroidHome();
+    void setBoosteroidProfile(const std::string& name);
+    void setBoosteroidCatalog(std::vector<GameRow> rows, std::vector<GameTile> installed,
+                             std::vector<GameTile> catalog);
     void showSplash(const std::string& status);
     void showSignIn(const std::string& code, const std::string& url);
     // The signed-in account, top right; `gamerscore` (digits) under the name.
@@ -697,6 +705,14 @@ private:
     UiCaps caps_;
     uint64_t toastsDrawn_ = 0;  // platform::toasts()'s version last drawn
     bool boosteroidSelected_ = false;
+    bool boosteroidActive_ = false;
+    bool boosteroidSignIn_ = false;
+    struct XboxViewBackup {
+        std::vector<GameRow> rows;
+        std::vector<GameTile> owned, purchasable, gamePassPool, libraryPool;
+        std::string gamertag, gamerpic, gamerscore, subscription;
+        bool ownedKnown = false;
+    } xboxViewBackup_;
     bool servicesFromHome_ = false;
     Screen screen_ = Screen::Splash;
     bool dirty_ = true;
