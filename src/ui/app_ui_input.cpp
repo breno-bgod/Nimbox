@@ -435,7 +435,10 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
         if (button != 1) return ev;
         if (boosteroidView_ == BoosteroidView::Streaming ||
             boosteroidView_ == BoosteroidView::Connecting) {
-            if (y > 990 && x < 660) ev.action = Action::CancelBoosteroidNative;
+            if (y > 990 && x < 660)
+                ev.action = boosteroidView_ == BoosteroidView::Connecting
+                          ? Action::LeaveBoosteroidNative
+                          : Action::CancelBoosteroidNative;
             return ev;
         }
         if (y > 990) {
@@ -1598,7 +1601,8 @@ UiEvent AppUi::handleLocked(const NavInput& in) {
             return ev;
         }
         if (boosteroidView_ == BoosteroidView::Connecting) {
-            if (in.back || (in.options && in.touchpad))
+            if (in.back) ev.action = Action::LeaveBoosteroidNative;
+            else if (in.options && in.touchpad)
                 ev.action = Action::CancelBoosteroidNative;
             return ev;
         }
