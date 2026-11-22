@@ -28,6 +28,7 @@
 #include <condition_variable>
 #include <cstdlib>
 #include <map>
+#include <sstream>
 #include <memory>
 #include <thread>
 #include <unordered_set>
@@ -650,6 +651,219 @@ void runRemoveTrophies() {
     trophy::requestRemoveTrophies();
 }
 
+// The Android diagnostic runs ONLY in the normal worker thread, using the
+// same authenticated GSSV client. Never create a second AuthManager or read
+// account tokens from Java. The JNI entrypoint only queues and reads status.
+namespace {
+std::mutex s_deviceDiagMutex;
+std::string s_deviceDiagQuery;
+bool s_deviceDiagProbe = false;
+std::string s_deviceDiagStatus = "Diagnostico ainda nao executado.";
+bool s_deviceDiagPending = false;
+
+std::string asciiLower(std::string value) {
+    for (char& c : value) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    return value;
+}
+
+std::string safeDiagnosticCode(const std::string& code) {
+    // A service response can contain identifiers or messages; only return a
+    // short protocol error-code token, never full JSON, tokens or SDP.
+    if (code.size() > 96 || code.empty()) return "(indisponivel)";
+    for (char c : code)
+        if (!std::isalnum(static_cast<unsigned char>(c)) &&
+            c != '.' && c != '_' && c != '-') return "(omitido)";
+    return code;
+}
+
+void deviceDiagStage(const std::string& stage) {
+    std::lock_guard<std::mutex> lock(s_deviceDiagMutex);
+    if (s_deviceDiagStatus.rfind("NX_DIAG_RUNNING", 0) == 0)
+        s_deviceDiagStatus = "NX_DIAG_RUNNING|" + stage;
+}
+
+// The UI already has a hydrated catalog. Resolve names to public product IDs
+// there, then match those IDs against the authenticated GSSV title response.
+// This intentionally avoids hydrateTitles() for ~thousands of products, which
+// previously caused the Android dialog to appear frozen for minutes.
+std::string runDeviceDiagnostic(auth::AuthManager& am, xcloud::GssvClient& gssv,
+                                const std::string& query, bool probe) {
+    deviceDiagStage("Verificando conta Xbox...");
+    if (!am.signedIn())
+        return "LOGIN_NAO_CONFIRMADO: abra o NimboPlay, entre na conta Xbox e aguarde a biblioteca terminar de carregar.";
+    std::string err;
+    if (!keepSignedIn(am, gssv, err))
+        return "LOGIN_EXPIROU: o xCloud nao conseguiu renovar a autenticacao. Verifique a conexao e entre novamente.";
+
+    deviceDiagStage("Buscando o jogo no catalogo local...");
+    const std::string key = asciiLower(query);
+    std::vector<ui::GameTile> local;
+    std::set<std::string> dedup;
+    const auto lib = currentLibrary();
+    if (lib) {
+        const auto gp = lib->gamePassSearchPool();
+        const auto owned = lib->librarySearchPool();
+        auto consider = [&](const ui::GameTile& t) {
+            if (t.name.empty() || asciiLower(t.name).find(key) == std::string::npos) return;
+            const std::string id = !t.productId.empty() ? t.productId : t.titleId;
+            if (!id.empty() && dedup.insert(id).second) local.push_back(t);
+        };
+        for (const auto& t : gp) consider(t);
+        for (const auto& t : owned) consider(t);
+    }
+
+    deviceDiagStage("Lendo os titulos autorizados pelo servico xCloud...");
+    std::vector<xcloud::Title> titles;
+    if (!gssv.listTitles(titles, err, false))
+        return "ERRO_GSSV: nao foi possivel obter a lista de titulos neste cliente. Verifique a conexao e tente novamente.";
+
+    const std::string market = gssv.session().market.empty() ? "US" : gssv.session().market;
+    // Restrict matching to IDs actually mapped by the local catalog. GSSV does
+    // NOT provide game names, so absence by name alone is not a proof that the
+    // server has or has not listed a particular game.
+    std::vector<const xcloud::Title*> matches;
+    for (const auto& t : titles) {
+        for (const auto& l : local) {
+            bool idMatch = (!l.productId.empty() && t.productId == l.productId) ||
+                           (!l.titleId.empty() && t.titleId == l.titleId) ||
+                           (!l.xboxTitleId.empty() && t.xboxTitleId == l.xboxTitleId);
+            if (!idMatch && !l.productId.empty())
+                idMatch = std::find(t.alternateProductIds.begin(), t.alternateProductIds.end(),
+                                    l.productId) != t.alternateProductIds.end();
+            if (idMatch) { matches.push_back(&t); break; }
+        }
+    }
+
+    std::ostringstream out;
+    out << "NX DEVICE DIAGNOSTICS - Android\n"
+        << "Jogo pesquisado: " << query << "\n"
+        << "Mercado da sessao: " << market << "\n"
+        << "Catalogo local: " << local.size() << " correspondencia(s)\n"
+        << "GSSV: " << titles.size() << " titulo(s) retornado(s)\n"
+        << "IDs vinculados: " << matches.size() << "\n\n";
+
+    if (local.empty()) {
+        out << "NAO_ENCONTRADO_CATALOGO_LOCAL\n"
+            << "O jogo nao foi identificado entre os jogos que o NimboPlay carregou.\n"
+            << "A lista GSSV nao contem nomes. Nao e possivel afirmar por esse\n"
+            << "teste que o jogo esta ausente do servidor: apenas que nao\n"
+            << "foi identificado no catalogo atual deste cliente.\n"
+            << "Considere tambem data de liberacao, regiao e direitos da conta.\n"
+            << "Nenhuma sessao foi solicitada.\n";
+        return out.str();
+    }
+
+    if (matches.empty()) {
+        out << "ENCONTRADO_LOCALMENTE_MAS_NAO_VINCULADO_GSSV\n"
+            << "O jogo aparece no catalogo local, mas nenhum ID carregado\n"
+            << "correspondeu aos IDs da resposta GSSV atual.\n"
+            << "Isso pode indicar cache, filtro, edicao diferente ou titulo ausente.\n"
+            << "Nenhuma sessao foi solicitada.\n";
+        return out.str();
+    }
+
+    deviceDiagStage("Consultando a lista publica Game Pass...");
+    xcloud::ProductList pass;
+    std::string passErr;
+    const bool passOk = xcloud::fetchList(xcloud::sigl::kAllGames, market, "en-us", pass, passErr);
+    out << "SIGL Game Pass: " << (passOk ? "recebida" : "consulta indisponivel") << "\n";
+    for (size_t i = 0; i < matches.size() && i < 8; ++i) {
+        const auto& t = *matches[i];
+        std::string name = "(nome nao vinculado)";
+        for (const auto& l : local)
+            if ((!l.productId.empty() && t.productId == l.productId) ||
+                (!l.titleId.empty() && t.titleId == l.titleId)) {
+                name = l.name;
+                break;
+            }
+        out << "\n[" << i + 1 << "] " << name << "\n"
+            << "titleId: " << t.titleId << "\n"
+            << "productId: " << t.productId << "\n"
+            << "Direito de acesso: " << (t.hasEntitlement ? "sim" : "nao") << "\n"
+            << "Assinatura: " << (t.viaSubscription ? "sim" : "nao") << "\n"
+            << "Camada gratuita: " << (t.freeTier ? "sim" : "nao") << "\n";
+        if (passOk) {
+            out << "Game Pass SIGL: "
+                << (std::find(pass.productIds.begin(), pass.productIds.end(), t.productId) != pass.productIds.end()
+                     ? "sim" : "nao (pode ser uma compra individual)") << "\n";
+        }
+        out << "allowedDeviceTypes: ";
+        if (t.allowedDeviceTypes.empty()) out << "(nao informado; nao significa irrestrito)";
+        else for (size_t j = 0; j < t.allowedDeviceTypes.size(); ++j)
+            out << (j ? ", " : "") << t.allowedDeviceTypes[j];
+        out << "\n";
+    }
+    if (matches.size() > 8) out << "\nOutras correspondencias nao exibidas.\n";
+
+    if (!probe) {
+        out << "\nMODO CONSULTA: nenhuma sessao foi solicitada.\n";
+        return out.str();
+    }
+    if (matches.size() != 1 || matches.front()->titleId.empty() ||
+        !matches.front()->hasEntitlement) {
+        out << "\nTESTE_DE_SESSAO_IGNORADO: correspondencia ambigua, sem titleId "
+               "ou sem direito confirmado pelo servico.\n";
+        return out.str();
+    }
+    if (g_quit || g_cancel) {
+        out << "\nTESTE_CANCELADO.\n";
+        return out.str();
+    }
+
+    deviceDiagStage("Enviando solicitacao unica de sessao...");
+    int status = 0;
+    err.clear();
+    if (!gssv.startSession(matches.front()->titleId, "en-US", err, &status)) {
+        out << "\nSESSAO_RECUSADA HTTP " << status << "\n"
+            << "DeviceTypeNotAllowed: "
+            << (xcloud::isDeviceTypeRefusal(err) ? "CONFIRMADO" : "nao confirmado")
+            << "\n";
+        return out.str();
+    }
+    deviceDiagStage("Consultando resposta de sessao...");
+    xcloud::SessionStatus state;
+    std::string stateErr;
+    if (gssv.sessionState(state, stateErr)) {
+        out << "\nSESSAO_SOLICITADA\nEstado: " << safeDiagnosticCode(state.raw) << "\n";
+        if (state.state == xcloud::SessionState::Failed)
+            out << "Erro: " << safeDiagnosticCode(state.errorCode) << "\n"
+                << "DeviceTypeNotAllowed: "
+                << (xcloud::isDeviceTypeRefusal(state.errorCode) ? "CONFIRMADO" : "nao confirmado")
+                << "\n";
+    } else {
+        out << "\nSESSAO_SOLICITADA; estado nao disponivel.\n";
+    }
+    deviceDiagStage("Encerrando sessao de teste...");
+    gssv.stopSession();
+    out << "Sessao encerrada sem iniciar WebRTC.\n"
+        << "O aceite inicial nao confirma permissao final de streaming.\n";
+    return out.str();
+}
+
+}  // namespace
+
+bool requestDeviceDiagnosis(const std::string& query, bool probeSession) {
+    if (query.empty() || query.size() > 120 || g_quit || g_playPending) return false;
+    {
+        std::lock_guard<std::mutex> lock(g_playerMutex);
+        if (g_player) return false;
+    }
+    std::lock_guard<std::mutex> lock(s_deviceDiagMutex);
+    if (s_deviceDiagStatus.rfind("NX_DIAG_RUNNING", 0) == 0) return false;
+    s_deviceDiagQuery = query;
+    s_deviceDiagProbe = probeSession;
+    s_deviceDiagStatus = "NX_DIAG_RUNNING|Aguardando o motor de rede do NimboPlay...";
+    // A normal refresh, sign-in or playback can overwrite g_command. Keep
+    // this request in a separate one-element queue until the worker is idle.
+    s_deviceDiagPending = true;
+    return true;
+}
+
+std::string readDeviceDiagnosis() {
+    std::lock_guard<std::mutex> lock(s_deviceDiagMutex);
+    return s_deviceDiagStatus;
+}
+
 void worker() {
     platform::setThreadAffinity(platform::ThreadRole::Worker, "xcloud_worker");
     if (g_autoplay.title == "BENCH") {
@@ -677,6 +891,13 @@ void worker() {
     xcloud::GssvClient gssv, home("xhome");
     for (;;) {
         int cmd = g_command.exchange(kNone);
+        if (cmd == kNone) {
+            std::lock_guard<std::mutex> lock(s_deviceDiagMutex);
+            if (s_deviceDiagPending) {
+                s_deviceDiagPending = false;
+                cmd = kDeviceDiagnose;
+            }
+        }
         g_cancel = false;
         if (g_quit) break;  // closing (desktop): the command before it was cancelled
         switch (cmd) {
@@ -698,6 +919,21 @@ void worker() {
             case kUpdate: runUpdate(); break;
             case kCheckSignIn: runSignInCheck(am, gssv); break;
             case kNetworkTest: runNetworkTest(gssv); break;
+            case kDeviceDiagnose: {
+                std::string query;
+                bool probe = false;
+                {
+                    std::lock_guard<std::mutex> lock(s_deviceDiagMutex);
+                    query = s_deviceDiagQuery;
+                    probe = s_deviceDiagProbe;
+                }
+                std::string result = runDeviceDiagnostic(am, gssv, query, probe);
+                {
+                    std::lock_guard<std::mutex> lock(s_deviceDiagMutex);
+                    s_deviceDiagStatus = std::move(result);
+                }
+                break;
+            }
             case kSyncTrophies: trophy::requestTrophySync(true); break;
             case kRemoveTrophies: trophy::requestRemoveTrophies(); break;
             case kReloadLibrary:

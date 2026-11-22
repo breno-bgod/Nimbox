@@ -1,6 +1,17 @@
 package com.rafaelngp.psbox;
 
 import android.Manifest;
+import android.app.AlertDialog;
+import android.content.ClipData;
+import android.content.ClipboardManager;
+import android.content.pm.ApplicationInfo;
+import android.graphics.Color;
+import android.os.Handler;
+import android.os.SystemClock;
+import android.view.Gravity;
+import android.widget.Button;
+import android.widget.ScrollView;
+import android.widget.TextView;
 import android.graphics.PixelFormat;
 import android.os.Looper;
 import android.view.Surface;
@@ -119,6 +130,190 @@ public class MainActivity extends SDLActivity {
 
     private static final int PERMISSION_REQUEST_BT = 1001;
     private static final int PERMISSION_REQUEST_AUDIO = 1002;
+
+    // Only the debuggable NimboPlay Alpha APK exposes this floating diagnostic.
+    // It never changes the SDL interface, media pipeline or console UI.
+    private static native boolean nativeRequestDeviceDiagnosis(String title, boolean probeSession);
+    private static native String nativeDeviceDiagnosisReport();
+    private Button mDeviceDiagnosticButton;
+    private AlertDialog mDeviceDiagnosticDialog;
+    private final Handler mDeviceDiagnosticHandler = new Handler(Looper.getMainLooper());
+    private Runnable mDeviceDiagnosticPoll;
+
+    private int dp(int value) {
+        return Math.round(getResources().getDisplayMetrics().density * value);
+    }
+
+    private void installExperimentalDiagnostics() {
+        if ((getApplicationInfo().flags & ApplicationInfo.FLAG_DEBUGGABLE) == 0 || mLayout == null) return;
+        mDeviceDiagnosticButton = new Button(this);
+        mDeviceDiagnosticButton.setText("NX Teste");
+        mDeviceDiagnosticButton.setTextSize(11);
+        mDeviceDiagnosticButton.setAllCaps(false);
+        mDeviceDiagnosticButton.setTextColor(Color.WHITE);
+        mDeviceDiagnosticButton.setBackgroundTintList(
+                android.content.res.ColorStateList.valueOf(Color.rgb(24, 91, 162)));
+        mDeviceDiagnosticButton.setMinHeight(0);
+        mDeviceDiagnosticButton.setMinimumHeight(0);
+        mDeviceDiagnosticButton.setMinWidth(0);
+        mDeviceDiagnosticButton.setMinimumWidth(0);
+        mDeviceDiagnosticButton.setPadding(dp(12), dp(3), dp(12), dp(3));
+        mDeviceDiagnosticButton.setAlpha(0.93f);
+        RelativeLayout.LayoutParams params = new RelativeLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, dp(42));
+        params.addRule(RelativeLayout.ALIGN_PARENT_TOP);
+        params.addRule(RelativeLayout.ALIGN_PARENT_END);
+        params.setMargins(0, dp(48), dp(20), 0);
+        mLayout.addView(mDeviceDiagnosticButton, params);
+        mDeviceDiagnosticButton.setOnClickListener(v -> chooseDiagnosticTitle());
+        updateDeviceDiagnosticButton();
+    }
+
+    private void updateDeviceDiagnosticButton() {
+        runOnUiThread(() -> {
+            if (mDeviceDiagnosticButton != null) {
+                mDeviceDiagnosticButton.setVisibility(
+                        (!sStreamingActive && sIsForeground) ? View.VISIBLE : View.GONE);
+            }
+        });
+    }
+
+    private void chooseDiagnosticTitle() {
+        if (sStreamingActive) return;
+        final String[] titles = {
+                "Killer Instinct 2 Classic",
+                "Grand Theft Auto VI",
+                "Fortnite"
+        };
+        new AlertDialog.Builder(this)
+                .setTitle("NX Diagnóstico - Escolha um jogo")
+                // Do not setMessage alongside setItems: Android's default
+                // AlertController can hide the choice list when both are set.
+                .setItems(titles, (dialog, which) -> chooseDiagnosticMode(titles[which]))
+                .setNegativeButton("Cancelar", null)
+                .show();
+    }
+
+    private void chooseDiagnosticMode(String title) {
+        new AlertDialog.Builder(this)
+                .setTitle(title)
+                .setItems(new String[] {
+                        "Consultar catálogo e dispositivos (sem iniciar sessão)",
+                        "Testar solicitação de sessão (com confirmação)"
+                }, (dialog, which) -> {
+                    if (which == 0) {
+                        beginDeviceDiagnosis(title, false);
+                    } else {
+                        new AlertDialog.Builder(this)
+                                .setTitle("Confirmar teste de sessão")
+                                .setMessage("O serviço Xbox receberá uma solicitação real para "
+                                        + title + ". A sessão será encerrada em seguida, "
+                                        + "sem vídeo, áudio ou controles. "
+                                        + "Somente se sua conta tiver direito de acesso.")
+                                .setPositiveButton("Confirmar", (d, w) ->
+                                        beginDeviceDiagnosis(title, true))
+                                .setNegativeButton("Cancelar", null)
+                                .show();
+                    }
+                })
+                .setNegativeButton("Voltar", null)
+                .show();
+    }
+
+    private void beginDeviceDiagnosis(String title, boolean probeSession) {
+        if (sStreamingActive) return;
+        boolean queued;
+        try {
+            queued = nativeRequestDeviceDiagnosis(title, probeSession);
+        } catch (UnsatisfiedLinkError e) {
+            new AlertDialog.Builder(this)
+                    .setMessage("O motor nativo ainda está inicializando. "
+                            + "Abra o diagnóstico novamente após o login.")
+                    .setPositiveButton("OK", null).show();
+            return;
+        }
+        if (!queued) {
+            new AlertDialog.Builder(this)
+                    .setTitle("Diagnóstico ocupado")
+                    .setMessage("O NimboPlay ainda está entrando na conta, "
+                            + "iniciando um jogo ou processando outro comando. "
+                            + "Tente novamente no menu inicial.")
+                    .setPositiveButton("OK", null).show();
+            return;
+        }
+        final TextView report = new TextView(this);
+        report.setTextSize(14);
+        report.setTextColor(Color.WHITE);
+        report.setBackgroundColor(Color.rgb(19, 27, 41));
+        report.setPadding(dp(16), dp(16), dp(16), dp(16));
+        report.setText("Consultando o serviço xCloud... \n"
+                + "Esta operação usa o login já existente e não inicia o streaming.");
+        report.setTextIsSelectable(true);
+        ScrollView scroll = new ScrollView(this);
+        scroll.addView(report);
+        mDeviceDiagnosticDialog = new AlertDialog.Builder(this)
+                .setTitle("NX Diagnóstico: " + title)
+                .setView(scroll)
+                .setPositiveButton("Fechar", null)
+                .setNeutralButton("Copiar resultado", (dialog, which) -> {
+                    ClipboardManager clipboard =
+                            (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+                    if (clipboard != null) clipboard.setPrimaryClip(
+                            ClipData.newPlainText("NX Diagnóstico xCloud", report.getText()));
+                })
+                .create();
+        mDeviceDiagnosticDialog.setOnDismissListener(d -> {
+            if (mDeviceDiagnosticPoll != null)
+                mDeviceDiagnosticHandler.removeCallbacks(mDeviceDiagnosticPoll);
+            mDeviceDiagnosticPoll = null;
+            mDeviceDiagnosticDialog = null;
+        });
+        mDeviceDiagnosticDialog.show();
+        // Do not leave a modal loading screen spinning forever if the worker
+        // is busy or the remote GSSV endpoint stalls. The native job may still
+        // complete after this UI timeout; no concurrent second job is launched.
+        final long startedAtMs = SystemClock.elapsedRealtime();
+        final long maxVisibleWaitMs = 120_000L;
+        mDeviceDiagnosticPoll = new Runnable() {
+            @Override public void run() {
+                if (mDeviceDiagnosticDialog == null ||
+                        !mDeviceDiagnosticDialog.isShowing()) return;
+                String result;
+                try {
+                    result = nativeDeviceDiagnosisReport();
+                } catch (UnsatisfiedLinkError e) {
+                    report.setText("ERRO: o diagnóstico C++ não está disponível neste APK.");
+                    return;
+                }
+                if (result == null) {
+                    report.setText("ERRO: o motor não retornou o estado do diagnóstico.");
+                    return;
+                }
+                if (result.startsWith("NX_DIAG_RUNNING")) {
+                    long seconds = (SystemClock.elapsedRealtime() - startedAtMs) / 1000;
+                    if (seconds * 1000 >= maxVisibleWaitMs) {
+                        report.setText("TEMPO LIMITE (120 segundos)\n\n"
+                                + "O diagnóstico ainda não concluiu esta etapa: "
+                                + result.substring(Math.min(result.length(), "NX_DIAG_RUNNING|".length()))
+                                + "\n\nVolte ao menu e verifique a conexão. "
+                                + "Não faça outro teste enquanto o anterior estiver em processamento. "
+                                + "Nenhuma conclusão sobre o acesso ao jogo pode ser tirada deste tempo limite.");
+                        return;
+                    }
+                    String stage = result.startsWith("NX_DIAG_RUNNING|")
+                            ? result.substring("NX_DIAG_RUNNING|".length())
+                            : "Aguardando processamento...";
+                    report.setText("NX DIAGNÓSTICO - EM ANDAMENTO\n\n"
+                            + stage + "\n\nTempo decorrido: " + seconds + " s"
+                            + "\n\nEste teste usa sua conta Xbox já autenticada.");
+                    mDeviceDiagnosticHandler.postDelayed(this, 500);
+                    return;
+                }
+                report.setText(result);
+            }
+        };
+        mDeviceDiagnosticHandler.post(mDeviceDiagnosticPoll);
+    }
 
     private static volatile boolean sStreamingActive = false;
     private static volatile boolean sIsForeground = false;
@@ -289,6 +484,7 @@ public class MainActivity extends SDLActivity {
         disableDefaultFocusHighlight();
         setDisplayRefreshRate(60.0f);
         checkAndRequestStartupPermissions();
+        installExperimentalDiagnostics();
     }
 
     @Override
@@ -296,6 +492,7 @@ public class MainActivity extends SDLActivity {
         super.onResume();
         sIsForeground = true;
         updateWifiLock();
+        updateDeviceDiagnosticButton();
         setImmersiveFullscreen();
         disableDefaultFocusHighlight();
         setDisplayRefreshRate(60.0f);
@@ -313,6 +510,7 @@ public class MainActivity extends SDLActivity {
     @Override
     protected void onPause() {
         sIsForeground = false;
+        updateDeviceDiagnosticButton();
         surfaceVideoStop(); // Release additional decoder when the Activity pauses.
         updateWifiLock();
         super.onPause();
@@ -320,6 +518,11 @@ public class MainActivity extends SDLActivity {
 
     @Override
     protected void onDestroy() {
+        if (mDeviceDiagnosticPoll != null)
+            mDeviceDiagnosticHandler.removeCallbacks(mDeviceDiagnosticPoll);
+        if (mDeviceDiagnosticDialog != null) mDeviceDiagnosticDialog.dismiss();
+        if (mLayout != null && mDeviceDiagnosticButton != null) mLayout.removeView(mDeviceDiagnosticButton);
+        mDeviceDiagnosticButton = null;
         surfaceVideoStop();
         if (mLayout != null) {
             if (sSurfaceOverlay != null) mLayout.removeView(sSurfaceOverlay);
@@ -423,6 +626,8 @@ public class MainActivity extends SDLActivity {
     public static synchronized void setLowLatencyWifi(boolean enable) {
         sStreamingActive = enable;
         updateWifiLock();
+        MainActivity activity = sSurfaceActivity;
+        if (activity != null) activity.updateDeviceDiagnosticButton();
     }
 
     private static synchronized void updateWifiLock() {
