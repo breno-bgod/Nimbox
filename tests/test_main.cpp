@@ -368,8 +368,10 @@ static void testBoosteroidNativeHorizonUi() {
     CHECK(ui.serviceChooserOpen());
     CHECK(ui.onMouseDown(400, 530, 1).action ==
           xc::ui::Action::SelectXboxNative);
-    CHECK(ui.onMouseDown(1650, 90, 1).action ==
+    CHECK(ui.onMouseDown(460, 90, 1).action ==
           xc::ui::Action::ShowServiceChooser); // visible Horizon switch
+    CHECK(ui.onMouseDown(1650, 90, 1).action ==
+          xc::ui::Action::None); // avatar/profile area is not a service switch
     ui.showServiceChooser();
     CHECK(ui.onMouseDown(120, 100, 1).action ==
           xc::ui::Action::None); // wordmark is not a service switch
