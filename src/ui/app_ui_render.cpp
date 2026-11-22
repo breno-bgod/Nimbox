@@ -493,10 +493,12 @@ void AppUi::drawSignIn(Canvas& c, uint64_t nowMs) {
 
 void AppUi::drawTabs(Canvas& c) {
     // Make the full tab clickable while drawing only its label and active underline.
-    const char* labels[3] = {tr(Str::TabGamePass), tr(Str::YourGames), tr(Str::TabConsoles)};
+    const char* labels[3] = {boosteroidActive_ ? "Boosteroid" : tr(Str::TabGamePass),
+                             tr(Str::YourGames), tr(Str::TabConsoles)};
+    const int tabCount = boosteroidActive_ ? 2 : 3;
     constexpr int kPx = 22, kPad = 26, kGap = 12, kH = 44, kY = 50;
     int widths[3], total = 0;
-    for (int i = 0; i < 3; ++i) {
+    for (int i = 0; i < tabCount; ++i) {
         widths[i] = fonts_.semibold.measure(labels[i], kPx) + 2 * kPad;
         total += widths[i] + (i ? kGap : 0);
     }
@@ -507,7 +509,7 @@ void AppUi::drawTabs(Canvas& c) {
         fonts_.bold.draw(c, name, cx - fonts_.bold.measure(name, 16) / 2, fonts_.bold.centeredY(r.y, r.h, 16), 16, kGray);
     };
     shoulder(g_keyboardHints ? "Q" : buttonName(g_glyphStyle, PadButton::L1), x - 40);
-    for (int i = 0; i < 3; ++i) {
+    for (int i = 0; i < tabCount; ++i) {
         bool on = static_cast<int>(tab_) == i;
         Rect r{x, kY, widths[i], kH};
         if (on) {
