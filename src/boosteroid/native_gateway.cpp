@@ -298,7 +298,10 @@ bool NativeGateway::run(const NativeStreamSession& session, const EncodedMediaSi
     bool offerSubmitted = false;
     bool sawNativeUdp = false;
     bool completed = false;
-    while (!cancel && control.connected() && platform::nowMs() < deadline) {
+    // Once decoded media begins, stay connected until the user leaves.
+    // The 30-second deadline applies only to initial start, not playback.
+    while (!cancel && control.connected() &&
+           (platform::nowMs() < deadline || completed)) {
         std::string message, readError;
         if (control.read_text(message, 120, readError)) {
             const auto parsed = json::parse(message);
@@ -354,9 +357,9 @@ bool NativeGateway::run(const NativeStreamSession& session, const EncodedMediaSi
             nextInput = now + 33;
         }
         if (peerFailed) { error = "Falha na conexão WebRTC do gateway."; break; }
-        if (frameCount > 0 && opusCount > 0) {
+        if (frameCount > 0 && opusCount > 0 && !completed) {
             completed = true;
-            break;
+            if (progress) progress("Vídeo e áudio Boosteroid recebidos.");
         }
     }
     if (!completed && error.empty())
