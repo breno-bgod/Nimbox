@@ -41,6 +41,7 @@ void BoosteroidWorker::play(const ui::GameTile& tile) {
 }
 
 void BoosteroidWorker::cancelLaunch() { command_ = Command::Cancel; }
+void BoosteroidWorker::logout() { command_ = Command::Logout; }
 
 bool BoosteroidWorker::login(const std::string& key) {
     auto start = boosteroid_control::request(key, "POST", "/login/start", "{}");
@@ -159,6 +160,16 @@ void BoosteroidWorker::run(const std::string& key) {
         } else if (cmd == Command::Cancel) {
             (void)boosteroid_control::request(key, "POST", "/cancel", "{}");
             if (active()) g_ui->showBoosteroidHome();
+        } else if (cmd == Command::Logout) {
+            if (active()) g_ui->showSplash("Saindo da conta Boosteroid...");
+            const auto out = boosteroid_control::request(key, "POST", "/logout", "{}");
+            if (!out.ok()) {
+                if (active()) g_ui->showError("Não foi possível sair da conta Boosteroid.");
+            } else if (active() && login(key)) {
+                const auto profile = boosteroid_control::request(key, "GET", "/status");
+                if (profile.ok() && active()) g_ui->setBoosteroidProfile(profile.data["name"].str());
+                if (loadCatalog(key) && active()) g_ui->showBoosteroidHome();
+            }
         }
         platform::sleepMs(100);
     }
