@@ -8,6 +8,7 @@
 #include "media/decoder.h"
 
 #include <algorithm>
+#include <chrono>
 #include <utility>
 
 namespace xc::boosteroid {
@@ -134,7 +135,8 @@ void NativePlayback::run() {
             }
             if (drawn) display::present();
         }
-        if (drawn) firstFrame_ = true;
+        if (drawn && !firstFrame_.exchange(true) && onFirstFrame_)
+            onFirstFrame_();
     }
 }
 
