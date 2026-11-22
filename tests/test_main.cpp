@@ -149,17 +149,25 @@ static void testBoosteroidNativeHttpsClient() {
             else if (pollCount == 2) result.status = 429; // rate limit
             else {
                 result.status = 200;
-                result.body = R"({"data":{"access_token":"eyJ.test.sig","refresh_token":"private_refresh","user_data":{"authorization_data":"private_auth_data"}}})";
+                json::Value account = json::Value::object();
+                account.set("access_token", "demo.header.sig");
+                account.set("refresh_token", "test-only-refresh");
+                json::Value userData = json::Value::object();
+                userData.set("authorization_data", "private_auth_data");
+                account.set("user_data", std::move(userData));
+                json::Value envelope = json::Value::object();
+                envelope.set("data", std::move(account));
+                result.body = envelope.dump();
             }
         } else if (request.url.find("/api/v1/user") != std::string::npos) {
             ++profileCount;
-            CHECK(header("Authorization") == "Bearer eyJ.test.sig");
+            CHECK(header("Authorization") == "Bearer demo.header.sig");
             CHECK(header("Authorization-Data") == "private_auth_data");
             result.status = 200;
             result.body = R"({"data":{"id":837,"nickname":"Meu perfil","email":"private@example.org"}})";
         } else if (request.url.find("/api/v1/boostore/applications/installed") != std::string::npos) {
             ++catalogCount;
-            CHECK(header("Authorization") == "Bearer eyJ.test.sig");
+            CHECK(header("Authorization") == "Bearer demo.header.sig");
             CHECK(request.url.find("?page=1&paginate=50") != std::string::npos);
             result.status = 200;
             result.body = R"({"data":{"data":{"games":[{"application":{"id":59,"name":"Jogo real","coverUrl":"https://cdn.example.org/a.jpg"}},{"id":61,"title":"Outro"}]}}})";
