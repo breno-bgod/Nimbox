@@ -587,6 +587,13 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
         }
     }
 
+    if (screen_ == Screen::SignIn && boosteroidSignIn_) {
+        if (button == 1 && !codeUrl_.empty() && x >= 180 && x < 1740 && y >= 300 && y < 810) {
+            ev.action = Action::OpenUrl;
+            ev.url = codeUrl_;
+        }
+        return ev;
+    }
     if (screen_ == Screen::SignIn && !code_.empty()) {
         constexpr int left = 180;
         int panelW = std::max(400, static_cast<int>(code_.size()) * 82 + 64);
@@ -782,15 +789,17 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
 
     // Check top bar tabs
     if (screen_ == Screen::Home && !updatePrompt_ && !quitPrompt_ && !reportOpen_ && y >= 34 && y <= 110) {
-        const char* labels[3] = {tr(Str::TabGamePass), tr(Str::YourGames), tr(Str::TabConsoles)};
+        const char* labels[3] = {boosteroidActive_ ? "Boosteroid" : tr(Str::TabGamePass),
+                                 tr(Str::YourGames), tr(Str::TabConsoles)};
+        const int tabCount = boosteroidActive_ ? 2 : 3;
         constexpr int kPx = 22, kPad = 26, kGap = 12;
         int widths[3], total = 0;
-        for (int i = 0; i < 3; ++i) {
+        for (int i = 0; i < tabCount; ++i) {
             widths[i] = fonts_.semibold.measure(labels[i], kPx) + 2 * kPad;
             total += widths[i + 0] + (i ? kGap : 0);
         }
         int tabX = (kW - total) / 2;
-        for (int i = 0; i < 3; ++i) {
+        for (int i = 0; i < tabCount; ++i) {
             if (x >= tabX - 8 && x < tabX + widths[i] + 8) {
                 tab_ = static_cast<Tab>(i);
                 searching_ = false;
