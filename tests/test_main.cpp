@@ -56,6 +56,8 @@
 #include "boosteroid/control_input.h"
 #ifndef _WIN32
 #include "boosteroid/native_gateway.h"
+#include "boosteroid/native_udp.h"
+#include <mbedtls/aes.h>
 #endif
 #include "util/json.h"
 #include "util/log.h"
@@ -124,6 +126,36 @@ static int g_failures = 0;
     } while (0)
 
 #ifndef _WIN32
+static void testBoosteroidNativeUdpDecrypt() {
+    using namespace xc::boosteroid;
+    std::vector<uint8_t> key(16, 0x42);
+    std::array<uint8_t, 1408> plain{};
+    plain[3] = 1; // Annex-B H264 start code
+    plain[4] = 0x67;
+    plain[5] = 0x42;
+    plain[6] = 0x00;
+    plain[7] = 0x1f;
+    std::array<uint8_t, 16> iv{};
+    iv[6] = 123; // group 123, shard 0
+    std::vector<uint8_t> shard(1410, 0);
+    shard[0] = 8;
+    mbedtls_aes_context aes;
+    mbedtls_aes_init(&aes);
+    CHECK(mbedtls_aes_setkey_enc(&aes, key.data(), 128) == 0);
+    CHECK(mbedtls_aes_crypt_cbc(&aes, MBEDTLS_AES_ENCRYPT, plain.size(),
+                                iv.data(), plain.data(), shard.data() + 2) == 0);
+    mbedtls_aes_free(&aes);
+    std::vector<uint8_t> output;
+    CHECK(decodeNativeVideoGroup({shard}, key, 123, output));
+    CHECK(output.size() == 8);
+    if (output.size() == 8) {
+        CHECK(output[3] == 1);
+        CHECK(output[4] == 0x67);
+    }
+    CHECK(!decodeNativeVideoGroup({shard}, std::vector<uint8_t>(3), 123, output));
+    CHECK(!decodeNativeVideoGroup({}, key, 123, output));
+}
+
 static void testBoosteroidGatewayControl() {
     using namespace xc::boosteroid;
     auto parse = [](const std::string& text) {
@@ -12382,6 +12414,7 @@ int main() {
     testPrices();
 #ifndef _WIN32
     testBoosteroidGatewayControl();
+    testBoosteroidNativeUdpDecrypt();
 #endif
     testBoosteroidNativeGamepad();
     testBoosteroidNativeQueueContract();
