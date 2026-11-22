@@ -139,6 +139,98 @@ void AppUi::showSignIn(const std::string& code, const std::string& url) {
     dirty_ = true;
 }
 
+void AppUi::setBoosteroidMode(bool enabled) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (boosteroidActive_ == enabled) return;
+    if (enabled) {
+        xboxViewBackup_ = {allRows_, allOwned_, allPurchasable_, gamePassPool_, libraryPool_,
+                           gamertag_, gamerpicUrl_, gamerscore_, subscription_, ownedKnown_};
+        allRows_.clear();
+        allOwned_.clear();
+        allPurchasable_.clear();
+        gamePassPool_.clear();
+        libraryPool_.clear();
+        ownedKnown_ = false;
+        gamertag_ = "Boosteroid";
+        gamerpicUrl_.clear();
+        gamerscore_.clear();
+        subscription_.clear();
+        boosteroidActive_ = true;
+        boosteroidSignIn_ = false;
+        tab_ = Tab::GamePass;
+        searching_ = false;
+        directory_.clear();
+        rebuild(false);
+        screen_ = Screen::Splash;
+    } else {
+        boosteroidActive_ = false;
+        boosteroidSignIn_ = false;
+        allRows_ = std::move(xboxViewBackup_.rows);
+        allOwned_ = std::move(xboxViewBackup_.owned);
+        allPurchasable_ = std::move(xboxViewBackup_.purchasable);
+        gamePassPool_ = std::move(xboxViewBackup_.gamePassPool);
+        libraryPool_ = std::move(xboxViewBackup_.libraryPool);
+        gamertag_ = std::move(xboxViewBackup_.gamertag);
+        gamerpicUrl_ = std::move(xboxViewBackup_.gamerpic);
+        gamerscore_ = std::move(xboxViewBackup_.gamerscore);
+        subscription_ = std::move(xboxViewBackup_.subscription);
+        ownedKnown_ = xboxViewBackup_.ownedKnown;
+        xboxViewBackup_ = {};
+        tab_ = Tab::GamePass;
+        searching_ = false;
+        directory_.clear();
+        rebuild(false);
+        screen_ = Screen::Services;
+    }
+    dirty_ = true;
+}
+
+bool AppUi::boosteroidActive() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return boosteroidActive_;
+}
+
+void AppUi::showBoosteroidSignIn(const std::string& validationUrl) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (!boosteroidActive_) return;
+    screen_ = Screen::SignIn;
+    boosteroidSignIn_ = true;
+    code_.clear();
+    codeUrl_ = validationUrl;
+    dirty_ = true;
+}
+
+void AppUi::setBoosteroidProfile(const std::string& name) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (!boosteroidActive_) return;
+    gamertag_ = name.empty() ? "Boosteroid" : name;
+    gamerpicUrl_.clear();
+    gamerscore_.clear();
+    dirty_ = true;
+}
+
+void AppUi::setBoosteroidCatalog(std::vector<GameRow> rows, std::vector<GameTile> installed,
+                                 std::vector<GameTile> catalog) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (!boosteroidActive_) return;
+    allRows_ = std::move(rows);
+    allOwned_ = std::move(installed);
+    allPurchasable_.clear();
+    gamePassPool_ = std::move(catalog);
+    libraryPool_ = allOwned_;
+    subscription_.clear();
+    ownedKnown_ = true;
+    rebuild(false);
+}
+
+void AppUi::showBoosteroidHome() {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (!boosteroidActive_) return;
+    boosteroidSignIn_ = false;
+    screen_ = Screen::Home;
+    dirty_ = true;
+}
+
 std::string AppUi::gamertag() const {
     std::lock_guard<std::mutex> lock(mutex_);
     return gamertag_;
@@ -231,6 +323,7 @@ bool AppUi::isEffectivePlayable(const GameTile& t) const {
 
 void AppUi::setRows(std::vector<GameRow> rows) {
     std::lock_guard<std::mutex> lock(mutex_);
+    if (boosteroidActive_) { xboxViewBackup_.rows = std::move(rows); return; }
     allRows_ = std::move(rows);
     rebuild(true);
 }
@@ -283,6 +376,12 @@ void AppUi::setRowsLocked(std::vector<GameRow> rows) {
 
 void AppUi::setOwned(std::vector<GameTile> owned, std::vector<GameTile> purchasable, bool known) {
     std::lock_guard<std::mutex> lock(mutex_);
+    if (boosteroidActive_) {
+        xboxViewBackup_.owned = std::move(owned);
+        xboxViewBackup_.purchasable = std::move(purchasable);
+        xboxViewBackup_.ownedKnown = known;
+        return;
+    }
     allOwned_ = std::move(owned);
     allPurchasable_ = std::move(purchasable);
     ownedKnown_ = known;
@@ -293,6 +392,15 @@ void AppUi::setCatalogState(std::vector<GameRow> rows, std::vector<GameTile> own
                             bool ownedKnown, bool member, std::vector<GameTile> gpPool, std::vector<GameTile> libPool,
                             bool loadingActive, size_t loadingDone, size_t loadingTotal) {
     std::lock_guard<std::mutex> lock(mutex_);
+    if (boosteroidActive_) {
+        xboxViewBackup_.rows = std::move(rows);
+        xboxViewBackup_.owned = std::move(owned);
+        xboxViewBackup_.purchasable = std::move(purchasable);
+        xboxViewBackup_.gamePassPool = std::move(gpPool);
+        xboxViewBackup_.libraryPool = std::move(libPool);
+        xboxViewBackup_.ownedKnown = ownedKnown;
+        return;
+    }
     allRows_ = std::move(rows);
     allOwned_ = std::move(owned);
     allPurchasable_ = std::move(purchasable);
@@ -1186,6 +1294,8 @@ void AppUi::refreshDetail() {
 
 void AppUi::showHome(const std::string& toast) {
     std::lock_guard<std::mutex> lock(mutex_);
+    // The Xbox worker may finish an async refresh while Boosteroid is selected.
+    if (boosteroidActive_) return;
     if (screen_ == Screen::Details) {
         syncHeroToRowsLocked(detail_.productId, detail_.titleId, detail_.heroUrl, detail_.description, detail_.publisher, detail_.categories);
     }
