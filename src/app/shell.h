@@ -55,6 +55,7 @@ struct Caps {
     bool selfUpdate = false;  // canSelfUpdate()
     bool window = false;      // the app is a window: it can go fullscreen (setFullscreen())
     bool (*launchOpenStroid)() = nullptr;
+    bool (*serviceActive)() = nullptr;
 };
 Caps caps();
 // A desktop's window fullscreen or not (Settings > Display mode); nothing

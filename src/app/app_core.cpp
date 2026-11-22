@@ -1320,6 +1320,12 @@ void Core::dispatchUiAction(const ui::UiEvent& ev) {
 
 bool Core::frame() {
     if (!shell::pumpEvents() || quitAsked_) return false;
+    const auto serviceActive = shell::caps().serviceActive;
+    if (serviceActive && serviceActive()) {
+        crash::heartbeat();
+        platform::sleepMs(16);
+        return true;
+    }
     if (bool on; shell::fullscreenSwitched(on)) {
         // F11 / Alt+Enter on a desktop: the Display mode setting follows.
         {

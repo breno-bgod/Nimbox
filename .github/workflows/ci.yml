@@ -232,6 +232,7 @@ jobs:
       - name: Build bundled OpenStroid from the pinned submodule
         working-directory: services/OpenStroid
         run: |
+          python3 ../../tools/openstroid/prepare.py
           npm ci
           npm run build
           npx --no-install electron-builder --win --x64 --dir -c.win.signAndEditExecutable=false

@@ -19,6 +19,10 @@
 #include "util/log.h"
 
 #include <SDL3/SDL.h>
+#ifdef _WIN32
+#define NOMINMAX
+#include <windows.h>
+#endif
 
 #include <atomic>
 #include <csignal>
@@ -28,6 +32,63 @@
 namespace xc::app::shell {
 
 namespace {
+#ifdef _WIN32
+SDL_Process* serviceProcess = nullptr;
+HWND serviceView = nullptr;
+Uint64 attachDeadline = 0;
+DWORD servicePid = 0;
+BOOL CALLBACK findServiceView(HWND handle, LPARAM) {
+    DWORD pid = 0;
+    GetWindowThreadProcessId(handle, &pid);
+    if (pid != servicePid) return TRUE;
+    wchar_t kind[64]{};
+    GetClassNameW(handle, kind, 64);
+    if (wcscmp(kind, L"Chrome_WidgetWin_1") || GetWindow(handle,GW_OWNER)) return TRUE;
+    serviceView = handle;
+    return FALSE;
+}
+void updateServiceView() {
+    if (!serviceProcess) return;
+    if (SDL_WaitProcess(serviceProcess,false,nullptr)) {
+        SDL_DestroyProcess(serviceProcess);
+        serviceProcess = nullptr;
+        serviceView = nullptr;
+        SDL_RaiseWindow(display::sdlWindow());
+        return;
+    }
+    HWND host = static_cast<HWND>(SDL_GetPointerProperty(SDL_GetWindowProperties(display::sdlWindow()),
+                                     SDL_PROP_WINDOW_WIN32_HWND_POINTER,nullptr));
+    if (!host) return;
+    if (!serviceView) {
+        EnumWindows(findServiceView,0);
+        if (!serviceView) {
+            if (SDL_GetTicks() > attachDeadline) {
+                SDL_KillProcess(serviceProcess,true);
+                platform::notify("Não foi possível abrir o Boosteroid no NimboPlay.");
+            }
+            return;
+        }
+        LONG_PTR style = GetWindowLongPtrW(serviceView,GWL_STYLE);
+        SetWindowLongPtrW(serviceView,GWL_STYLE,(style & ~(WS_POPUP|WS_CAPTION|WS_THICKFRAME)) | WS_CHILD);
+        SetLastError(0);
+        if (!SetParent(serviceView,host) && GetLastError()) {
+            SDL_KillProcess(serviceProcess,true);
+            platform::notify("Não foi possível conectar a janela do Boosteroid.");
+            return;
+        }
+        RECT initial{};
+        GetClientRect(host,&initial);
+        SetWindowPos(serviceView,HWND_TOP,0,0,initial.right,initial.bottom,SWP_FRAMECHANGED|SWP_SHOWWINDOW);
+        ShowWindow(serviceView,SW_SHOW);
+        SetFocus(serviceView);
+    }
+    RECT bounds{},current{};
+    GetClientRect(host,&bounds);
+    GetWindowRect(serviceView,&current);
+    if (current.right-current.left != bounds.right || current.bottom-current.top != bounds.bottom)
+        SetWindowPos(serviceView,HWND_TOP,0,0,bounds.right,bounds.bottom,SWP_NOACTIVATE|SWP_FRAMECHANGED);
+}
+#endif
 bool g_quit = false;              // main thread
 int g_switchedTo = -1;            // F11 / Alt+Enter: the fullscreen state asked (main thread), -1 none
 std::atomic<bool> g_focus{true};  // the window has the keyboard
@@ -75,6 +136,9 @@ bool afterDisplay(bool haveDisplay) {
 std::vector<std::string> iconFontPaths() { return {}; }  // the UI draws its own icons
 
 bool pumpEvents() {
+#ifdef _WIN32
+    updateServiceView();
+#endif
     SDL_Event ev;
     while (SDL_PollEvent(&ev)) {
         switch (ev.type) {
@@ -240,6 +304,14 @@ bool canSelfUpdate() { return false; }
 bool isInstalledCopy(const std::string&) { return false; }
 
 void beforeShutdown() {
+#ifdef _WIN32
+    if (serviceProcess) {
+        if (serviceView) PostMessageW(serviceView,WM_CLOSE,0,0);
+        else SDL_KillProcess(serviceProcess,true);
+        SDL_DestroyProcess(serviceProcess);
+        serviceProcess = nullptr;
+    }
+#endif
     input::kbmSetCaptured(false);
     input::sdlInputShutdown();
 }
@@ -247,16 +319,18 @@ void beforeShutdown() {
 Caps caps() {
     Caps result{false, true, false, true};
 #ifdef _WIN32
+    result.serviceActive = [](){ return serviceProcess != nullptr; };
     result.launchOpenStroid = []() {
         const char* base = SDL_GetBasePath();
         if (!base) return false;
         const std::string path = std::string(base) + "OpenStroid/OpenStroid.exe";
-        const char* args[] = {path.c_str(), nullptr};
-        static SDL_Process* process = nullptr;
-        if (process && !SDL_WaitProcess(process, false, nullptr)) return false;
-        if (process) SDL_DestroyProcess(process);
-        process = SDL_CreateProcess(args, false);
-        if (!process) return false;
+        if (serviceProcess) return true;
+        const char* args[] = {path.c_str(), "--nimbo-embedded", nullptr};
+        serviceProcess = SDL_CreateProcess(args,false);
+        if (!serviceProcess) return false;
+        servicePid = static_cast<DWORD>(SDL_GetNumberProperty(SDL_GetProcessProperties(serviceProcess),
+                                                              SDL_PROP_PROCESS_PID_NUMBER,0));
+        attachDeadline = SDL_GetTicks()+30000;
         return true;
     };
 #endif
