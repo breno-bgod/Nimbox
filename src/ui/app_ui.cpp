@@ -139,6 +139,63 @@ void AppUi::showSignIn(const std::string& code, const std::string& url) {
     dirty_ = true;
 }
 
+void AppUi::openBoosteroidNative() {
+    std::lock_guard<std::mutex> lock(mutex_);
+    boosteroidNativeOpen_ = true;
+    dirty_ = true;
+}
+
+void AppUi::closeBoosteroidNative() {
+    std::lock_guard<std::mutex> lock(mutex_);
+    boosteroidNativeOpen_ = false;
+    dirty_ = true;
+}
+
+bool AppUi::boosteroidNativeOpen() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return boosteroidNativeOpen_;
+}
+
+void AppUi::setBoosteroidNativeStatus(const std::string& message) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    boosteroidStatus_ = message.substr(0, 250);
+    dirty_ = true;
+}
+
+void AppUi::setBoosteroidNativeLogin(const std::string& validationUrl) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (validationUrl.rfind("https://", 0) != 0 || validationUrl.size() > 4096) {
+        boosteroidView_ = BoosteroidView::Error;
+        boosteroidStatus_ = "Endereço de login Boosteroid inválido.";
+        dirty_ = true;
+        return;
+    }
+    boosteroidView_ = BoosteroidView::Login;
+    boosteroidUrl_ = validationUrl;
+    boosteroidStatus_ = "Aguardando confirmação no outro dispositivo";
+    dirty_ = true;
+}
+
+void AppUi::setBoosteroidNativeCatalog(std::vector<GameTile> games, const std::string& profileName) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    boosteroidGames_ = std::move(games);
+    boosteroidProfile_ = profileName.substr(0, 128);
+    boosteroidView_ = BoosteroidView::Catalog;
+    boosteroidFocus_ = 0;
+    boosteroidUrl_.clear();
+    boosteroidStatus_ = boosteroidGames_.empty()
+        ? "Nenhum jogo instalado nesta conta Boosteroid." : "Biblioteca Boosteroid";
+    dirty_ = true;
+}
+
+void AppUi::setBoosteroidNativeError(const std::string& message) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    boosteroidView_ = BoosteroidView::Error;
+    boosteroidUrl_.clear();
+    boosteroidStatus_ = message.substr(0, 250);
+    dirty_ = true;
+}
+
 std::string AppUi::gamertag() const {
     std::lock_guard<std::mutex> lock(mutex_);
     return gamertag_;
