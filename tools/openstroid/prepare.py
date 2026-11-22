@@ -35,17 +35,31 @@ replace("electron/main.ts", "  attachWindowLogging(window, 'main');", """  if (p
     });
     window.webContents.once('did-finish-load', async () => {
       try {
-        // Wait for React to mount the login page or the signed-in home.
-        await window.webContents.executeJavaScript(`new Promise(resolve => {
-          const mounted = () => document.querySelector('.openstroid-login-logo,.horizon-home,.hz-connecting');
-          if (mounted()) { resolve(true); return; }
-          const observer = new MutationObserver(() => {
-            if (mounted()) { observer.disconnect(); resolve(true); }
-          });
-          observer.observe(document.body,{subtree:true,childList:true});
-        })`);
+        // Never let the native host wait indefinitely for React to mount.
+        // Keep the backend's actual authentication and streaming unchanged.
+        const mounted = await Promise.race([
+          window.webContents.executeJavaScript(`new Promise(resolve => {
+            const ready = () => document.querySelector('.openstroid-login-logo,.horizon-home,.hz-connecting');
+            if (ready()) { resolve(true); return; }
+            const observer = new MutationObserver(() => {
+              if (ready()) { observer.disconnect(); resolve(true); }
+            });
+            observer.observe(document.body,{subtree:true,childList:true});
+            setTimeout(() => { observer.disconnect(); resolve(false); }, 18000);
+          })`),
+          new Promise(resolve => setTimeout(() => resolve(false), 20000)),
+        ]);
+        if (!mounted) throw new Error('Horizon Boosteroid renderer did not mount within 20 seconds');
         if (!window.isDestroyed()) window.setTitle('NimboPlay.Boosteroid.Ready');
-      } catch { if (!window.isDestroyed()) window.close(); }
+      } catch (error) {
+        console.error('[nimbo] Boosteroid renderer failed to initialize', error);
+        if (!window.isDestroyed()) window.close();
+      }
+    });
+    window.webContents.on('did-fail-load', (_event, code, description, url, isMainFrame) => {
+      if (!isMainFrame) return;
+      console.error('[nimbo] Boosteroid page load failed', code, description, url);
+      if (!window.isDestroyed()) window.close();
     });
     window.webContents.on('render-process-gone', () => app.exit(1));
     window.on('unresponsive', () => app.exit(1));
