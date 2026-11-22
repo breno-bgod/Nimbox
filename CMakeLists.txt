@@ -241,6 +241,7 @@ target_link_libraries(xcloud_ui PUBLIC xcloud_core)
 # backends and shell (docs/multiplatform.md).
 add_library(xcloud_appcore OBJECT
     src/app/app_state.cpp
+    src/app/boosteroid_control.cpp
     src/app/app_core.cpp
     src/app/worker.cpp
     src/app/worker_stream.cpp
