@@ -147,8 +147,8 @@ void AppUi::drawTopBar(Canvas& c, bool overArt) {
     // NimboPlay's complete transparent wordmark is the primary header brand.
     // No extra text beside it: the lettering is already included in the image.
     drawInternalBrand(c, 91, 20, 184, 100);
-    // Service shortcut uses L2 held + R1 without stealing Home header taps.
-    if (!overArt) fonts_.regular.draw(c, "L2 + R1: Boosteroid", 390, 91, 17, kGray);
+    // Explicit service switch; pointer hitbox is handled in AppUi::handlePointerDown.
+    if (!overArt) fonts_.semibold.draw(c, "Trocar serviço", 1570, 95, 21, kWhite);
     if (hasCloudTime && !overArt) drawCloudTime(c, 292, 59);
 
     // Avatar and centered Settings touch button
@@ -450,6 +450,7 @@ void AppUi::drawBoosteroidNative(Canvas& c, uint64_t nowMs) {
     drawInternalBrand(c, 78, 18, 210, 112);
     fonts_.bold.draw(c, "BOOSTEROID", 340, 47, 38, kWhite);
     fonts_.regular.draw(c, "Provedor nativo - NimboPlay Horizon", 342, 100, 22, kGray);
+    fonts_.semibold.draw(c, "Voltar aos serviços", 1530, 59, 24, kWhite);
     c.line(76, 156, kW - 76, 156, 2, rgba(130, 181, 218, 55));
 
     if (boosteroidView_ == BoosteroidView::Loading) {
@@ -485,6 +486,16 @@ void AppUi::drawBoosteroidNative(Canvas& c, uint64_t nowMs) {
         }
         drawSpinner(c, 158, 670, 14, nowMs);
         fonts_.regular.draw(c, "Aguardando autenticação...", 192, 659, 25, kGray);
+        if (caps_.openUrl && !boosteroidUrl_.empty()) {
+            Rect browserBtn{140, 720, 960, 120};
+            c.fillRect(browserBtn, rgba(27, 126, 141, 235), 24);
+            c.strokeRect(browserBtn, rgba(128, 228, 238, 185), 2, 24);
+            fonts_.bold.draw(c, "Entrar pelo navegador", 198, 752, 34, kWhite);
+            fonts_.regular.draw(c, "Abra a página oficial e confirme o acesso", 198, 802, 22, kWhite);
+        } else {
+            fonts_.regular.draw(c, "Abra o QR Code em outro dispositivo para entrar.",
+                                140, 765, 23, kGray);
+        }
     } else if (boosteroidView_ == BoosteroidView::Connecting) {
         drawCentered(c, fonts_.bold, "Iniciando jogo no Boosteroid", 370, 48, kWhite);
         drawCentered(c, fonts_.regular,
@@ -546,6 +557,7 @@ void AppUi::drawSignIn(Canvas& c, uint64_t nowMs) {
     const int left = 180;
     drawInternalBrand(c, left - 12, 113, 208, 113);
     fonts_.bold.draw(c, tr(Str::SignInTitle), left, 260, 72, kWhite);
+    fonts_.semibold.draw(c, "Trocar serviço", 1570, 72, 24, kWhite);
     fonts_.regular.draw(c, tr(Str::SignInStep1), left, 400, 32, kGray);
     std::string shortUrl = codeUrl_;
     for (const char* p : {"https://", "http://", "www."})
@@ -631,7 +643,7 @@ void AppUi::drawSignIn(Canvas& c, uint64_t nowMs) {
     }
     if (caps_.openUrl) drawHints(c, {{kIconCross, tr(Str::OpenInBrowser)}});  // a desktop: the page in the browser
 #endif
-    fonts_.regular.draw(c, "L2 + R1 ou toque no logo: Boosteroid", 700, 1015, 20, kGray);
+    fonts_.regular.draw(c, "L2 + R1: trocar serviço", 700, 1015, 20, kGray);
 }
 
 void AppUi::drawTabs(Canvas& c) {
@@ -2147,6 +2159,7 @@ void AppUi::render(Canvas& c, uint64_t nowMs) {
     dirty_ = false;
     if (serviceChooserOpen_) {
         drawServiceChooser(c);
+        if (mouseCursorVisible_) drawMouseCursor(c, mouseCursorX_, mouseCursorY_);
         return;
     }
     if (boosteroidNativeOpen_) {
@@ -2155,6 +2168,8 @@ void AppUi::render(Canvas& c, uint64_t nowMs) {
             toastsDrawn_ = platform::toasts().version(nowMs);
             drawToasts(c, fonts_, platform::toasts().visible(nowMs), kW - kMargin, 132);
         }
+        if (mouseCursorVisible_ && boosteroidView_ != BoosteroidView::Streaming)
+            drawMouseCursor(c, mouseCursorX_, mouseCursorY_);
         return;
     }
     switch (screen_) {
