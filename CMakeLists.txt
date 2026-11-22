@@ -43,9 +43,6 @@ add_library(xcloud_core STATIC
     # but no Boosteroid authentication or streaming is enabled by this change.
     src/boosteroid/native_contract.cpp
     src/boosteroid/native_client.cpp
-    # The Boosteroid WSS control channel is isolated from the xCloud RTC
-    # library (which is intentionally built with NO_WEBSOCKET=ON).
-    $<$<NOT:$<BOOL:${WIN32}>>:src/boosteroid/wss_client.cpp>
     src/util/json.cpp
     src/util/log.cpp
     src/util/fs.cpp
@@ -75,6 +72,12 @@ add_library(xcloud_core STATIC
     src/platform/toasts.cpp
     src/input/gyro.cpp
 )
+# Keep the Boosteroid WebSocket channel separate from the Xbox libdatachannel,
+# built with NO_WEBSOCKET=ON. Native POSIX sockets work on Android/Linux/PS5;
+# Windows retains the experimental Electron adapter until its port is tested.
+if(NOT WIN32)
+    target_sources(xcloud_core PRIVATE src/boosteroid/wss_client.cpp)
+endif()
 target_include_directories(xcloud_core PUBLIC src extern/stb)
 
 if(XCLOUD_PS5 OR XC_TARGET_PS4)
