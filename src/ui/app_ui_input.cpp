@@ -70,8 +70,9 @@ void AppUi::handleHome(const NavInput& in, UiEvent& ev) {
     }
     if (in.l1 || in.r1) {
         // Game Pass, Your games, My consoles, round.
-        int n = static_cast<int>(tab_) + (in.r1 ? 1 : 2);
-        tab_ = static_cast<Tab>(n % 3);
+        const int tabs = boosteroidActive_ ? 2 : 3;
+        int n = static_cast<int>(tab_) + (in.r1 ? 1 : tabs - 1);
+        tab_ = static_cast<Tab>(n % tabs);
         horizonBoundary_.reset();
         searching_ = false;
         dirty_ = true;
@@ -1702,6 +1703,10 @@ UiEvent AppUi::handleLocked(const NavInput& in) {
             handleHome(in, ev);
             break;
         case Screen::SignIn:
+            if (boosteroidSignIn_ && in.back) {
+                ev.action = Action::LeaveBoosteroid;
+                break;
+            }
             // Desktop or Android: Cross/A opens the sign-in page in the browser.
             if (in.accept && (caps_.openUrl
 #if defined(__ANDROID__)
