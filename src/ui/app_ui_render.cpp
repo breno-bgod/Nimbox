@@ -19,6 +19,7 @@ void AppUi::drawPads(Canvas& c) {
 
 bool AppUi::needsRedraw(uint64_t nowMs) const {
     std::lock_guard<std::mutex> lock(mutex_);
+    if (serviceChooserOpen_) return dirty_;
     if (boosteroidNativeOpen_) {
         if (boosteroidView_ == BoosteroidView::Streaming) return false;
         return dirty_ || (boosteroidView_ == BoosteroidView::Loading ||
@@ -406,6 +407,42 @@ void AppUi::drawSplash(Canvas& c, uint64_t nowMs) {
     drawInternalBrand(c, kW / 2 - 235, 283, 470, 255);
     drawCentered(c, fonts_.regular, status_, 590, 28, kGray);
     drawSpinner(c, kW / 2.0f, 720, 26, nowMs);
+}
+
+void AppUi::drawServiceChooser(Canvas& c) {
+    drawBackground(c);
+    drawInternalBrand(c, 78, 28, 240, 130);
+    fonts_.bold.draw(c, "Escolha seu serviço", 160, 220, 60, kWhite);
+    fonts_.regular.draw(c,
+        "O NimboPlay oferece duas plataformas com a mesma experiência Horizon.",
+        162, 305, 26, kGray);
+
+    constexpr int top = 394, width = 740, height = 404;
+    const Rect boxes[2] = {{155, top, width, height}, {1025, top, width, height}};
+    for (int i = 0; i < 2; ++i) {
+        const bool selected = i == serviceChooserFocus_;
+        const Rect card = boxes[i];
+        c.fillRect(card, selected ? rgba(24, 58, 91, 248)
+                                   : rgba(17, 30, 48, 242), 28);
+        c.strokeRect(card, selected ? rgba(120, 200, 255, 235)
+                                    : rgba(142, 180, 214, 95),
+                     selected ? 4 : 2, 28);
+        const int tx = card.x + 54;
+        fonts_.bold.draw(c, i == 0 ? "Xbox Cloud Gaming" : "Boosteroid",
+                         tx, card.y + 102, 49, kWhite);
+        fonts_.regular.draw(c, i == 0 ? "Game Pass e seus consoles Xbox"
+                                      : "Jogos de PC na nuvem",
+                            tx, card.y + 196, 27, kGray);
+        fonts_.semibold.draw(c, i == 0 ? "Entrar no xCloud" : "Entrar no Boosteroid",
+                             tx, card.y + 310, 29,
+                             selected ? rgba(168, 226, 255, 255) : kWhite);
+    }
+    fonts_.regular.draw(c,
+        "Use esquerda/direita e confirme, ou toque em um serviço.",
+        390, 885, 27, kGray);
+    fonts_.regular.draw(c,
+        "Você poderá alternar os serviços sem fechar o NimboPlay.",
+        405, 958, 23, kGray);
 }
 
 void AppUi::drawBoosteroidNative(Canvas& c, uint64_t nowMs) {
@@ -2108,6 +2145,10 @@ void AppUi::render(Canvas& c, uint64_t nowMs) {
         }
     }
     dirty_ = false;
+    if (serviceChooserOpen_) {
+        drawServiceChooser(c);
+        return;
+    }
     if (boosteroidNativeOpen_) {
         drawBoosteroidNative(c, nowMs);
         if (platform::toastsEnabled()) {
