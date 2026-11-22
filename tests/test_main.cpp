@@ -277,6 +277,43 @@ static void testBoosteroidNativeQueueContract() {
     net::setTestTransport({});
 }
 
+static void testNimboPlayServiceSelection() {
+    xc::ui::Fonts fonts;
+    xc::ui::ImageCache cache([] {}, 10u << 20);
+    xc::ui::AppUi ui(fonts, cache);
+    ui.showSplash("Inicio");
+    ui.showServiceChooser();
+    CHECK(ui.serviceChooserOpen());
+
+    xc::ui::Canvas frame(1920, 1080, xc::ui::rgba(8, 18, 29));
+    ui.render(frame, 1000);
+    xc::ui::NavInput right;
+    right.right = true;
+    CHECK(ui.handle(right).action == xc::ui::Action::None);
+    xc::ui::NavInput accept;
+    accept.accept = true;
+    CHECK(ui.handle(accept).action == xc::ui::Action::OpenBoosteroidNative);
+    CHECK(!ui.serviceChooserOpen());
+
+    ui.openBoosteroidNative();
+    CHECK(ui.boosteroidNativeOpen());
+    ui.closeBoosteroidNative();
+    CHECK(ui.serviceChooserOpen());
+    CHECK(!ui.boosteroidNativeOpen());
+
+    // Touching Xbox on the chooser is a different action and does not
+    // accidentally start the Boosteroid worker or change the Xbox screen.
+    CHECK(ui.onMouseDown(400, 530, 1).action ==
+          xc::ui::Action::SelectXboxNative);
+    CHECK(!ui.serviceChooserOpen());
+    CHECK(ui.screen() == xc::ui::Screen::Splash);
+
+    ui.showServiceChooser();
+    CHECK(ui.onMouseDown(1310, 530, 1).action ==
+          xc::ui::Action::OpenBoosteroidNative);
+    CHECK(!ui.serviceChooserOpen());
+}
+
 static void testBoosteroidNativeHorizonUi() {
     // Boosteroid is an overlay: every Xbox state update is preserved beneath.
     xc::ui::Fonts fonts;
@@ -12423,6 +12460,7 @@ int main() {
 #endif
     testBoosteroidNativeGamepad();
     testBoosteroidNativeQueueContract();
+    testNimboPlayServiceSelection();
     testBoosteroidNativeHorizonUi();
     testBoosteroidNativeHttpsClient();
     testBoosteroidNativeContract();
