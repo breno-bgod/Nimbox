@@ -119,6 +119,67 @@ static int g_failures = 0;
         }                                                                    \
     } while (0)
 
+static void testBoosteroidNativeQueueContract() {
+    using namespace xc::boosteroid;
+    int enqueues = 0, starts = 0, details = 0, dequeues = 0;
+    net::setTestTransport([&](const net::Request& request) -> net::Response {
+        CHECK(request.url.rfind("https://cloud.boosteroid.com", 0) == 0);
+        net::Response answer;
+        if (request.url.find("/api/v1/auth/login/qr-code/sync") != std::string::npos) {
+            json::Value tokens = json::Value::object();
+            tokens.set("access_token", "demo.access.sig");
+            tokens.set("refresh_token", "synthetic_refresh");
+            json::Value response = json::Value::object();
+            response.set("data", std::move(tokens));
+            answer.status = 200;
+            answer.body = response.dump();
+        } else if (request.url.find("/api/v1/user") != std::string::npos) {
+            // No user ID for the offline fixture: never attempt real WSS.
+            answer.status = 200;
+            answer.body = R"({"data":{"nickname":"Mock user"}})";
+        } else if (request.url.find("/api/v2/streaming/session/enqueue") != std::string::npos) {
+            const auto body = json::parse(request.body);
+            CHECK(body && (*body)["appId"].asInt() == 321);
+            ++enqueues;
+            answer.status = 200;
+            answer.body = R"({"sessionToken":"queue-demo-token","sessionId":"session-demo"})";
+        } else if (request.url.find("/api/v2/streaming/session/start") != std::string::npos) {
+            ++starts;
+            const auto body = json::parse(request.body);
+            CHECK(body && (*body)["sessionToken"].str() == "queue-demo-token");
+            answer.status = 200;
+            answer.body = R"({"data":{"sessionId":"session-demo"}})";
+        } else if (request.url.find("/api/v1/streaming/session/details") != std::string::npos) {
+            ++details;
+            CHECK(request.url.find("session=session-demo") != std::string::npos);
+            answer.status = 200;
+            answer.body = R"({"data":{"gw":"gateway.boosteroid.com","queryString":"sessionId=session-demo&signature=mock"}})";
+        } else if (request.url.find("/api/v2/streaming/session/dequeue") != std::string::npos) {
+            ++dequeues;
+            answer.status = 200;
+            answer.body = "{}";
+        } else {
+            CHECK(false);
+            answer.status = 404;
+        }
+        return answer;
+    });
+    NativeClient client({}, false);
+    DeviceAuthorization qr;
+    CHECK(client.beginDeviceLogin(qr));
+    CHECK(client.pollDeviceLogin() == LoginResult::Authorized);
+    NativeStreamSession session;
+    std::atomic<bool> canceled{false};
+    CHECK(client.startStreamingSession(321, session, &canceled));
+    CHECK(enqueues == 1 && starts == 1 && details == 1);
+    CHECK(session.sessionId == "session-demo");
+    CHECK(session.assignedGateway == "gateway.boosteroid.com");
+    CHECK(session.signedQuery == "sessionId=session-demo&signature=mock");
+    CHECK(client.stopStreamingSession());
+    CHECK(dequeues == 1);
+    net::setTestTransport({});
+}
+
 static void testBoosteroidNativeHorizonUi() {
     // Boosteroid is an overlay: every Xbox state update is preserved beneath.
     xc::ui::Fonts fonts;
@@ -12243,6 +12304,7 @@ int main() {
     testStrings();
     testRegions();
     testPrices();
+    testBoosteroidNativeQueueContract();
     testBoosteroidNativeHorizonUi();
     testBoosteroidNativeHttpsClient();
     testBoosteroidNativeContract();
