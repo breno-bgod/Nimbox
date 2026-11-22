@@ -1119,13 +1119,14 @@ void Core::dispatchUiAction(const ui::UiEvent& ev) {
                 if (!g_boosteroidNativeWorker->start())
                     g_ui->setBoosteroidNativeError("Não foi possível iniciar o Boosteroid.");
             } else {
+                g_boosteroidNativeWorker->resume();
                 g_boosteroidNativeWorker->requestRefresh();
             }
             break;
         }
         case ui::Action::LeaveBoosteroidNative:
             if (g_boosteroidNativeWorker)
-                g_boosteroidNativeWorker->requestCancelStream();
+                g_boosteroidNativeWorker->requestPause();
             g_ui->closeBoosteroidNative();
             break;
         case ui::Action::StartBoosteroidNative: {
