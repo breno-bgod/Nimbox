@@ -40,6 +40,8 @@ struct Game {
 // persist or display the raw response in the common Horizon UI.
 bool publicAuthorization(const json::Value& response, DeviceAuthorization& output);
 std::vector<Game> publicGames(const json::Value& response);
+// Distinguishes a valid empty installed library from an unknown API response.
+bool catalogHasGameArray(const json::Value& response);
 
 // This is a provider-neutral encoded media output contract: existing
 // VideoDecoder accepts H264 Annex-B; existing AudioDecoder accepts Opus.
