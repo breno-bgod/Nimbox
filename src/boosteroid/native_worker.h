@@ -21,6 +21,8 @@ public:
     ~NativeWorker() { stop(); }
     bool start();
     void requestRefresh() { refresh_ = true; }
+    void resume() { paused_ = false; }
+    void requestPause() { paused_ = true; cancelStream_ = true; }
     void requestLogout() { logout_ = true; }
     void requestStop() { stop_ = true; cancelStream_ = true; }
     void requestLaunch(int64_t gameId) {
@@ -41,6 +43,7 @@ private:
     std::atomic<bool> stop_{false};
     std::atomic<bool> refresh_{false};
     std::atomic<bool> logout_{false};
+    std::atomic<bool> paused_{false};
     std::atomic<int64_t> launchGame_{0};
     std::atomic<bool> cancelStream_{false};
     std::mutex padMutex_;
