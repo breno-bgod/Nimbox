@@ -196,6 +196,26 @@ void AppUi::setBoosteroidNativeError(const std::string& message) {
     dirty_ = true;
 }
 
+void AppUi::setBoosteroidNativeConnecting(const std::string& message) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    boosteroidView_ = BoosteroidView::Connecting;
+    boosteroidStatus_ = message.substr(0, 250);
+    dirty_ = true;
+}
+
+void AppUi::setBoosteroidNativeStreaming() {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (boosteroidNativeOpen_ && boosteroidView_ == BoosteroidView::Connecting) {
+        boosteroidView_ = BoosteroidView::Streaming;
+        dirty_ = false;
+    }
+}
+
+bool AppUi::boosteroidNativeStreaming() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return boosteroidNativeOpen_ && boosteroidView_ == BoosteroidView::Streaming;
+}
+
 std::string AppUi::gamertag() const {
     std::lock_guard<std::mutex> lock(mutex_);
     return gamertag_;
