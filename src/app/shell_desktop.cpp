@@ -44,12 +44,17 @@ BOOL CALLBACK findServiceView(HWND handle, LPARAM) {
     wchar_t kind[64]{};
     GetClassNameW(handle, kind, 64);
     if (wcscmp(kind, L"Chrome_WidgetWin_1") || GetWindow(handle,GW_OWNER)) return TRUE;
+    wchar_t title[80]{};
+    GetWindowTextW(handle,title,80);
+    if (wcscmp(title,L"NimboPlay.Boosteroid.Ready")) return TRUE;
     serviceView = handle;
     return FALSE;
 }
 void updateServiceView() {
     if (!serviceProcess) return;
-    if (SDL_WaitProcess(serviceProcess,false,nullptr)) {
+    int exitCode = 0;
+    if (SDL_WaitProcess(serviceProcess,false,&exitCode)) {
+        if (exitCode) platform::notify("OpenStroid foi encerrado. Você pode tentar novamente.");
         SDL_DestroyProcess(serviceProcess);
         serviceProcess = nullptr;
         serviceView = nullptr;
@@ -58,35 +63,40 @@ void updateServiceView() {
     }
     HWND host = static_cast<HWND>(SDL_GetPointerProperty(SDL_GetWindowProperties(display::sdlWindow()),
                                      SDL_PROP_WINDOW_WIN32_HWND_POINTER,nullptr));
-    if (!host) return;
-    if (!serviceView) {
-        EnumWindows(findServiceView,0);
-        if (!serviceView) {
-            if (SDL_GetTicks() > attachDeadline) {
-                SDL_KillProcess(serviceProcess,true);
-                platform::notify("Não foi possível abrir o Boosteroid no NimboPlay.");
-            }
-            return;
-        }
-        LONG_PTR style = GetWindowLongPtrW(serviceView,GWL_STYLE);
-        SetWindowLongPtrW(serviceView,GWL_STYLE,(style & ~(WS_POPUP|WS_CAPTION|WS_THICKFRAME)) | WS_CHILD);
-        SetLastError(0);
-        if (!SetParent(serviceView,host) && GetLastError()) {
+    if (!host || !serviceView) {
+        if (SDL_GetTicks() >= attachDeadline) {
             SDL_KillProcess(serviceProcess,true);
-            platform::notify("Não foi possível conectar a janela do Boosteroid.");
+            platform::notify("O Boosteroid não concluiu a abertura. Tente novamente.");
             return;
         }
-        RECT initial{};
-        GetClientRect(host,&initial);
-        SetWindowPos(serviceView,HWND_TOP,0,0,initial.right,initial.bottom,SWP_FRAMECHANGED|SWP_SHOWWINDOW);
-        ShowWindow(serviceView,SW_SHOW);
-        SetFocus(serviceView);
+        if (!host) return;
+        EnumWindows(findServiceView,0);
+        if (!serviceView) return;
+        // An owned top-level surface preserves Chromium's compositor and input queue.
+        // A cross-process WS_CHILD can block the SDL thread during focus changes.
+        SetLastError(0);
+        if (!SetWindowLongPtrW(serviceView,GWLP_HWNDPARENT,reinterpret_cast<LONG_PTR>(host)) && GetLastError()) {
+            SDL_KillProcess(serviceProcess,true);
+            platform::notify("Não foi possível abrir o Boosteroid.");
+            return;
+        }
+        RECT bounds{};
+        GetClientRect(host,&bounds);
+        POINT origin{};
+        ClientToScreen(host,&origin);
+        SetWindowPos(serviceView,HWND_TOP,origin.x,origin.y,bounds.right,bounds.bottom,SWP_ASYNCWINDOWPOS|SWP_NOACTIVATE);
+        PostMessageW(serviceView,WM_APP+125,0,0);
+        return;
     }
     RECT bounds{},current{};
     GetClientRect(host,&bounds);
+    POINT origin{};
+    ClientToScreen(host,&origin);
     GetWindowRect(serviceView,&current);
-    if (current.right-current.left != bounds.right || current.bottom-current.top != bounds.bottom)
-        SetWindowPos(serviceView,HWND_TOP,0,0,bounds.right,bounds.bottom,SWP_NOACTIVATE|SWP_FRAMECHANGED);
+    if (!IsIconic(host) && (current.left!=origin.x || current.top!=origin.y ||
+        current.right-current.left!=bounds.right || current.bottom-current.top!=bounds.bottom))
+        SetWindowPos(serviceView,nullptr,origin.x,origin.y,bounds.right,bounds.bottom,
+                     SWP_ASYNCWINDOWPOS|SWP_NOZORDER|SWP_NOACTIVATE);
 }
 #endif
 bool g_quit = false;              // main thread
@@ -319,7 +329,7 @@ void beforeShutdown() {
 Caps caps() {
     Caps result{false, true, false, true};
 #ifdef _WIN32
-    result.serviceActive = [](){ return serviceProcess != nullptr; };
+    result.serviceActive = [](){ return serviceView != nullptr && IsWindowVisible(serviceView) != 0; };
     result.launchOpenStroid = []() {
         const char* base = SDL_GetBasePath();
         if (!base) return false;
