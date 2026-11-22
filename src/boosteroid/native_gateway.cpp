@@ -20,6 +20,8 @@
 #include <initializer_list>
 #include <condition_variable>
 #include <mutex>
+#include <memory>
+#include <set>
 #include <string>
 #include <utility>
 #include <vector>
@@ -188,6 +190,11 @@ bool NativeGateway::run(const NativeStreamSession& session, const EncodedMediaSi
     if (progress) progress("Gateway Boosteroid conectado; negociando WebRTC...");
     std::shared_ptr<rtc::PeerConnection> peer;
     std::shared_ptr<rtc::Track> video, audio;
+    struct LocalCandidates {
+        std::mutex mutex;
+        std::vector<rtc::Candidate> values;
+    };
+    const auto gathered = std::make_shared<LocalCandidates>();
     stream::VideoReceiveStats receiveStats;
     std::atomic<uint64_t> frameCount{0}, opusCount{0};
     std::atomic<bool> peerConnected{false}, peerFailed{false};
@@ -232,6 +239,10 @@ bool NativeGateway::run(const NativeStreamSession& session, const EncodedMediaSi
                 config.iceServers.emplace_back("stun:stun.l.google.com:19302");
 
             peer = std::make_shared<rtc::PeerConnection>(config);
+            peer->onLocalCandidate([gathered](rtc::Candidate candidate) {
+                std::lock_guard<std::mutex> lock(gathered->mutex);
+                gathered->values.push_back(std::move(candidate));
+            });
             peer->onGatheringStateChange([&](rtc::PeerConnection::GatheringState state) {
                 if (state == rtc::PeerConnection::GatheringState::Complete)
                     gatheringDone = true;
@@ -283,6 +294,22 @@ bool NativeGateway::run(const NativeStreamSession& session, const EncodedMediaSi
                 return false;
             }
             peer->setRemoteDescription(rtc::Description(answer, rtc::Description::Type::Answer));
+            // Some gateway versions ignore ICE candidates embedded in the SDP
+            // offer; send the same local candidates through its REST trickle
+            // route. Keep signed gateway details out of logs and UI.
+            std::vector<rtc::Candidate> local;
+            {
+                std::lock_guard<std::mutex> lock(gathered->mutex);
+                local = gathered->values;
+            }
+            for (const auto& candidate : local) {
+                if (cancel) break;
+                json::Value trickle = json::Value::object();
+                trickle.set("candidate", std::string(candidate));
+                trickle.set("sdpMid", candidate.mid());
+                trickle.set("sdpMLineIndex", candidate.mid() == "1" ? 1 : 0);
+                signalRequest(host, endpoint("/api/addIceCandidate"), "POST", trickle.dump());
+            }
             if (progress) progress("WebRTC negociado. Aguardando vídeo e áudio...");
             return true;
         } catch (const std::exception& e) {
@@ -300,8 +327,9 @@ bool NativeGateway::run(const NativeStreamSession& session, const EncodedMediaSi
     bool offerSubmitted = false;
     bool sawNativeUdp = false;
     bool completed = false;
+    std::set<std::string> remoteIceSeen;
     // Once decoded media begins, stay connected until the user leaves.
-    // The 30-second deadline applies only to initial start, not playback.
+    // The 60-second deadline applies only to initial start, not playback.
     while (!cancel && control.connected() &&
            (platform::nowMs() < deadline || completed)) {
         std::string message, readError;
@@ -356,7 +384,8 @@ bool NativeGateway::run(const NativeStreamSession& session, const EncodedMediaSi
                     collectCandidates(*parsed, values);
                     for (auto candidate : values) {
                         if (candidate.rfind("a=", 0) == 0) candidate.erase(0, 2);
-                        if (candidate.rfind("candidate:", 0) != 0) continue;
+                        if (candidate.rfind("candidate:", 0) != 0 ||
+                            !remoteIceSeen.insert(candidate).second) continue;
                         try { peer->addRemoteCandidate(rtc::Candidate(candidate, "0")); }
                         catch (...) {}
                     }
