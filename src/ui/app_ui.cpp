@@ -171,6 +171,8 @@ void AppUi::setProfile(const std::string& gamertag, const std::string& gamerpicU
     if (gamertag_ != gamertag || gamertag.empty()) {
         directory_.clear();
         ++chatSession_;
+        ++chatAccount_;
+        chatHistory_.clear();
         chat_ = {};
         shelfCatalog_ = {};
         shelfGenres_ = {};

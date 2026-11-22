@@ -344,9 +344,10 @@ void drawFriendAvatar(Canvas& c, Rect r) {
 }
 constexpr Rect kChatAction{1060, 610, 350, 76};
 constexpr char kChatKeys[] = "abcdefghijklmnopqrstuvwxyz0123456789 .?!";
+constexpr Rect kChatInput{120,836,1130,94}, kChatKeyboard{1268,836,220,94}, kChatSend{1506,836,294,94};
 Rect chatKeyRect(int key) {
-    if (key >= 40) return {1050 + (key-40)*340, 718, 316, 68};
-    return {1050 + key%10*68, 402 + key/10*76, 61, 66};
+    if (key >= 40) return {520 + (key-40)*446,745,428,62};
+    return {520 + key%10*89,475 + key/10*66,78,57};
 }
 }
 
@@ -360,21 +361,29 @@ AppUi::ChatRequest AppUi::takeChatRequest(uint64_t nowMs) {
     chat_.busy = true;
     chat_.sending = chat_.sendQueued;
     chat_.sendQueued = false;
-    return {chatSession_, chat_.peer, chat_.sending ? chat_.draft : ""};
+    return {chatSession_, chat_.peer, chat_.sending ? chat_.draft : "",chatHistory_[chat_.peer].conversationId,chatAccount_};
 }
 
-void AppUi::finishChatRequest(const ChatRequest& req, bool ok, std::vector<xcloud::ChatMessage> lines, uint64_t nowMs) {
+void AppUi::finishChatRequest(const ChatRequest& req, const xcloud::ChatResponse& result, uint64_t nowMs) {
     std::lock_guard<std::mutex> lock(mutex_);
-    if (!inChat() || req.session != chatSession_ || req.peer != chat_.peer || !chat_.busy) return;
+    if (req.account != chatAccount_) return;
+    const bool current = inChat() && req.session == chatSession_ && req.peer == chat_.peer;
+    // A receipt can arrive after Back. Keep it with its recipient in this account.
+    if (!current && req.text.empty()) return;
+    auto& history = chatHistory_[req.peer];
+    history.merge(result);
+    if (!current) { dirty_ = true; return; }
     chat_.busy = chat_.sending = false;
     if (req.text.empty()) {
-        chat_.readFailed = !ok;
-        if (ok) { chat_.lines = std::move(lines); chat_.loaded = true; }
-        chat_.historyOffset = std::clamp(chat_.historyOffset, 0, std::max(0,int(chat_.lines.size())-1));
-        chat_.nextRead = nowMs + 15000;
+        chat_.readFailed = !result.ok;
+        chat_.readStatus = result.status;
+        chat_.loaded |= result.ok;
+        chat_.historyOffset = std::clamp(chat_.historyOffset,0,std::max(0,int(history.messages.size())-1));
+        chat_.nextRead = nowMs + (result.ok ? 3000 : 12000);
     } else {
-        chat_.sendFailed = !ok;
-        if (ok) { chat_.draft.clear(); chat_.historyOffset = 0; }
+        chat_.sendFailed = !result.ok;
+        chat_.sendStatus = result.status;
+        if (result.ok) { chat_.draft.clear(); chat_.historyOffset = 0; }
         chat_.nextRead = 0;
     }
     dirty_ = true;
@@ -407,6 +416,8 @@ void AppUi::pressChatKey(int key) {
     if (key == 41) {
         if (!chat_.sending && !chat_.sendQueued && chat_.draft.find_first_not_of(' ') != std::string::npos) {
             chat_.sendQueued = true;
+            chat_.historyOffset = 0;
+            chat_.keyboardOpen = chat_.composing = false;
             chat_.sendFailed = false;
         }
     } else if (key == 40) editChat("\b");
@@ -415,51 +426,72 @@ void AppUi::pressChatKey(int key) {
 }
 
 void AppUi::drawChat(Canvas& c, const std::string& name) {
-    fonts_.semibold.draw(c,tr(Str::ChatMessages),120,235,29,kWhite);
-    const int end = int(chat_.lines.size())-chat_.historyOffset;
-    int bottom = 855;
-    c.setClip({120,300,860,557});
-    for (int i=end-1; i>=0 && bottom>300; --i) {
-        const auto& msg = chat_.lines[i];
-        auto lines = fonts_.regular.wrap(msg.text,24,820,16);
-        bottom -= 53 + int(lines.size())*31;
-        fonts_.semibold.draw(c,msg.sender == chat_.peer ? name : tr(Str::ChatSelf),120,bottom,20,kWhite);
-        int lineY = bottom+35;
-        for (const auto& line : lines) {
-            fonts_.regular.draw(c,line,120,lineY,24,kWhite);
-            lineY += 31;
-        }
+    const auto& messages = chatHistory_[chat_.peer].messages;
+    const bool pending = chat_.sendQueued || chat_.sending;
+    const int top = 215;
+    int bottom = chat_.keyboardOpen ? 449 : 799;
+    c.setClip({120,top,1680,bottom-top});
+    auto bubble = [&](const std::string& text,const std::string& label,bool mine) {
+        const auto lines = fonts_.regular.wrap(text,26,870,20);
+        int width = fonts_.semibold.measure(label,19);
+        for (const auto& line : lines) width = std::max(width,fonts_.regular.measure(line,26));
+        width = std::clamp(width+54,160,930);
+        const int height = 62 + 36*int(lines.size());
+        Rect r{mine ? 1800-width : 120,bottom-height,width,height};
+        c.fillRect(r,mine ? rgba(34,69,87,239) : rgba(22,29,39,235),19);
+        fonts_.semibold.draw(c,label,r.x+26,r.y+10,19,rgba(199,225,235));
+        int y = r.y+41;
+        for (const auto& line : lines) { fonts_.regular.draw(c,line,r.x+26,y,26,kWhite); y += 36; }
+        bottom = r.y-14;
+    };
+    if (pending && !chat_.historyOffset) bubble(chat_.draft,tr(Str::ChatSending),true);
+    for (int i=int(messages.size())-1-chat_.historyOffset;i>=0 && bottom>top;--i) {
+        const auto& msg = messages[i];
+        const bool mine = msg.sender != chat_.peer;
+        bubble(msg.text.empty() ? tr(Str::ChatUnsupported) : msg.text,mine ? (msg.timestamp.empty() ? tr(Str::ChatUnconfirmed) : tr(Str::ChatSelf)) : name,mine);
     }
     c.clearClip();
-    int y = end ? 870 : 303;
-    if (chat_.readFailed || !end) {
+    if (chat_.readFailed || (messages.empty() && !pending)) {
         const Str status = chat_.readFailed ? Str::ChatUnavailable : chat_.loaded ? Str::ChatEmpty : Str::ChatLoading;
-        fonts_.regular.draw(c,tr(status),120,y,24,kGray);
+        std::string label = tr(status);
+        if (chat_.readFailed && chat_.readStatus) label += " (HTTP " + std::to_string(chat_.readStatus) + ")";
+        fonts_.regular.draw(c,label,120,168,23,kWhite);
     }
-    fonts_.semibold.draw(c,tr(Str::ChatCompose),1050,235,29,kWhite);
-    y = 300;
-    const auto draftLines = fonts_.regular.wrap(chat_.draft,23,665,16);
-    for (int i=std::max(0,int(draftLines.size())-3); i<int(draftLines.size()); ++i) {
-        fonts_.regular.draw(c,draftLines[i],1050,y,23,kWhite); y += 30;
-    }
-    for (int i=0;i<42;++i) {
-        Rect r = chatKeyRect(i);
-        bool focus = i == chat_.key;
-        if (focus || i >= 40) c.fillRect(r,focus ? kWhite : withAlpha(kWhite,32),12);
-        std::string label = i == 41 ? tr(Str::ChatSend) : i == 40 ? tr(Str::KeyDelete) :
-                            i == 36 ? "_" : std::string(1,kChatKeys[i]);
-        fonts_.semibold.draw(c,label,r.x+(r.w-fonts_.semibold.measure(label,24))/2,
-                             fonts_.semibold.centeredY(r.y,r.h,24),24,focus ? kBg : kWhite);
-    }
-    if (chat_.sendQueued || chat_.sending) {
-        drawSpinner(c,1748,752,14,lastRender_);
-        animating_ = true;
-    }
-    if (chat_.sendFailed) {
-        y = 810;
-        for (const auto& line : fonts_.regular.wrap(tr(Str::ChatUnconfirmed),22,680,3)) {
-            fonts_.regular.draw(c,line,1050,y,22,kWhite); y += 30;
+    if (chat_.keyboardOpen) {
+        c.fillRect({492,451,936,371},rgba(11,19,28,235),22);
+        for (int i=0;i<42;++i) {
+            Rect r = chatKeyRect(i);
+            const bool focus = i == chat_.key;
+            if (focus || i >= 40) c.fillRect(r,focus ? kWhite : withAlpha(kWhite,32),12);
+            std::string label = i == 41 ? tr(Str::ChatSend) : i == 40 ? tr(Str::KeyDelete) :
+                                i == 36 ? "_" : std::string(1,kChatKeys[i]);
+            fonts_.semibold.draw(c,label,r.x+(r.w-fonts_.semibold.measure(label,23))/2,
+                                 fonts_.semibold.centeredY(r.y,r.h,23),23,focus ? kBg : kWhite);
         }
+    }
+    c.fillRect(kChatInput,rgba(10,18,29,222),16);
+    if (!chat_.keyboardOpen && !chat_.sendFocus) c.strokeRect(kChatInput,withAlpha(kWhite,160),2,16);
+    const auto lines = fonts_.regular.wrap(chat_.draft,25,kChatInput.w-48,16);
+    if (chat_.draft.empty()) fonts_.regular.draw(c,tr(Str::ChatCompose),144,864,25,kGray);
+    else {
+        int y = lines.size()>1 ? 845 : 864;
+        for (int i=std::max(0,int(lines.size())-2);i<int(lines.size());++i) {
+            fonts_.regular.draw(c,lines[i],144,y,25,kWhite); y+=34;
+        }
+    }
+    c.fillRect(kChatKeyboard,rgba(23,33,46,221),16);
+    c.fillRect(kChatSend,pending || chat_.draft.empty() ? rgba(53,64,74,223) : kWhite,16);
+    if (chat_.sendFocus && !chat_.keyboardOpen) c.strokeRect(kChatSend,kWhite,3,16);
+    auto button = [&](Rect r,Str id,Color ink) {
+        const char* label = tr(id);
+        fonts_.semibold.draw(c,label,r.x+(r.w-fonts_.semibold.measure(label,24))/2,865,24,ink);
+    };
+    button(kChatKeyboard,Str::ChatKeyboard,kWhite);
+    button(kChatSend,pending ? Str::ChatSending : Str::ChatSend,pending || chat_.draft.empty() ? kWhite : kBg);
+    if (chat_.sendFailed) {
+        std::string status = tr(Str::ChatUnconfirmed);
+        if (chat_.sendStatus) status += " (HTTP " + std::to_string(chat_.sendStatus) + ")";
+        fonts_.regular.draw(c,fonts_.regular.fit(status,21,1660),120,944,21,kWhite);
     }
     hintRects_.clear();
     drawHints(c,{{kIconL1R1,tr(Str::ChatMessages)}, {kIconCircle,tr(Str::Back)}});
@@ -467,17 +499,30 @@ void AppUi::drawChat(Canvas& c, const std::string& name) {
 
 void AppUi::handleDirectory(const NavInput& in, UiEvent& ev) {
     auto& p = activeDirectory();
+    if (in.back && p.kind == Directory::Chat && chat_.keyboardOpen) {
+        chat_.keyboardOpen = chat_.composing = false; dirty_ = true; return;
+    }
     if (in.back) { backDirectory(); return; }
     if (p.kind == Directory::Chat) {
+        if (in.l1 || in.r1 || in.scrollRows || (!chat_.keyboardOpen && (in.up || in.down))) {
+            const int count = int(chatHistory_[chat_.peer].messages.size());
+            chat_.historyOffset = std::clamp(chat_.historyOffset + (in.l1 || in.up || in.scrollRows < 0 ? 1 : -1),
+                                             0,std::max(0,count-1));
+            dirty_ = true;
+            return;
+        }
+        if (!chat_.keyboardOpen) {
+            if (in.left || in.right) chat_.sendFocus = in.right;
+            if (in.accept && chat_.sendFocus) pressChatKey(41);
+            else if (in.accept) chat_.keyboardOpen = true;
+            dirty_ = true; return;
+        }
         int& key = chat_.key;
         if (in.accept) pressChatKey(key);
         else if (in.left) key = std::max(key >= 40 ? 40 : (key/10)*10, key-1);
         else if (in.right) key = std::min(key >= 40 ? 41 : (key/10)*10+9, key+1);
         else if (in.up) key = key >= 40 ? (key == 40 ? 32 : 37) : std::max(0,key-10);
         else if (in.down && key < 40) key = key >= 30 ? (key < 35 ? 40 : 41) : key+10;
-        else if (in.l1 || in.r1 || in.scrollRows)
-            chat_.historyOffset = std::clamp(chat_.historyOffset + (in.l1 || in.scrollRows < 0 ? 1 : -1),
-                                             0,std::max(0,int(chat_.lines.size())-1));
         dirty_ = true;
         return;
     }
@@ -535,7 +580,17 @@ bool AppUi::directoryPointer(float x, float y, int button, UiEvent& ev) {
         for (const auto& [icon,r] : hintRects_) {
             if (icon == kIconCircle && horizon::contains(r,x,y)) { backDirectory(); return true; }
         }
-        for (int i=0;i<42;++i) if (horizon::contains(chatKeyRect(i),x,y)) {
+        if (horizon::contains(kChatSend,x,y)) { pressChatKey(41); return true; }
+        if (horizon::contains(kChatKeyboard,x,y)) {
+            chat_.keyboardOpen = !chat_.keyboardOpen;
+            chat_.composing = false;
+            dirty_ = true; return true;
+        }
+        if (horizon::contains(kChatInput,x,y)) {
+            chat_.keyboardOpen = false; chat_.composing = true; chat_.sendFocus = false;
+            dirty_ = true; return true;
+        }
+        for (int i=0;chat_.keyboardOpen && i<42;++i) if (horizon::contains(chatKeyRect(i),x,y)) {
             chat_.key = i; pressChatKey(i); break;
         }
         return true;

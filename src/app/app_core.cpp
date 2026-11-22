@@ -1540,9 +1540,7 @@ bool Core::frame() {
         std::vector<uint8_t> navKeys;
         for (uint8_t vk : kbm.held)
             if (std::find(swallowedKeys.begin(), swallowedKeys.end(), vk) == swallowedKeys.end()) navKeys.push_back(vk);
-        if (shell::caps().window && typing) {
-            navKeys.clear();
-        } else if (shell::caps().window) {
+        if (shell::caps().window) {
             navKeys.erase(std::remove(navKeys.begin(), navKeys.end(), uint8_t{0x2E}), navKeys.end());
         }
         input::keyboardToPad(navKeys, pad);

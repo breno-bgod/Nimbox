@@ -494,25 +494,64 @@ int desktopSelftest(const std::string& dir) {
             ui.handle(accept);
             auto read = ui.takeChatRequest(100);
             check(read.peer == friendOnline.xuid && read.text.empty() && read.session, "Open the selected friend's conversation");
-            ui.finishChatRequest(read,true,{{"12345","Example reply","2026-01-01"}},100);
-            ui.render(canvas,platform::nowMs());
-            drawCanvas(canvas);
-            check(screenshot(dir,"6m-horizon-chat.png",shot) && varied(shot), "Native chat capture");
+            const std::string emptyPage = R"({"conversationId":"thread","messages":[]})";
+            const auto empty = xcloud::decodeChatHistory(200,emptyPage);
+            const auto failure = xcloud::decodeChatHistory(404,"");
+            check(empty.ok && !failure.ok && !xcloud::decodeChatHistory(200,R"({"conversationId":"thread"})").ok,
+                  "Only a valid history page can report an empty chat");
+            ui.finishChatRequest(read,empty,100);
+            const uint64_t frame = platform::nowMs();
+            ui.render(canvas,frame);
+            ui.render(canvas,frame+300);
+            auto pixel = [&](int x,int y){ return canvas.data()[y*canvas.width()+x]; };
+            const auto emptyRight = pixel(1775,754), emptyLeft = pixel(145,754);
             ui.typeText("Hello");
-            ui.onMouseDown(1480,749,1);
+            ui.onMouseDown(1640,880,1);
             auto send = ui.takeChatRequest(110);
             check(send.text == "Hello" && send.peer == "12345" && !ui.takeChatRequest(111).session,
                   "An explicit send queues one request addressed to the selected XUID");
-            ui.finishChatRequest(send,false,{},120);
+            ui.render(canvas,frame+300);
+            check(pixel(1775,754) != emptyRight,"My pending message appears immediately on the right");
+            ui.finishChatRequest(send,failure,120);
             auto refresh = ui.takeChatRequest(125);
             check(refresh.session && refresh.text.empty(),"Unconfirmed delivery refreshes history without resending");
-            ui.finishChatRequest(refresh,true,{},126);
-            ui.onMouseDown(1480,749,1);
+            ui.finishChatRequest(refresh,empty,126);
+            ui.onMouseDown(1640,880,1);
             auto retry = ui.takeChatRequest(130);
             check(retry.text == "Hello", "Failed send preserves the draft for manual retry");
+            const auto receipt = xcloud::decodeChatReceipt(200,R"({"messageId":"70","conversationId":"thread"})","self",retry.text);
+            check(receipt.ok && !xcloud::decodeChatReceipt(200,"{}","self",retry.text).ok,"A successful send requires an Xbox message ID");
+            ui.finishChatRequest(retry,receipt,140);
+            refresh = ui.takeChatRequest(141);
+            check(refresh.conversationId=="thread" && refresh.text.empty(),"Read the same conversation as the send receipt");
+            ui.finishChatRequest(refresh,empty,142);
+            ui.render(canvas,frame+300);
+            check(pixel(1775,754) != emptyRight,"An empty server refresh preserves my acknowledged bubble");
+            const std::string replyPage = R"({"conversationId":"thread","messages":[
+                {"messageId":"71","sender":"12345","timestamp":"2026-01-01T00:00:02Z","contentPayload":{"content":{"parts":[{"contentType":"text","text":"See you in game!"}]}}},
+                {"messageId":"70","sender":"self","timestamp":"2026-01-01T00:00:01Z","contentPayload":{"content":{"parts":[{"contentType":"text","text":"Hello"}]}}}
+            ]})";
+            const auto replies = xcloud::decodeChatHistory(200,replyPage);
+            xcloud::ChatHistory timeline;
+            timeline.merge(receipt);
+            timeline.merge(empty);
+            timeline.merge(replies);
+            timeline.merge(replies);
+            check(timeline.messages.size()==2 && timeline.messages[0].id=="70" && timeline.messages[1].text=="See you in game!",
+                  "A reply and an echoed send appear once each in chronological order");
+            refresh = ui.takeChatRequest(3143);
+            check(refresh.session && refresh.text.empty(),"Poll for replies with no user interaction");
+            ui.finishChatRequest(refresh,replies,3144);
+            ui.render(canvas,frame+300);
+            check(pixel(145,754) != emptyLeft,"The friend's reply appears on the left after polling");
+            drawCanvas(canvas);
+            check(screenshot(dir,"6m-horizon-chat.png",shot) && varied(shot),"Native two-sided chat transcript");
             ui.handle(back);
-            ui.finishChatRequest(retry,true,{},140);
-            check(!ui.wantsTextInput() && !ui.takeChatRequest(150).session, "Leaving chat discards stale results");
+            ui.handle(accept);
+            ui.render(canvas,frame+300);
+            ui.render(canvas,frame+600);
+            check(pixel(145,754) != emptyLeft,"Reopening the contact keeps the conversation during refresh");
+            ui.handle(back);
             ui.handle(back);
             ui.showToast("Test notification");
             ui.onMouseDown(1370, 70, 1);
@@ -596,6 +635,27 @@ int desktopSelftest(const std::string& dir) {
         returnToDetails.back = true;
         ui.handle(returnToDetails);
         check(ui.screen() == ui::Screen::Details, "Settings returns to the selected game detail");
+        const auto selectedGame = ui.detailTile().productId;
+        ui::NavInput options;
+        options.options = true;
+        ui.handle(options);
+        check(ui.screen()==ui::Screen::Settings && !ui.gameSettingsOpen(),"Tab / Options opens global settings from Details");
+        ui.handle(returnToDetails);
+        const auto profile = ui::showcase::kGameProfileButton;
+        ui.onMouseDown(profile.x+34,profile.y+25,1);
+        check(ui.gameSettingsOpen(),"Named title action opens its own profile");
+        ui.render(canvas,platform::nowMs());
+        drawCanvas(canvas);
+        check(screenshot(dir,"6n-horizon-title-settings.png",shot) && varied(shot),"Per-title settings capture");
+        ui.onMouseDown(170,345,1); // Playback section
+        ui::NavInput change;
+        change.right = true;
+        const auto edited = ui.handle(change);
+        check(edited.action==ui::Action::GameSettingsChanged && edited.game.productId==selectedGame,
+              "Profile change stays scoped to the selected title");
+        ui.onMouseDown(120,120,1);
+        check(!ui.gameSettingsOpen() && ui.screen()==ui::Screen::Details && ui.detailTile().productId==selectedGame,
+              "Profile Back returns to the same title");
         {
             const auto play = ui.onMouseDown(ui::showcase::kPlayButton.x + 34.0f,
                                              ui::showcase::kPlayButton.y + 25.0f, 1);

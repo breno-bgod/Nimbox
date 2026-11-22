@@ -555,7 +555,23 @@ void AppUi::setPerGameSettings(const std::map<std::string, app::GameProfile>& pe
     dirty_ = true;
 }
 
+void AppUi::openGeneralSettings() {
+    settingsReturnScreen_ = screen_;
+    settingsBackdropReady_ = false;
+    settingsQrExpanded_ = false;
+    screen_ = Screen::Settings;
+    settingsRow_ = 0;
+    settingsFromError_ = false;
+    settingsCountry_ = settings_.loginCountry;
+    dropdownOpen_ = false;
+    filterList_ = -1;
+    settingsScrollY_ = 0.0f;
+    dirty_ = true;
+}
+
 void AppUi::openGameSettings() {
+    settingsBackdropReady_ = false;
+    dirty_ = true;
     gameSettingsOpen_ = true;
     gameSettingsRow_ = 0;
     activeGameMouseSupported_ = detail_.mouseKeyboard;
@@ -603,6 +619,8 @@ void AppUi::openGameSettings() {
 
 void AppUi::closeGameSettings() {
     gameSettingsOpen_ = false;
+    settingsBackdropReady_ = false;
+    settingsFrostedBackdrop_.px.clear();
     tester_ = Tester::None;
 }
 
@@ -933,6 +951,28 @@ bool AppUi::selectGameSettingsRow(int rowId) {
     return false;
 }
 
+void AppUi::gameProfilePointer(float x,float y,bool click,UiEvent& ev) {
+    if (tester_ != Tester::None) return;
+    if (click && horizon::contains({kMargin,86,65,65},x,y)) {
+        handleGameSettings(NavInput{.back=true},ev); return;
+    }
+    const auto rows = visibleGameSettingsRows(caps_,activeGameHasCustom_,activeGameMouseSupported_);
+    if (rows.empty()) return;
+    const int section = gameProfileSection(rows[std::clamp(gameSettingsRow_,0,int(rows.size())-1)].row);
+    for (int pos=0;pos<int(rows.size());++pos) {
+        const int tab = gameProfileSection(rows[pos].row);
+        if (click && horizon::contains(settingsSectionRect(tab),x,y)) {
+            gameSettingsRow_ = pos; dirty_ = true; return;
+        }
+        Rect row = gameProfileRowRect(rows,pos,section);
+        if (row.w && horizon::contains(row,x,y)) {
+            gameSettingsRow_ = pos; dirty_ = true;
+            if (click) handleGameSettings(NavInput{.accept=true},ev);
+            return;
+        }
+    }
+}
+
 void AppUi::handleGameSettings(const NavInput& in, UiEvent& ev) {
     if (tester_ != Tester::None) {
         handleTester(in);
@@ -950,12 +990,20 @@ void AppUi::handleGameSettings(const NavInput& in, UiEvent& ev) {
     // The rows on screen (gameSettingsRow_ is a position among them).
     const auto rows = visibleGameSettingsRows(caps_, activeGameHasCustom_, activeGameMouseSupported_);
     const int rowCount = static_cast<int>(rows.size());
-    if (in.up) {
-        gameSettingsRow_ = (gameSettingsRow_ + rowCount - 1) % rowCount;
-        dirty_ = true;
+    if (!rowCount) return;
+    gameSettingsRow_ = std::clamp(gameSettingsRow_,0,rowCount-1);
+    const int section = gameProfileSection(rows[gameSettingsRow_].row);
+    if (in.l1 || in.r1) {
+        for (int offset=1;offset<=3;++offset) {
+            const int next = (section + (in.r1 ? offset : -offset) + 3) % 3;
+            const auto first = std::find_if(rows.begin(),rows.end(),[&](const auto& r){return gameProfileSection(r.row)==next;});
+            if (first != rows.end()) { gameSettingsRow_ = int(first-rows.begin()); break; }
+        }
+        dirty_ = true; return;
     }
-    if (in.down) {
-        gameSettingsRow_ = (gameSettingsRow_ + 1) % rowCount;
+    if (in.up || in.down) {
+        do { gameSettingsRow_ = (gameSettingsRow_ + (in.down ? 1 : -1) + rowCount) % rowCount; }
+        while (gameProfileSection(rows[gameSettingsRow_].row) != section);
         dirty_ = true;
     }
     const int rowId = rows[static_cast<size_t>(std::clamp(gameSettingsRow_, 0, rowCount - 1))].row;
@@ -1245,7 +1293,7 @@ void AppUi::handleGameSettings(const NavInput& in, UiEvent& ev) {
         ev.gameProfile = activeGameProfile_;
     }
     if (in.back || in.options) {
-        gameSettingsOpen_ = false;
+        closeGameSettings();
         std::string key = app::gameProfileKey(detail_.productId, detail_.titleId);
         if (activeGameHasCustom_) {
             perGameSettings_[key] = activeGameProfile_;
@@ -1260,9 +1308,8 @@ void AppUi::handleGameSettings(const NavInput& in, UiEvent& ev) {
     }
 }
 
-void AppUi::drawSettings(Canvas& c) {
+void AppUi::drawSettingsHeader(Canvas& c, const std::string& title) {
     c.gradientH({0, 0, kW, kH}, rgba(9, 13, 21, 186), rgba(9, 13, 21, 150));
-    const Color accent = nimbox_theme::palette(settings_.nimboxTheme).accent;
     // Back button next to Settings title for touch navigation
     Rect backBtn{kMargin, 94, 52, 52};
     float bx = backBtn.x + backBtn.w / 2.0f, by = backBtn.y + backBtn.h / 2.0f;
@@ -1270,7 +1317,12 @@ void AppUi::drawSettings(Canvas& c) {
     c.line(bx - 4.0f, by, bx + 4.0f, by + 9.0f, 3.0f, kWhite);
 
     // Editorial page header; the back and Settings targets remain intact.
-    fonts_.bold.draw(c, tr(Str::Settings), kMargin + 76, 91, 48, kWhite);
+    fonts_.bold.draw(c, fonts_.bold.fit(title,48,kW-3*kMargin), kMargin + 76, 91, 48, kWhite);
+}
+
+void AppUi::drawSettings(Canvas& c) {
+    drawSettingsHeader(c,tr(Str::Settings));
+    const Color accent = nimbox_theme::palette(settings_.nimboxTheme).accent;
 
     if (loading_) {
         drawLoadingBar(c, kW - kMargin - 480, 100, 480, lastRender_);
@@ -2413,50 +2465,35 @@ void AppUi::drawGameSettings(Canvas& c) {
         drawTouchpadTester(c);
         return;
     }
-    std::string title = tr(Str::GameSettings);
-    if (!detail_.name.empty()) {
-        std::string full = title + "  \xE2\x80\xA2  " + detail_.name;
-        if (fonts_.bold.measure(full, 40) <= 960) {
-            title = full;
-        } else {
-            std::string cut = detail_.name;
-            while (!cut.empty() && fonts_.bold.measure(title + "  \xE2\x80\xA2  " + cut + "...", 40) > 960) {
-                do {
-                    cut.pop_back();
-                } while (!cut.empty() && (static_cast<uint8_t>(cut.back()) & 0xC0) == 0x80);
-            }
-            title = title + "  \xE2\x80\xA2  " + cut + "...";
+    drawSettingsHeader(c,std::string(tr(Str::GameSettings))+" · "+detail_.name);
+    const auto rows = visibleGameSettingsRows(caps_,activeGameHasCustom_,activeGameMouseSupported_);
+    if (rows.empty()) return;
+    const int section = gameProfileSection(rows[std::clamp(gameSettingsRow_,0,int(rows.size())-1)].row);
+    const Str names[] = {Str::Profile,Str::SettingsPlayback,Str::SettingsControls};
+    for (int tab=0;tab<3;++tab) {
+        if (std::none_of(rows.begin(),rows.end(),[&](const auto& row){ return gameProfileSection(row.row)==tab; })) continue;
+        const Rect r = settingsSectionRect(tab);
+        if (tab == section) {
+            c.fillRect(r,withAlpha(kWhite,24),5);
+            c.fillRect({r.x,r.y+10,3,r.h-20},nimbox_theme::palette(settings_.nimboxTheme).accent,1);
         }
+        fonts_.semibold.draw(c,tr(names[tab]),r.x+22,r.y+14,25,kWhite);
     }
-    constexpr int kModalW = 1140, kModalH = 960;
-    constexpr int kRowH = 38, kGap = 4, kGroupGap = 7;
-    // The rows caps_ allows; the panel loses the height of those it hides
-    // (the same as ever with all of them, "Reset to default" or not).
-    const auto rows = visibleGameSettingsRows(caps_, activeGameHasCustom_, activeGameMouseSupported_);
-    const auto most = visibleGameSettingsRows(caps_, true, activeGameMouseSupported_), all = visibleGameSettingsRows(UiCaps{}, true, true);
-    auto groups = [](const std::vector<SettingsRowPos>& v) {
-        return static_cast<int>(std::count_if(v.begin(), v.end(), [](const SettingsRowPos& r) { return r.groupStart; }));
-    };
-    const int modalH = kModalH - static_cast<int>(all.size() - most.size()) * (kRowH + kGap) -
-                       (groups(all) - groups(most)) * kGroupGap;
-    Rect panel = drawModal(c, kModalW, modalH, title);
-    int y = panel.y + 92;
-
-    for (int pos = 0; pos < static_cast<int>(rows.size()); ++pos) {
-        const int i = rows[static_cast<size_t>(pos)].row;
-        if (rows[static_cast<size_t>(pos)].groupStart) y += kGroupGap;
-        Rect r{panel.x + 50, y, panel.w - 100, kRowH};
-        bool focused = (pos == gameSettingsRow_);
-        c.fillRect(r, focused ? rgba(255, 255, 255, 36) : rgba(255, 255, 255, 14), 14);
-        if (focused) c.strokeRect({r.x - 4, r.y - 4, r.w + 8, r.h + 8}, kWhite, 2, 18);
-
+    for (int pos=0;pos<int(rows.size());++pos) {
+        const int i = rows[pos].row;
+        Rect r = gameProfileRowRect(rows,pos,section);
+        if (!r.w) continue;
+        const bool focused = pos == gameSettingsRow_;
+        if (focused) {
+            c.fillRect(r,withAlpha(kWhite,29),5);
+            c.strokeRect(r,withAlpha(kWhite,87),1,5);
+        } else c.fillRect({r.x+18,r.y+r.h,r.w-36,1},withAlpha(kWhite,26));
         int ty = fonts_.semibold.centeredY(r.y, r.h, 26);
 
         if (i == 10) {
             const char* resetLabel = tr(Str::ResetToDefault);
             int tw = fonts_.semibold.measure(resetLabel, 26);
             fonts_.semibold.draw(c, resetLabel, r.x + (r.w - tw) / 2, ty, 26, focused ? kWhite : rgba(240, 100, 100));
-            y += kRowH + kGap;
             continue;
         }
 
@@ -2595,30 +2632,12 @@ void AppUi::drawGameSettings(Canvas& c) {
             const bool canCycle = (i != 9 && i != 11 && i != 17);
             int valueRight = r.x + r.w - 28;
             if (hasSubmenu) {
-                const int pillW = focused ? 50 : 28;
-                const int pillH = 24;
-                const int pillX = r.x + r.w - 20 - pillW;
-                const int pillY = r.y + (r.h - pillH) / 2;
-                valueRight = pillX - 14;
-
-                c.fillRect({pillX, pillY, pillW, pillH},
-                           focused ? rgba(24, 28, 32) : rgba(255, 255, 255, 22), 6);
-                c.strokeRect({pillX, pillY, pillW, pillH},
-                             focused ? rgba(22, 163, 74) : rgba(255, 255, 255, 55), 1, 6);
-
-                if (focused) {
-                    if (g_keyboardHints) {
-                        fonts_.bold.draw(c, "OK", pillX + 6, fonts_.bold.centeredY(pillY, pillH, 11), 11, rgba(74, 222, 128));
-                    } else {
-                        drawFaceButton(c, fonts_.bold, circleConfirms_ ? kIconCircle : kIconCross,
-                                       static_cast<float>(pillX + 14), static_cast<float>(pillY + pillH / 2), 8.0f);
-                    }
-                }
-                const float acx = static_cast<float>(pillX + pillW - 12);
-                const float acy = static_cast<float>(pillY + pillH / 2);
-                const Color arrowCol = focused ? rgba(74, 222, 128) : rgba(215, 215, 215);
-                c.line(acx - 2.0f, acy - 4.0f, acx + 2.5f, acy, 2.0f, arrowCol);
-                c.line(acx + 2.5f, acy, acx - 2.0f, acy + 4.0f, 2.0f, arrowCol);
+                const float x = static_cast<float>(valueRight - 5);
+                const float y = static_cast<float>(r.y + r.h / 2);
+                const Color arrow = focused ? kWhite : kGray;
+                c.line(x - 3, y - 5, x + 2, y, 2, arrow);
+                c.line(x + 2, y, x - 3, y + 5, 2, arrow);
+                valueRight -= 26;
             }
             std::string disp = (focused && canCycle) ? ("\xE2\x80\xB9  " + value + "  \xE2\x80\xBA") : value;
             int vw = fonts_.regular.measure(disp, 26);
@@ -2626,8 +2645,8 @@ void AppUi::drawGameSettings(Canvas& c) {
                                 focused ? kWhite : kGray);
         }
 
-        y += kRowH + kGap;
     }
+    drawHints(c,{{kIconL1R1,tr(Str::Sections)},{kIconCross,tr(Str::Select)},{kIconCircle,tr(Str::Back)}});
 }
 
 }  // namespace xc::ui

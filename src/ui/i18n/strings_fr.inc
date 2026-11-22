@@ -646,4 +646,7 @@ constexpr Column kFrench = {
     "Envoi non confirmé. Vérifiez la conversation avant de réessayer.",
     "Vous",
     "Messages",
+    "Clavier",
+    "Envoi…",
+    "Contenu indisponible",
 };

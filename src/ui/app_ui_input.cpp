@@ -84,17 +84,7 @@ void AppUi::handleHome(const NavInput& in, UiEvent& ev) {
         return;
     }
     if (in.options) {
-        settingsReturnScreen_ = screen_;
-        settingsBackdropReady_ = false;
-        settingsQrExpanded_ = false;
-        screen_ = Screen::Settings;
-        settingsRow_ = 0;
-        settingsFromError_ = false;
-        settingsCountry_ = settings_.loginCountry;
-        dropdownOpen_ = false;
-        filterList_ = -1;
-        settingsScrollY_ = 0.0f;
-        dirty_ = true;
+        openGeneralSettings();
         return;
     }
     if (in.triangle && !searching_ && tab_ != Tab::Consoles) {  // search this tab
@@ -359,35 +349,14 @@ UiEvent AppUi::onMouseMove(float x, float y) {
             return ev;
         }
         if (gameSettingsOpen_) {
-            constexpr int kModalW = 1140, kModalH = 960;
-            constexpr int kRowH = 38, kGap = 4, kGroupGap = 7;
-            const auto rows = visibleGameSettingsRows(caps_, activeGameHasCustom_, activeGameMouseSupported_);
-            const auto most = visibleGameSettingsRows(caps_, true, activeGameMouseSupported_), all = visibleGameSettingsRows(UiCaps{}, true, true);
-            auto groups = [](const std::vector<SettingsRowPos>& v) {
-                return static_cast<int>(std::count_if(v.begin(), v.end(), [](const SettingsRowPos& r) { return r.groupStart; }));
-            };
-            const int modalH = kModalH - static_cast<int>(all.size() - most.size()) * (kRowH + kGap) -
-                               (groups(all) - groups(most)) * kGroupGap;
-            Rect panel{(kW - kModalW) / 2, (kH - modalH) / 2, kModalW, modalH};
-            int curY = panel.y + 92;
-            for (int pos = 0; pos < static_cast<int>(rows.size()); ++pos) {
-                if (rows[static_cast<size_t>(pos)].groupStart) curY += kGroupGap;
-                Rect r{panel.x + 50, curY, panel.w - 100, kRowH};
-                if (x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h) {
-                    if (gameSettingsRow_ != pos) {
-                        gameSettingsRow_ = pos;
-                        dirty_ = true;
-                    }
-                    return ev;
-                }
-                curY += kRowH + kGap;
-            }
+            gameProfilePointer(x,y,false,ev);
             return ev;
         }
         auto inRect = [&](const Rect& r) {
             return r.w > 0 && r.h > 0 && x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h;
         };
         const Rect play = playRect_;
+        if (inRect(showcase::kGameProfileButton)) { detailButtonFocus_ = 2; return ev; }
         if (inRect(play) || inRect(claimRect_)) {
             if (detailButtonFocus_ != 0) {
                 detailButtonFocus_ = 0;
@@ -699,17 +668,7 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
         Rect settingsBtn{kAvatarRight + (120 - 52) / 2, 46, 52, 52};
         if ((x >= settingsBtn.x - 12 && x <= settingsBtn.x + settingsBtn.w + 12 && y >= settingsBtn.y - 12 && y <= settingsBtn.y + settingsBtn.h + 12) ||
             (x >= kAvatarRight - 70 && x <= kW && y >= 30 && y <= 120)) {
-            settingsReturnScreen_ = screen_;
-            settingsBackdropReady_ = false;
-            settingsQrExpanded_ = false;
-            screen_ = Screen::Settings;
-            settingsRow_ = 0;
-            settingsFromError_ = false;
-            settingsCountry_ = settings_.loginCountry;
-            dropdownOpen_ = false;
-            filterList_ = -1;
-            settingsScrollY_ = 0.0f;
-            dirty_ = true;
+            openGeneralSettings();
             return ev;
         }
     }
@@ -1003,31 +962,7 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
         }
     } else if (screen_ == Screen::Details) {
         if (gameSettingsOpen_) {
-            constexpr int kModalW = 1140, kModalH = 960;
-            constexpr int kRowH = 38, kGap = 4, kGroupGap = 7;
-            const auto rows = visibleGameSettingsRows(caps_, activeGameHasCustom_, activeGameMouseSupported_);
-            const auto most = visibleGameSettingsRows(caps_, true, activeGameMouseSupported_), all = visibleGameSettingsRows(UiCaps{}, true, true);
-            auto groups = [](const std::vector<SettingsRowPos>& v) {
-                return static_cast<int>(std::count_if(v.begin(), v.end(), [](const SettingsRowPos& r) { return r.groupStart; }));
-            };
-            const int modalH = kModalH - static_cast<int>(all.size() - most.size()) * (kRowH + kGap) -
-                               (groups(all) - groups(most)) * kGroupGap;
-            Rect panel{(kW - kModalW) / 2, (kH - modalH) / 2, kModalW, modalH};
-            int curY = panel.y + 92;
-            for (int pos = 0; pos < static_cast<int>(rows.size()); ++pos) {
-                if (rows[static_cast<size_t>(pos)].groupStart) curY += kGroupGap;
-                Rect r{panel.x + 50, curY, panel.w - 100, kRowH};
-                if (x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h) {
-                    gameSettingsRow_ = pos;
-                    handleGameSettings(NavInput{.accept = true}, ev);
-                    dirty_ = true;
-                    return ev;
-                }
-                curY += kRowH + kGap;
-            }
-            if (x < panel.x || x >= panel.x + panel.w || y < panel.y || y >= panel.y + panel.h) {
-                handleGameSettings(NavInput{.back = true}, ev);
-            }
+            gameProfilePointer(x,y,true,ev);
             return ev;
         }
         if (achievementsOpen_) {
@@ -1040,6 +975,7 @@ UiEvent AppUi::handlePointerDown(float x, float y, int button, bool showCursor) 
         auto inRect = [&](const Rect& r) {
             return r.w > 0 && r.h > 0 && x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h;
         };
+        if (inRect(showcase::kGameProfileButton)) { detailButtonFocus_ = 2; openGameSettings(); return ev; }
         if (!effectivePlayable && isF2P && !g->playable) {
             const Rect claim = claimRect_;
             if (inRect(claim)) {
@@ -1996,25 +1932,8 @@ UiEvent AppUi::handleLocked(const NavInput& in) {
                 handleGameSettings(in, ev);
                 break;
             }
-            if (in.l2) {
-                settingsReturnScreen_ = Screen::Details;
-                settingsBackdropReady_ = false;
-                settingsQrExpanded_ = false;
-                screen_ = Screen::Settings;
-                settingsRow_ = 0;
-                settingsFromError_ = false;
-                settingsCountry_ = settings_.loginCountry;
-                dropdownOpen_ = false;
-                filterList_ = -1;
-                settingsScrollY_ = 0.0f;
-                dirty_ = true;
-                break;
-            }
-            if (in.options) {
-                openGameSettings();
-                dirty_ = true;
-                break;
-            }
+            if (in.options || in.l2) { openGeneralSettings(); break; }
+            if (in.r2) { openGameSettings(); break; }
             {
                 bool isF2P = isFreeGame(detail_);
                 bool effectivePlayable = isEffectivePlayableLocked(detail_);
@@ -2022,6 +1941,8 @@ UiEvent AppUi::handleLocked(const NavInput& in) {
                 if (!hasAchievements && detailButtonFocus_ == 1) {
                     detailButtonFocus_ = 0;
                 }
+                if (in.down && detailButtonFocus_ != 2) { detailButtonFocus_ = 2; dirty_ = true; }
+                if (in.up && detailButtonFocus_ == 2) { detailButtonFocus_ = 0; dirty_ = true; }
                 if (in.right && hasAchievements && detailButtonFocus_ == 0) {
                     detailButtonFocus_ = 1;
                     dirty_ = true;
@@ -2030,6 +1951,7 @@ UiEvent AppUi::handleLocked(const NavInput& in) {
                     dirty_ = true;
                 }
                 if (in.accept) {
+                    if (detailButtonFocus_ == 2) { openGameSettings(); break; }
                     if (detailButtonFocus_ == 1 && hasAchievements) {
                         openAchievements();
                     } else if (!effectivePlayable && isF2P && !detail_.playable) {

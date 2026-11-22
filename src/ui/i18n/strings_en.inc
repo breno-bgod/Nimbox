@@ -646,4 +646,7 @@ constexpr Column kEnglish = {
     "Delivery unconfirmed. Check the conversation before sending again.",
     "You",
     "Messages",
+    "Keyboard",
+    "Sending…",
+    "Content unavailable",
 };

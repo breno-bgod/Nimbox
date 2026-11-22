@@ -19,44 +19,125 @@ bool conversationRequest(net::Request& req, const std::string& auth, const std::
 }
 }
 
-bool readConversation(const std::string& auth, const std::string& peer, std::vector<ChatMessage>& messages) {
-    net::Request req;
-    if (!conversationRequest(req, auth, peer)) return false;
-    req.url += "?maxItems=24";
-    auto response = net::perform(req);
-    if (response.status == 404) { messages.clear(); return true; }
-    if (!response.ok()) return false;
-    auto body = json::parse(response.body);
-    if (!body || !body->isObject() || !body->has("conversationId")) return false;
-    std::vector<ChatMessage> result;
-    for (const auto& message : (*body)["messages"].items()) {
-        if (message["isDeleted"].asBool()) continue;
-        ChatMessage line{message["sender"].str(), {}, message["timestamp"].str()};
-        for (const auto& part : message["contentPayload"]["content"]["parts"].items()) {
-            if (part["contentType"].str() == "text" && part["unsuitableFor"].size() == 0)
-                line.text += part["text"].str();
+ChatResponse decodeChatHistory(int status, const std::string& body) {
+    ChatResponse result;
+    result.status = status;
+    if (status < 200 || status >= 300) return result;
+    const auto jsonBody = json::parse(body);
+    if (!jsonBody || !jsonBody->isObject()) return result;
+    const auto& record = *jsonBody;
+    result.conversationId = record["conversationId"].str();
+    if (result.conversationId.empty() || !record["messages"].isArray()) return result;
+    auto items = record["messages"].items();
+    if (items.empty() && record["lastMessage"].isObject()) items.push_back(record["lastMessage"]);
+    for (const auto& m : items) {
+        if (m["type"].str("ContentMessage") != "ContentMessage") continue;
+        ChatMessage line{m["sender"].str(), {}, m["timestamp"].str(), m["messageId"].str(), m["isDeleted"].asBool()};
+        if (line.id.empty() || (!line.deleted && line.sender.empty())) return result;
+        if (!line.deleted) {
+            for (const auto& part : m["contentPayload"]["content"]["parts"].items()) {
+                const auto type = part["contentType"].str();
+                if ((type == "text" || type == "weblink") && part["unsuitableFor"].size() == 0)
+                    line.text += part["text"].str();
+            }
         }
-        if (!line.text.empty()) result.push_back(std::move(line));
+        result.messages.push_back(std::move(line));
     }
-    std::stable_sort(result.begin(), result.end(), [](const ChatMessage& a, const ChatMessage& b) {
+    std::stable_sort(result.messages.begin(),result.messages.end(),[](const ChatMessage& a, const ChatMessage& b) {
         return a.timestamp < b.timestamp;
     });
-    messages = std::move(result);
-    return true;
+    result.ok = true;
+    return result;
 }
 
-bool sendChatMessage(const std::string& auth, const std::string& peer, const std::string& text) {
+ChatResponse decodeChatReceipt(int status, const std::string& body, const std::string& sender, const std::string& text) {
+    ChatResponse result;
+    result.status = status;
+    if (status < 200 || status >= 300) return result;
+    const auto receipt = json::parse(body);
+    if (!receipt) return result;
+    const auto id = (*receipt)["messageId"].str();
+    result.conversationId = (*receipt)["conversationId"].str();
+    if (id.empty() || result.conversationId.empty()) return result;
+    result.messages.push_back({sender,text,{},id});
+    result.ok = true;
+    return result;
+}
+
+void ChatHistory::merge(const ChatResponse& update) {
+    if (!update.ok) return;
+    conversationId = update.conversationId;
+    for (const auto& msg : update.messages) {
+        auto known = std::find_if(messages.begin(),messages.end(),[&](const ChatMessage& item){ return item.id == msg.id; });
+        if (known != messages.end()) {
+            if (!msg.deleted && msg.timestamp.empty()) continue;
+            messages.erase(known);
+        }
+        if (msg.deleted) continue;
+        auto position = std::find_if(messages.begin(),messages.end(),[&](const ChatMessage& item){
+            if (!msg.timestamp.empty() && !item.timestamp.empty()) return item.timestamp > msg.timestamp;
+            // The receipt has no timestamp. Decimal Xbox message IDs preserve send order.
+            if (msg.id.find_first_not_of("0123456789") != std::string::npos ||
+                item.id.find_first_not_of("0123456789") != std::string::npos) return false;
+            return item.id.size() == msg.id.size() ? item.id > msg.id : item.id.size() > msg.id.size();
+        });
+        messages.insert(position,msg);
+    }
+    constexpr int limit = 100;
+    if (messages.size() > limit) messages.erase(messages.begin(),messages.end()-limit);
+}
+
+ChatResponse readConversation(const std::string& auth, const std::string& peer, const std::string& conversationId) {
     net::Request req;
-    if (!conversationRequest(req, auth, peer) || text.size() > 256 || text.find_first_not_of(' ') == std::string::npos)
-        return false;
+    if (!conversationRequest(req,auth,peer)) return {};
+    req.headers.emplace_back("Cache-Control","no-cache");
+    const auto readById = [&](const std::string& id) {
+        if (id.size() != 36 || id.find_first_not_of("0123456789abcdefABCDEF-") != std::string::npos) return ChatResponse{};
+        auto byId = req;
+        byId.url = "https://xblmessaging.xboxlive.com/network/Xbox/users/me/conversations/OneToOne/" + id + "?maxItems=64";
+        byId.headers = {{"Authorization",auth},{"x-xbl-contract-version","2"},{"Cache-Control","no-cache"}};
+        const auto r = net::perform(byId);
+        return decodeChatHistory(r.status,r.body);
+    };
+    req.url += "?maxItems=64";
+    const auto r = net::perform(req);
+    auto result = decodeChatHistory(r.status,r.body);
+    if (result.ok) return result;
+    if (!conversationId.empty()) {
+        auto page = readById(conversationId);
+        if (page.ok) return page;
+    }
+    if (!result.ok && !result.conversationId.empty() && result.conversationId != conversationId)
+        return readById(result.conversationId);
+    if (r.status == 404) {
+        // Resolve existing threads by their two participants when the peer route misses.
+        req.url = "https://xblmessaging.xboxlive.com/network/Xbox/users/me/inbox?maxItems=100";
+        const auto inbox = net::perform(req);
+        if (inbox.ok()) {
+            const auto listing = json::parse(inbox.body);
+            if (listing) for (const auto& thread : (*listing)["primary"]["conversations"].items()) {
+                if (thread["type"].str() != "OneToOne" || thread["participants"].size() != 2) continue;
+                for (const auto& participant : thread["participants"].items())
+                    if (participant.str() == peer) return readById(thread["conversationId"].str());
+            }
+        }
+    }
+    return result;
+}
+
+ChatResponse sendChatMessage(const std::string& auth, const std::string& peer, const std::string& sender, const std::string& text) {
+    net::Request req;
+    if (!conversationRequest(req,auth,peer) || text.size() > 256 || text.find_first_not_of(' ') == std::string::npos)
+        return {};
     req.method = "POST";
-    req.headers.emplace_back("Content-Type", "application/json");
+    req.headers.emplace_back("Content-Type","application/json");
     auto part = json::Value::object();
     part.set("contentType","text").set("version",0).set("text",text);
     auto parts = json::Value::array();
     parts.push(std::move(part));
     req.body = json::Value::object().set("parts",std::move(parts)).dump();
-    return net::perform(req).ok();
+    const auto r = net::perform(req);
+    return decodeChatReceipt(r.status,r.body,sender,text);
 }
 
 std::string fetchOwnPresence(const std::string& auth) {

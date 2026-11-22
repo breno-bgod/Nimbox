@@ -646,4 +646,7 @@ constexpr Column kSpanish = {
     "Envío sin confirmar. Revisa la conversación antes de volver a enviar.",
     "Tú",
     "Mensajes",
+    "Teclado",
+    "Enviando…",
+    "Contenido no disponible",
 };

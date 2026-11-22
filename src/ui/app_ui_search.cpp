@@ -443,7 +443,13 @@ void AppUi::pressFilter(Filter f) {
 
 bool AppUi::wantsTextInput() const {
     std::lock_guard<std::mutex> lock(mutex_);
-    if (inChat()) return true;
+    if (inChat()) {
+#if defined(__ANDROID__)
+        return chat_.composing && !chat_.keyboardOpen;
+#else
+        return true;
+#endif
+    }
     return screen_ == Screen::Home && searching_ && searchOnKeys_ && filterList_ < 0 && keyRow_ <= kKeyRows;
 }
 
