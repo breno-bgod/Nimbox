@@ -12,3 +12,6 @@
 	url = https://github.com/libsdl-org/SDL.git
 	branch = release-3.4.18
 
+[submodule "services/OpenStroid"]
+	path = services/OpenStroid
+	url = https://github.com/OpenCloudGaming/OpenStroid.git
