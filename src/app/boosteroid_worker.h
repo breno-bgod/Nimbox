@@ -16,6 +16,8 @@ public:
     BoosteroidWorker& operator=(const BoosteroidWorker&) = delete;
     void start(std::string key);
     void stop();
+    // Nonblocking request: switching services must never wait on I/O.
+    void requestStop() { stopping_ = true; command_ = Command::None; }
     void refresh();
     void play(const ui::GameTile& tile);
     void cancelLaunch();
