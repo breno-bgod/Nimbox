@@ -44,7 +44,7 @@ Por isso, esta branch nasce da **main**, isolada do PR #32. Não modifica `GssvC
 - **Horizon compartilhado:** tela QR e catálogo desenhados em C++, sem
   substituir a Home Xbox. O modo é uma superfície independente e segura.
 - **Acesso experimental:** segurar L2 e apertar R1 na Home/tela de login,
-  ou tocar a marca NimboPlay no Android. Círculo volta; Triângulo atualiza;
+  ou tocar a marca NimboPlay apenas na tela de login Xbox do Android. Círculo volta; Triângulo atualiza;
   R3 sai da conta Boosteroid. PS5 exibe o QR sem navegador.
 - **Sem falso Jogar:** as capas são visíveis, mas o botão de streaming
   permanece bloqueado até haver uma sessão e player nativos confirmados.
